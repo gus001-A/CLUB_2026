@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('moneda', 3)->default('USD');
             $table->decimal('comision', 12, 2)->default(0);
             $table->enum('estado', ['pendiente', 'aprobada', 'rechazada', 'reembolsada', 'retirada'])->default('pendiente');
+            $table->enum('metodo_pago', ['tarjeta_credito', 'tarjeta_debito', 'paypal', 'transferencia', 'otro'])->nullable();
             $table->string('pago_id')->nullable();
             $table->json('metadatos')->nullable();
             $table->timestamps();

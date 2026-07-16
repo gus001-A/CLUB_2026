@@ -12,3 +12,5 @@ Route::get('/login', function () {
 Route::get('/register', function () {
     return Inertia::render('Auth/Register');
 })->name('register');
+
+require __DIR__.'/admin.php';

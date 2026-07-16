@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Models\Administrador;
 
 return [
 
@@ -37,10 +38,15 @@ return [
     |
     */
 
-    'guards' => [
+   'guards' => [
         'web' => [
             'driver' => 'session',
             'provider' => 'users',
+        ],
+ 
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'administradores',
         ],
     ],
 
@@ -71,6 +77,11 @@ return [
         //     'driver' => 'database',
         //     'table' => 'users',
         // ],
+
+            'administradores' => [
+            'driver' => 'eloquent',
+            'model' => Administrador::class,
+        ],
     ],
 
     /*

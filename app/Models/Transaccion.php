@@ -19,6 +19,7 @@ class Transaccion extends Model
         'moneda',
         'comision',
         'estado',
+        'metodo_pago',
         'pago_id',
         'metadatos',
     ];
@@ -85,11 +86,23 @@ class Transaccion extends Model
     {
         $estados = [
             'pendiente' => 'Pendiente',
-            'aprobada' => 'Aprobada',
-            'rechazada' => 'Rechazada',
-            'reembolsada' => 'Reembolsada',
-            'retirada' => 'Retirada',
+            'aprobada' => 'Completado',
+            'rechazada' => 'Rechazado',
+            'reembolsada' => 'Procesado',
+            'retirada' => 'Retirado',
         ];
         return $estados[$this->estado] ?? $this->estado;
+    }
+
+    public function getMetodoPagoNombreAttribute()
+    {
+        $metodos = [
+            'tarjeta_credito' => 'Tarjeta de Crédito',
+            'tarjeta_debito' => 'Tarjeta de Débito',
+            'paypal' => 'PayPal',
+            'transferencia' => 'Transferencia',
+            'otro' => 'Otro',
+        ];
+        return $metodos[$this->metodo_pago] ?? 'Otro';
     }
 }
