@@ -93,7 +93,7 @@ function formatDate(v) {
                                 <h2 class="text-xl font-semibold text-gray-900">Gestión de Usuarios</h2>
                                 <p class="text-xs text-gray-500 mt-0.5">Administra los usuarios registrados.</p>
                             </div>
-                            <Link :href="route('admin.usuarios.index')"
+                            <Link :href="route('admin.usuarios.create')"
                                 class="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 transition flex-none">
                                 <i class="pi pi-plus text-xs"></i>
                                 Agregar Usuario

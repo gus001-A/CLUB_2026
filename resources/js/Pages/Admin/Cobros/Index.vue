@@ -140,25 +140,45 @@ async function reembolsar(t) {
 
         <!-- KPIs -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <p class="text-sm text-gray-400">Ingresos Totales</p>
-                <p class="text-2xl font-semibold text-gray-800 mt-1">{{ money(stats.ingresosTotales) }}</p>
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">Ingresos Totales</p>
+                    <p class="text-2xl font-semibold text-gray-800 mt-1">{{ money(stats.ingresosTotales) }}</p>
+                </div>
+                <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                    <i class="pi pi-dollar text-lg"></i>
+                </div>
             </div>
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <p class="text-sm text-gray-400">Cobros del Mes</p>
-                <p class="text-2xl font-semibold text-gray-800 mt-1">{{ money(stats.cobrosDelMes) }}</p>
-                <p v-if="stats.cobrosVariacion !== null" class="text-xs mt-1" :class="stats.cobrosVariacion >= 0 ? 'text-green-600' : 'text-red-500'">
-                    {{ stats.cobrosVariacion >= 0 ? '+' : '' }}{{ stats.cobrosVariacion }}% vs mes anterior
-                </p>
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">Cobros del Mes</p>
+                    <p class="text-2xl font-semibold text-gray-800 mt-1">{{ money(stats.cobrosDelMes) }}</p>
+                    <p v-if="stats.cobrosVariacion !== null" class="text-xs mt-1" :class="stats.cobrosVariacion >= 0 ? 'text-green-600' : 'text-red-500'">
+                        {{ stats.cobrosVariacion >= 0 ? '+' : '' }}{{ stats.cobrosVariacion }}% vs mes anterior
+                    </p>
+                </div>
+                <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                    <i class="pi pi-calendar text-lg"></i>
+                </div>
             </div>
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <p class="text-sm text-gray-400">Reembolsos del Mes</p>
-                <p class="text-2xl font-semibold text-gray-800 mt-1">{{ money(stats.reembolsosDelMes) }}</p>
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">Reembolsos del Mes</p>
+                    <p class="text-2xl font-semibold text-gray-800 mt-1">{{ money(stats.reembolsosDelMes) }}</p>
+                </div>
+                <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                    <i class="pi pi-replay text-lg"></i>
+                </div>
             </div>
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <p class="text-sm text-gray-400">Pagos Pendientes</p>
-                <p class="text-2xl font-semibold text-gray-800 mt-1">{{ money(stats.pagosPendientesMonto) }}</p>
-                <p class="text-xs text-gray-400 mt-1">{{ stats.pagosPendientesCount }} transacciones</p>
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">Pagos Pendientes</p>
+                    <p class="text-2xl font-semibold text-gray-800 mt-1">{{ money(stats.pagosPendientesMonto) }}</p>
+                    <p class="text-xs text-gray-400 mt-1">{{ stats.pagosPendientesCount }} transacciones</p>
+                </div>
+                <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                    <i class="pi pi-clock text-lg"></i>
+                </div>
             </div>
         </div>
 
@@ -273,7 +293,12 @@ async function reembolsar(t) {
             <!-- Resumen + pendientes -->
             <div class="space-y-6">
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                    <h2 class="font-semibold text-gray-800 mb-4">Resumen de Cobros (mes)</h2>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-semibold text-gray-800">Resumen de Cobros</h2>
+                        <select class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 focus:outline-none">
+                            <option>Este mes</option>
+                        </select>
+                    </div>
                     <div class="space-y-2 text-sm">
                         <div class="flex justify-between">
                             <span class="text-gray-500">Total Cobros</span>
@@ -313,7 +338,12 @@ async function reembolsar(t) {
                 </div>
 
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                    <h2 class="font-semibold text-gray-800 mb-4">Pagos Pendientes</h2>
+                    <div class="flex items-center gap-2 mb-4">
+                        <h2 class="font-semibold text-gray-800">Pagos Pendientes</h2>
+                        <span v-if="pagosPendientes?.length" class="bg-brand text-white text-[11px] font-semibold rounded-full w-5 h-5 flex items-center justify-center">
+                            {{ pagosPendientes.length }}
+                        </span>
+                    </div>
                     <ul class="space-y-3">
                         <li v-for="p in pagosPendientes" :key="p.id" class="flex items-center justify-between text-sm">
                             <div>
@@ -330,7 +360,12 @@ async function reembolsar(t) {
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
             <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <h2 class="font-semibold text-gray-800 mb-4">Ingresos (últimos 30 días)</h2>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold text-gray-800">Ingresos</h2>
+                    <select class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 focus:outline-none">
+                        <option>Este mes</option>
+                    </select>
+                </div>
                 <div style="height: 260px">
                     <Line v-if="ingresosPorDia.length" :data="lineData" :options="lineOptions" />
                     <p v-else class="text-gray-400 text-sm text-center py-16">Aún no hay ingresos registrados.</p>
@@ -338,7 +373,12 @@ async function reembolsar(t) {
             </div>
 
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <h2 class="font-semibold text-gray-800 mb-4">Tipos de Transacción</h2>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold text-gray-800">Tipos de Transacción</h2>
+                    <select class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 focus:outline-none">
+                        <option>Este mes</option>
+                    </select>
+                </div>
                 <div v-if="tiposTotales.length" class="relative" style="height: 200px">
                     <Doughnut :data="doughnutData" :options="{ maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '70%' }" />
                     <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -351,10 +391,13 @@ async function reembolsar(t) {
                 <ul class="mt-4 space-y-1.5">
                     <li v-for="(t, i) in tiposTotales" :key="t.tipo" class="flex items-center justify-between text-xs">
                         <span class="flex items-center gap-1.5 text-gray-600">
-                            <span class="w-2 h-2 rounded-full" :style="{ backgroundColor: doughnutColors[i % doughnutColors.length] }"></span>
+                            <span class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: doughnutColors[i % doughnutColors.length] }"></span>
                             {{ tipoNombres[t.tipo] ?? t.tipo }}
                         </span>
-                        <span class="text-gray-800 font-medium">{{ money(t.total) }}</span>
+                        <span class="flex items-center gap-3">
+                            <span class="text-gray-400">{{ totalTipos ? Math.round((t.total / totalTipos) * 100) : 0 }}%</span>
+                            <span class="text-gray-800 font-medium">{{ money(t.total) }}</span>
+                        </span>
                     </li>
                 </ul>
             </div>

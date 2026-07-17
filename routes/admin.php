@@ -36,10 +36,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // --- Invitaciones ---
         Route::get('/invitaciones', [InvitacionController::class, 'index'])->name('invitaciones.index');
         Route::get('/invitaciones/crear', [InvitacionController::class, 'create'])->name('invitaciones.create');
+        Route::get('/invitaciones/codigos', [InvitacionController::class, 'codigos'])->name('invitaciones.codigos');
         Route::post('/invitaciones', [InvitacionController::class, 'store'])->name('invitaciones.store');
         Route::delete('/invitaciones/{invitacion}', [InvitacionController::class, 'destroy'])->name('invitaciones.destroy');
         Route::get('/eventos', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Eventos']))->name('eventos.index');
+        Route::get('/eventos/crear', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Nuevo evento']))->name('eventos.create');
         Route::get('/contenido', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Contenido']))->name('contenido.index');
+        Route::get('/contenido/crear', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Nuevo contenido']))->name('contenido.create');
         Route::get('/shop', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Shop']))->name('shop.index');
         Route::get('/reportes', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Reportes']))->name('reportes.index');
         Route::get('/mensajes', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Mensajes']))->name('mensajes.index');

@@ -42,7 +42,19 @@ class InvitacionController extends Controller
             };
         }
 
-        $invitaciones = $query->latest()->paginate(10)->withQueryString();
+        if ($tipo = $request->string('tipo')->value()) {
+            $query->where('metadata->tipo', $tipo);
+        }
+
+        if ($desde = $request->date('desde')) {
+            $query->where('created_at', '>=', $desde->startOfDay());
+        }
+
+        if ($hasta = $request->date('hasta')) {
+            $query->where('created_at', '<=', $hasta->endOfDay());
+        }
+
+        $invitaciones = $query->latest()->paginate(7)->withQueryString();
         $invitaciones->through(fn ($c) => [
             'id' => $c->id,
             'codigo' => $c->codigo,
@@ -54,6 +66,22 @@ class InvitacionController extends Controller
             'estado' => $this->estadoDisplay($c),
         ]);
 
+        $enlacesActivos = CodigoInvitacion::where('usos_maximos', '>', 1)
+            ->where('esta_activo', true)
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'codigo' => $c->codigo,
+                'url' => url("/invitar/{$c->codigo}"),
+                'tipo' => $c->metadata['tipo'] ?? 'registro',
+                'usos' => $c->contador_usos,
+                'usos_maximos' => $c->usos_maximos,
+                'created_at' => $c->created_at,
+                'activo' => $c->esta_activo && ! ($c->expira_en && now()->greaterThan($c->expira_en)),
+            ]);
+
         return Inertia::render('Admin/Invitaciones/Index', [
             'stats' => [
                 'enviadas' => $total,
@@ -63,13 +91,73 @@ class InvitacionController extends Controller
                 'tasaAceptacion' => $total > 0 ? round(($aceptadas / $total) * 100) : 0,
             ],
             'invitaciones' => $invitaciones,
-            'filtros' => $request->only(['q', 'estado']),
+            'enlacesActivos' => $enlacesActivos,
+            'filtros' => $request->only(['q', 'estado', 'tipo', 'desde', 'hasta']),
         ]);
     }
 
     public function create(): Response
     {
-        return Inertia::render('Admin/Invitaciones/Create');
+        return Inertia::render('Admin/Invitaciones/Create', [
+            'invitacionesRecientes' => CodigoInvitacion::latest()
+                ->take(5)
+                ->get()
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'nombre_destinatario' => $c->nombre_destinatario,
+                    'email' => $c->email,
+                    'created_at' => $c->created_at,
+                    'estado' => $this->estadoDisplay($c),
+                ]),
+        ]);
+    }
+
+    public function codigos(Request $request): Response
+    {
+        $query = CodigoInvitacion::with('creadoPorAdmin:id,nombre');
+
+        if ($search = $request->string('q')->trim()->value()) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre_destinatario', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('codigo', 'like', "%{$search}%");
+            });
+        }
+
+        if ($tipo = $request->string('tipo')->value()) {
+            $query->where('metadata->tipo', $tipo);
+        }
+
+        if ($estado = $request->string('estado')->value()) {
+            $ahora = now();
+            match ($estado) {
+                'aceptada' => $query->whereNotNull('usado_en'),
+                'pendiente' => $query->whereNull('usado_en')->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))->whereColumn('contador_usos', '<', 'usos_maximos'),
+                'expirada' => $query->whereNull('usado_en')->whereNotNull('expira_en')->where('expira_en', '<=', $ahora),
+                'utilizada' => $query->whereColumn('contador_usos', '>=', 'usos_maximos'),
+                default => null,
+            };
+        }
+
+        $codigos = $query->latest()->paginate(15)->withQueryString();
+        $codigos->through(fn ($c) => [
+            'id' => $c->id,
+            'codigo' => $c->codigo,
+            'nombre_destinatario' => $c->nombre_destinatario,
+            'email' => $c->email,
+            'tipo' => $c->metadata['tipo'] ?? 'registro',
+            'usos' => $c->contador_usos,
+            'usos_maximos' => $c->usos_maximos,
+            'expira_en' => $c->expira_en,
+            'created_at' => $c->created_at,
+            'creado_por' => $c->creadoPorAdmin?->nombre ?? 'Administrador',
+            'estado' => $this->estadoDisplay($c),
+        ]);
+
+        return Inertia::render('Admin/Invitaciones/Codigos', [
+            'codigos' => $codigos,
+            'filtros' => $request->only(['q', 'tipo', 'estado']),
+        ]);
     }
 
     public function store(Request $request)

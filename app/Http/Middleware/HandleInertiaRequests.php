@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\CodigoInvitacion;
+use App\Models\Transaccion;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -44,6 +46,33 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'badges' => fn () => $this->badges($request),
+        ];
+    }
+
+    /**
+     * Contadores reales para los badges del sidebar y la campana de notificaciones.
+     * Solo se calculan si hay un admin autenticado, para no pegarle a la BD en /admin/login.
+     */
+    private function badges(Request $request): array
+    {
+        if (! $request->user('admin')) {
+            return ['invitacionesPendientes' => 0, 'notificaciones' => 0];
+        }
+
+        $ahora = now();
+
+        $invitacionesPendientes = CodigoInvitacion::whereNull('usado_en')
+            ->where('esta_activo', true)
+            ->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))
+            ->whereColumn('contador_usos', '<', 'usos_maximos')
+            ->count();
+
+        $pagosPendientes = Transaccion::where('estado', 'pendiente')->count();
+
+        return [
+            'invitacionesPendientes' => $invitacionesPendientes,
+            'notificaciones' => $invitacionesPendientes + $pagosPendientes,
         ];
     }
 }
