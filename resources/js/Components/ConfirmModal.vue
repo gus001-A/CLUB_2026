@@ -10,12 +10,12 @@ const { state, respond } = useConfirm();
             <div class="absolute inset-0 bg-gray-900/50" @click="respond(false)"></div>
 
             <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-                <div
-                    class="w-12 h-12 rounded-full flex items-center justify-center mb-4"
-                    :class="state.danger ? 'bg-red-100 text-red-600' : 'bg-brand/10 text-brand'"
-                >
-                    <i class="pi" :class="state.danger ? 'pi-exclamation-triangle' : 'pi-question-circle'" style="font-size: 1.25rem"></i>
-                </div>
+<div
+    class="!w-12 !h-12 mx-auto rounded-full flex items-center justify-center mb-4 shrink-0"
+    :class="state.danger ? 'bg-red-100 text-red-600' : 'bg-brand/10 text-brand'"
+>
+    <i class="pi" :class="state.danger ? 'pi-exclamation-triangle' : 'pi-question-circle'" style="font-size: 1.25rem"></i>
+</div>
 
                 <h3 class="font-semibold text-gray-800 text-base mb-1">{{ state.title }}</h3>
                 <p class="text-sm text-gray-500 mb-6">{{ state.message }}</p>

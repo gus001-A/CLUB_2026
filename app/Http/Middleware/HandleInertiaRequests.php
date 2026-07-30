@@ -57,22 +57,24 @@ class HandleInertiaRequests extends Middleware
     private function badges(Request $request): array
     {
         if (! $request->user('admin')) {
-            return ['invitacionesPendientes' => 0, 'notificaciones' => 0];
+            return [
+                'invitacionesPendientes' => 0,
+                'pagosPendientes'        => 0,
+                'notificaciones'         => 0,
+            ];
         }
-
-        $ahora = now();
-
-        $invitacionesPendientes = CodigoInvitacion::whereNull('usado_en')
-            ->where('esta_activo', true)
-            ->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))
-            ->whereColumn('contador_usos', '<', 'usos_maximos')
-            ->count();
 
         $pagosPendientes = Transaccion::where('estado', 'pendiente')->count();
 
+        // NOTIFICACIONES Y BADGES PARA EL ADMIN:
+        // 1. "invitacionesPendientes" en 0 para que no te alerte por invitaciones que tú mismo enviaste.
+        //    (Aquí podrás contar solo las solicitudes o respuestas cuando las configures en la BD).
+        // 2. "notificaciones" de la campana solo incluye pagos/eventos pendientes recibidos.
+
         return [
-            'invitacionesPendientes' => $invitacionesPendientes,
-            'notificaciones' => $invitacionesPendientes + $pagosPendientes,
+            'invitacionesPendientes' => 0, 
+            'pagosPendientes'        => $pagosPendientes,
+            'notificaciones'         => $pagosPendientes,
         ];
     }
 }

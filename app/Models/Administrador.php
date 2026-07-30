@@ -17,8 +17,10 @@ class Administrador extends Authenticatable
         'nombre',
         'email',
         'password',
+        'rol',
         'esta_activo',
         'ultimo_acceso_en',
+        'ultimo_acceso_ip',
         'telefono',
     ];
 

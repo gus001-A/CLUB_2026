@@ -18,6 +18,7 @@ class Pedido extends Model
         'envio',
         'total',
         'estado',
+        'metodo_pago',
         'pago_id',
         'direccion_envio',
         'numero_seguimiento',

@@ -14,8 +14,9 @@ const { toasts, remove } = useToast();
                 :class="t.type === 'success' ? 'border-green-200' : 'border-red-200'"
             >
                 <div
-                    class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                    class="rounded-full flex items-center justify-center shrink-0"
                     :class="t.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'"
+                    style="width:32px;height:32px"
                 >
                     <i class="pi" :class="t.type === 'success' ? 'pi-check' : 'pi-exclamation-triangle'"></i>
                 </div>

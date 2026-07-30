@@ -1,9 +1,11 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import { useToast } from '@/composables/useToast';
 
 const toast = useToast();
+const mostrarPassword = ref(false);
 
 const form = useForm({
     nombre: '',
@@ -12,13 +14,22 @@ const form = useForm({
     password: '',
     telefono: '',
     fecha_nacimiento: '',
-    rol: 'usuario',
+    rol: '',
     estado: 'verificado',
 });
 
+function generarPassword() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$';
+    let clave = '';
+    for (let i = 0; i < 10; i++) {
+        clave += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    form.password = clave;
+    mostrarPassword.value = true;
+}
+
 function submit() {
-    // Validación rápida en el navegador antes de mandar al servidor
-    const obligatorios = ['nombre', 'apodo', 'email', 'password', 'fecha_nacimiento'];
+    const obligatorios = ['nombre', 'apodo', 'email', 'password', 'fecha_nacimiento', 'rol'];
     const faltantes = obligatorios.filter((campo) => !form[campo]);
 
     if (faltantes.length) {
@@ -27,13 +38,15 @@ function submit() {
     }
 
     form.post(route('admin.usuarios.store'), {
-        onError: (errors) => {
-            const primerError = Object.values(errors)[0];
-            toast.error(primerError || 'Revisa los datos del formulario.');
-        },
         onSuccess: () => {
-            toast.success('Usuario creado correctamente.');
+            // Se dispara si el backend responde con 200/302 éxitoso
+            toast.success('Usuario creado con éxito.');
         },
+        onError: (errors) => {
+            // Se dispara si la validación falla en Laravel
+            const primerError = Object.values(errors)[0];
+            toast.error(primerError || 'Ocurrió un error al crear el usuario.');
+        }
     });
 }
 </script>
@@ -50,90 +63,151 @@ function submit() {
                 <i class="pi pi-arrow-left text-xs"></i> Volver a Usuarios
             </Link>
 
-            <form @submit.prevent="submit" class="space-y-6">
+            <form @submit.prevent="submit" class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <!-- Sección: Datos personales -->
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex items-center gap-3 mb-5">
-                        <div class="rounded-xl bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:48px;height:48px">
+                <div class="p-6">
+                    <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
+                        <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:48px;height:48px">
                             <i class="pi pi-user text-lg"></i>
                         </div>
                         <div>
-                            <h2 class="font-semibold text-gray-800">Datos personales</h2>
-                            <p class="text-xs text-gray-400">Información básica del usuario</p>
+                            <h2 class="font-semibold text-gray-800">Datos Personales</h2>
+                            <p class="text-xs text-gray-400">Información principal del usuario</p>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre completo *</label>
-                            <input v-model="form.nombre" type="text" placeholder="Ej. Ana García" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                            <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                                <i class="pi pi-user text-brand text-xs"></i> Nombre completo <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <input v-model="form.nombre" type="text" placeholder="Ej: Juan Pérez García" class="w-full rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                                <i class="pi pi-user absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
+                            </div>
                             <p v-if="form.errors.nombre" class="text-red-600 text-xs mt-1">{{ form.errors.nombre }}</p>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Apodo / usuario *</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">@</span>
-                                <input v-model="form.apodo" type="text" placeholder="ana_garcia" class="w-full rounded-lg border border-gray-300 text-sm pl-7 pr-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                                    <i class="pi pi-at text-brand text-xs"></i> Nombre de usuario <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <input v-model="form.apodo" type="text" placeholder="Ej: jperez" class="w-full rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                                    <i class="pi pi-at absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
+                                </div>
+                                <p v-if="form.errors.apodo" class="text-red-600 text-xs mt-1">{{ form.errors.apodo }}</p>
                             </div>
-                            <p v-if="form.errors.apodo" class="text-red-600 text-xs mt-1">{{ form.errors.apodo }}</p>
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                                    <i class="pi pi-envelope text-brand text-xs"></i> Correo electrónico <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <input v-model="form.email" type="email" placeholder="usuario@correo.com" class="w-full rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                                    <i class="pi pi-envelope absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
+                                </div>
+                                <p v-if="form.errors.email" class="text-red-600 text-xs mt-1">{{ form.errors.email }}</p>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                            <input v-model="form.telefono" type="text" placeholder="55 1234 5678" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
-                            <p v-if="form.errors.telefono" class="text-red-600 text-xs mt-1">{{ form.errors.telefono }}</p>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                                    <i class="pi pi-phone text-brand text-xs"></i> Teléfono
+                                </label>
+                                <div class="relative">
+                                    <input v-model="form.telefono" type="text" placeholder="7771234567" class="w-full rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                                    <i class="pi pi-phone absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
+                                </div>
+                                <p v-if="form.errors.telefono" class="text-red-600 text-xs mt-1">{{ form.errors.telefono }}</p>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                                    <i class="pi pi-calendar text-brand text-xs"></i> Fecha de nacimiento <span class="text-red-500">*</span>
+                                </label>
+                                <input v-model="form.fecha_nacimiento" type="date" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                                <p v-if="form.errors.fecha_nacimiento" class="text-red-600 text-xs mt-1">{{ form.errors.fecha_nacimiento }}</p>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de nacimiento *</label>
-                            <input v-model="form.fecha_nacimiento" type="date" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
-                            <p v-if="form.errors.fecha_nacimiento" class="text-red-600 text-xs mt-1">{{ form.errors.fecha_nacimiento }}</p>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                                    <i class="pi pi-sliders-h text-brand text-xs"></i> Tipo de usuario <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <select v-model="form.rol" class="w-full appearance-none rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none">
+                                        <option value="" disabled>Selecciona un tipo</option>
+                                        <option value="usuario">Usuario</option>
+                                        <option value="creador">Creador</option>
+                                        <option value="admin">Admin</option>
+                                    </select>
+                                    <i class="pi pi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-xs pointer-events-none"></i>
+                                </div>
+                                <p v-if="form.errors.rol" class="text-red-600 text-xs mt-1">{{ form.errors.rol }}</p>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                                    <i class="pi pi-verified text-brand text-xs"></i> Estado <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <select v-model="form.estado" class="w-full appearance-none rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none">
+                                        <option value="verificado">Verificado</option>
+                                        <option value="pendiente">Pendiente</option>
+                                        <option value="incompleto">Incompleto</option>
+                                        <option value="bloqueado">Bloqueado</option>
+                                    </select>
+                                    <i class="pi pi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-xs pointer-events-none"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Sección: Cuenta y acceso -->
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex items-center gap-3 mb-5">
-                        <div class="rounded-xl bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:48px;height:48px">
-                            <i class="pi pi-lock text-lg"></i>
+                <!-- Sección: Credenciales de acceso -->
+                <div class="p-6 bg-gray-50/50 border-t border-gray-100">
+                    <div class="flex items-center justify-between gap-3 pb-4 mb-5 border-b border-gray-100">
+                        <div class="flex items-center gap-3">
+                            <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:48px;height:48px">
+                                <i class="pi pi-lock text-lg"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-semibold text-gray-800">Credenciales de Acceso</h2>
+                                <p class="text-xs text-gray-400">Configure la contraseña del usuario</p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 class="font-semibold text-gray-800">Cuenta y acceso</h2>
-                            <p class="text-xs text-gray-400">Credenciales de inicio de sesión</p>
-                        </div>
+                        <span class="bg-brand text-white text-xs font-semibold px-3 py-1 rounded-full shrink-0">Obligatorio</span>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="sm:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Correo electrónico *</label>
-                            <input v-model="form.email" type="email" placeholder="correo@ejemplo.com" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
-                            <p v-if="form.errors.email" class="text-red-600 text-xs mt-1">{{ form.errors.email }}</p>
-                        </div>
-                        <div class="sm:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña *</label>
-                            <input v-model="form.password" type="password" placeholder="Mínimo 8 caracteres" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
-                            <p v-if="form.errors.password" class="text-red-600 text-xs mt-1">{{ form.errors.password }}</p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Rol *</label>
-                            <select v-model="form.rol" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none">
-                                <option value="usuario">Usuario</option>
-                                <option value="creador">Creador</option>
-                                <option value="admin">Admin</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Estado *</label>
-                            <select v-model="form.estado" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none">
-                                <option value="verificado">Verificado</option>
-                                <option value="pendiente">Pendiente</option>
-                                <option value="incompleto">Incompleto</option>
-                                <option value="bloqueado">Bloqueado</option>
-                            </select>
+                    <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                        <i class="pi pi-lock text-brand text-xs"></i> Contraseña <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <input
+                            v-model="form.password"
+                            :type="mostrarPassword ? 'text' : 'password'"
+                            placeholder="Contraseña (mínimo 8 caracteres)"
+                            class="w-full rounded-lg border border-gray-300 text-sm pl-3 pr-32 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none"
+                        />
+                        <div class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                            <button
+                                type="button"
+                                @click="generarPassword"
+                                class="bg-brand hover:bg-brand-dark text-white text-xs font-medium px-2.5 py-1.5 rounded-md flex items-center gap-1"
+                            >
+                                <i class="pi pi-refresh text-[10px]"></i> Generar
+                            </button>
+                            <button type="button" @click="mostrarPassword = !mostrarPassword" class="text-gray-400 hover:text-gray-600 px-1.5">
+                                <i class="pi" :class="mostrarPassword ? 'pi-eye-slash' : 'pi-eye'"></i>
+                            </button>
                         </div>
                     </div>
+                    <p v-if="form.errors.password" class="text-red-600 text-xs mt-1">{{ form.errors.password }}</p>
                 </div>
 
-                <div class="flex items-center gap-3">
+                <!-- Acciones -->
+                <div class="p-6 border-t border-gray-100 flex items-center gap-3">
                     <button
                         type="submit"
                         :disabled="form.processing"
