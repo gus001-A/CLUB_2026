@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 use App\Models\Evento;
 use App\Models\Pedido;
 use App\Models\Suscripcion;
@@ -13,7 +14,7 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $hoy = now()->startOfDay();
 
@@ -57,7 +58,29 @@ class DashboardController extends Controller
 
             'usuariosRecientes' => $usuariosRecientes,
 
-            'gestionUsuarios' => $usuariosRecientes,
+            'gestionUsuarios' => (function () use ($request) {
+                $query = User::query();
+
+                if ($search = $request->string('q')->trim()->value()) {
+                    $query->where(function ($q) use ($search) {
+                        $q->where('nombre', 'like', "%{$search}%")
+                            ->orWhere('apodo', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
+                }
+
+                if ($rol = $request->string('rol')->value()) {
+                    $query->where('rol', $rol);
+                }
+
+                if ($estado = $request->string('estado')->value()) {
+                    $query->where('estado', $estado);
+                }
+
+                return $query->latest()->take(5)->get([
+                    'id', 'nombre', 'apodo', 'email', 'rol', 'estado', 'created_at',
+                ]);
+            })(),
 
             'cobrosRecientes' => Transaccion::with('usuario:id,nombre,apodo')
                 ->latest()

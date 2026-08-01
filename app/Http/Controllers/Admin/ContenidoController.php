@@ -118,4 +118,15 @@ class ContenidoController extends Controller
 
         return redirect()->route('admin.contenido.index')->with('success', "Contenido \"{$contenido->titulo}\" creado correctamente.");
     }
+
+    public function show(Contenido $contenido): Response
+    {
+        $contenido->vistas = $contenido->interacciones()->where('tipo', 'vista')->count();
+        $contenido->likes = $contenido->interacciones()->where('tipo', 'like')->count();
+        $contenido->comentarios = $contenido->interacciones()->where('tipo', 'comentario')->count();
+
+        return Inertia::render('Admin/Contenido/Show', [
+            'contenido' => $contenido,
+        ]);
+    }
 }

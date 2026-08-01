@@ -1,12 +1,14 @@
 <script setup>
 import { Link, usePage, router } from '@inertiajs/vue3';
 import { computed, reactive, ref, onMounted, onUnmounted } from 'vue';
+import { useToast } from '@/composables/useToast';
 import ToastNotification from '@/Components/ToastNotification.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
 
 const page = usePage();
 const admin = computed(() => page.props.auth?.admin);
 const badges = computed(() => page.props.badges || { invitacionesPendientes: 0, notificaciones: 0 });
+const toast = useToast();
 
 // Estado del sidebar móvil / tablet (< xl)
 const sidebarOpen = ref(false);
@@ -75,7 +77,7 @@ const notificacionesActivas = computed(() => {
     return lista;
 });
 
-const links = [
+const links = computed(() => [
     { name: 'Dashboard', route: 'admin.dashboard', icon: 'pi-home' },
     {
         name: 'Usuarios',
@@ -83,6 +85,9 @@ const links = [
         children: [
             { name: 'Todos los usuarios', route: 'admin.usuarios.index' },
             { name: 'Agregar usuario', route: 'admin.usuarios.create' },
+            ...(route().current('admin.usuarios.edit')
+                ? [{ name: 'Editar Usuario', url: window.location.pathname }]
+                : []),
         ],
     },
     { name: 'Cobros y Pagos', route: 'admin.cobros.index', icon: 'pi-dollar' },
@@ -101,6 +106,9 @@ const links = [
         children: [
             { name: 'Todos los eventos', route: 'admin.eventos.index' },
             { name: 'Nuevo evento', route: 'admin.eventos.create' },
+            ...(route().current('admin.eventos.edit')
+                ? [{ name: 'Editar Evento', url: window.location.pathname }]
+                : []),
         ],
     },
     {
@@ -112,29 +120,34 @@ const links = [
         ],
     },
     { name: 'Shop', route: 'admin.shop.index', icon: 'pi-shopping-bag' },
-    { name: 'Reportes', route: 'admin.reportes.index', icon: 'pi-chart-line', chevron: true },
+    { name: 'Reportes', route: 'admin.reportes.index', icon: 'pi-chart-line' },
     { name: 'Mensajes', route: 'admin.mensajes.index', icon: 'pi-comments' },
-    { name: 'Configuración', route: 'admin.configuracion.index', icon: 'pi-cog', chevron: true },
+    { name: 'Configuración', route: 'admin.configuracion.index', icon: 'pi-cog' },
     { name: 'Seguridad', route: 'admin.seguridad.index', icon: 'pi-shield' },
     { name: 'Soporte', route: 'admin.soporte.index', icon: 'pi-headphones' },
-];
+]);
 
 function isActive(routeName) {
     if (!routeName) return false;
     return route().current(routeName) || route().current(routeName + '.*');
 }
 
+// true si la ruta actual pertenece a alguno de los hijos de este grupo
 function grupoActivo(link) {
-    return link.children?.some((c) => isActive(c.route)) ?? false;
+    return link.children?.some((c) => c.url || isActive(c.route)) ?? false;
 }
 
+// abiertos guarda SOLO los clics manuales del usuario.
+// Si el grupo está activo por la ruta actual, se muestra abierto SIEMPRE.
 const abiertos = reactive({});
-links.forEach((l) => {
-    if (l.children) abiertos[l.name] = grupoActivo(l);
-});
+
+function estaAbierto(link) {
+    if (grupoActivo(link)) return true;
+    return !!abiertos[link.name];
+}
 
 function toggleGrupo(link) {
-    abiertos[link.name] = !abiertos[link.name];
+    abiertos[link.name] = !estaAbierto(link);
 }
 
 function logout() {
@@ -179,10 +192,10 @@ function logout() {
                             : 'text-gray-600 hover:bg-gray-100'">
                         <i class="pi text-base" :class="link.icon"></i>
                         <span class="flex-1">{{ link.name }}</span>
-                        <span v-if="link.badge"
+                        <span v-if="link.name === 'Invitaciones' ? badges.invitacionesPendientes > 0 : link.badge"
                             class="bg-brand text-white text-[11px] font-semibold rounded-full w-5 h-5 flex items-center justify-center"
                             :class="isActive(link.route) ? 'bg-white/25' : ''">
-                            {{ link.badge }}
+                            {{ link.name === 'Invitaciones' ? badges.invitacionesPendientes : link.badge }}
                         </span>
                         <i v-else-if="link.chevron" class="pi pi-chevron-right text-xs opacity-50"></i>
                     </Link>
@@ -191,24 +204,25 @@ function logout() {
                     <div v-else>
                         <button type="button" @click="toggleGrupo(link)"
                             class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
-                            :class="grupoActivo(link) && !abiertos[link.name]
+                            :class="grupoActivo(link) && !estaAbierto(link)
                                 ? 'bg-brand text-white'
                                 : 'text-gray-600 hover:bg-gray-100'">
                             <i class="pi text-base" :class="link.icon"></i>
                             <span class="flex-1 text-left">{{ link.name }}</span>
-                            <span v-if="link.name === 'Invitaciones' ? badges.invitacionesPendientes > 0 : link.badge"
+                            <span v-if="link.name === 'Invitaciones' && badges.invitacionesPendientes > 0"
                                 class="bg-brand text-white text-[11px] font-semibold rounded-full w-5 h-5 flex items-center justify-center"
-                                :class="grupoActivo(link) && !abiertos[link.name] ? 'bg-white/25' : ''">
-                                {{ link.name === 'Invitaciones' ? badges.invitacionesPendientes : link.badge }}
+                                :class="grupoActivo(link) && !estaAbierto(link) ? 'bg-white/25' : ''">
+                                {{ badges.invitacionesPendientes }}
                             </span>
                             <i class="pi text-xs transition-transform"
-                                :class="abiertos[link.name] ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
+                                :class="estaAbierto(link) ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
                         </button>
 
-                        <div v-show="abiertos[link.name]" class="mt-1 ml-4 pl-4 border-l border-gray-100 space-y-0.5">
-                            <Link v-for="child in link.children" :key="child.name" :href="route(child.route)"
+                        <div v-show="estaAbierto(link)" class="mt-1 ml-4 pl-4 border-l border-gray-100 space-y-0.5">
+                            <Link v-for="child in link.children" :key="child.name" :href="child.url || route(child.route)"
                                 @click="sidebarOpen = false"
-                                class="block px-3 py-2 rounded-lg text-sm transition-colors" :class="isActive(child.route)
+                                class="block px-3 py-2 rounded-lg text-sm transition-colors"
+                                :class="(child.url || isActive(child.route))
                                     ? 'text-brand font-semibold bg-brand/5'
                                     : 'text-gray-500 hover:bg-gray-100'">
                                 {{ child.name }}
@@ -277,7 +291,7 @@ function logout() {
                                     <Link v-for="item in notificacionesActivas" :key="item.id" :href="route(item.route)"
                                         @click="showNotifications = false"
                                         class="flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors">
-                                        <!-- Cápsula / Círculo del Ícono corregido -->
+                                        <!-- Cápsula / Círculo del Ícono -->
                                         <div
                                             class="!w-10 !h-10 !min-w-[40px] !min-h-[40px] rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0">
                                             <i class="pi text-sm" :class="item.icon"></i>
@@ -286,8 +300,7 @@ function logout() {
                                         <!-- Detalles de la Notificación -->
                                         <div class="flex-1 min-w-0">
                                             <p class="text-xs font-semibold text-gray-800 truncate">{{ item.title }}</p>
-                                            <p class="text-[11px] text-gray-500 line-clamp-2 mt-0.5">{{ item.message }}
-                                            </p>
+                                            <p class="text-[11px] text-gray-500 line-clamp-2 mt-0.5">{{ item.message }}</p>
                                             <span class="text-[10px] text-gray-400 mt-1 block">{{ item.time }}</span>
                                         </div>
                                     </Link>
@@ -339,7 +352,6 @@ function logout() {
 
                             <!-- Opciones -->
                             <div class="py-1.5">
-                                <!-- "Mi perfil" aún sin ruta: la vista la está armando otra persona, se conecta cuando la suba -->
                                 <a href="#" @click.prevent="showProfileMenu = false"
                                     class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed">
                                     <i class="pi pi-user text-sm"></i>

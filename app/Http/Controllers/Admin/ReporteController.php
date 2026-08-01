@@ -52,6 +52,36 @@ class ReporteController extends Controller
         // --- Desglose por tipo (para el resumen) ---
         $porTipo = Reporte::selectRaw('tipo, COUNT(*) as cantidad')->groupBy('tipo')->pluck('cantidad', 'tipo');
 
+        // --- Usuarios más reportados (para detectar problemas rápido) ---
+        $masReportados = Reporte::selectRaw('reportado_id, COUNT(*) as cantidad')
+            ->whereNotNull('reportado_id')
+            ->groupBy('reportado_id')
+            ->orderByDesc('cantidad')
+            ->take(5)
+            ->with('reportado:id,nombre,apodo,estado')
+            ->get()
+            ->filter(fn ($r) => $r->reportado) // por si el usuario fue eliminado
+            ->map(fn ($r) => [
+                'usuario' => $r->reportado,
+                'cantidad' => $r->cantidad,
+            ])
+            ->values();
+
+        // --- Actividad reciente de moderación ---
+        $actividadModeracion = Reporte::whereIn('estado', ['revisado', 'resuelto'])
+            ->with('reportado:id,apodo')
+            ->orderByDesc('updated_at')
+            ->take(5)
+            ->get()
+            ->map(fn ($r) => [
+                'texto' => $r->estado === 'resuelto'
+                    ? "Reporte sobre @{$r->reportado?->apodo} marcado como resuelto"
+                    : "Reporte sobre @{$r->reportado?->apodo} marcado como revisado",
+                'tipo' => $r->tipo_nombre,
+                'fecha' => $r->updated_at,
+                'estado' => $r->estado,
+            ]);
+
         return Inertia::render('Admin/Reportes/Index', [
             'stats' => [
                 'total' => $total,
@@ -68,6 +98,8 @@ class ReporteController extends Controller
                 'acoso' => $porTipo['acoso'] ?? 0,
                 'otro' => $porTipo['otro'] ?? 0,
             ],
+            'masReportados' => $masReportados,  
+            'actividadModeracion' => $actividadModeracion,
         ]);
     }
 

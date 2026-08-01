@@ -30,10 +30,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/usuarios', [UsuarioController::class, 'index'])->name('usuarios.index');
         Route::get('/usuarios/crear', [UsuarioController::class, 'create'])->name('usuarios.create');
         Route::post('/usuarios', [UsuarioController::class, 'store'])->name('usuarios.store');
-        
-        // CORREGIDO: Cambiado a 'bloquear' para coincidir con llamadas comunes del frontend
+        Route::get('/usuarios/{usuario}', [UsuarioController::class, 'show'])->name('usuarios.show');
+        Route::get('/usuarios/{usuario}/editar', [UsuarioController::class, 'edit'])->name('usuarios.edit');
+        Route::patch('/usuarios/{usuario}', [UsuarioController::class, 'update'])->name('usuarios.update');
         Route::post('/usuarios/{usuario}/bloquear', [UsuarioController::class, 'toggleBloqueo'])->name('usuarios.bloquear');
-        
         Route::delete('/usuarios/{usuario}', [UsuarioController::class, 'destroy'])->name('usuarios.destroy');
 
         // --- Cobros y Pagos ---
@@ -53,11 +53,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/eventos', [EventoController::class, 'index'])->name('eventos.index');
         Route::get('/eventos/crear', [EventoController::class, 'create'])->name('eventos.create');
         Route::post('/eventos', [EventoController::class, 'store'])->name('eventos.store');
+        Route::get('/eventos/{evento}', [EventoController::class, 'show'])->name('eventos.show');
+        Route::get('/eventos/{evento}/editar', [EventoController::class, 'edit'])->name('eventos.edit');
+        Route::patch('/eventos/{evento}', [EventoController::class, 'update'])->name('eventos.update');
+        Route::delete('/eventos/{evento}', [EventoController::class, 'destroy'])->name('eventos.destroy');
 
         // --- Contenido ---
         Route::get('/contenido', [ContenidoController::class, 'index'])->name('contenido.index');
         Route::get('/contenido/crear', [ContenidoController::class, 'create'])->name('contenido.create');
         Route::post('/contenido', [ContenidoController::class, 'store'])->name('contenido.store');
+        Route::get('/contenido/{contenido}', [ContenidoController::class, 'show'])->name('contenido.show');
 
         // --- Shop ---
         Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');

@@ -153,12 +153,18 @@ async function eliminar(u) {
                         <td class="py-2.5 text-gray-400">{{ formatDate(u.created_at) }}</td>
                         <td class="py-2.5">
                             <div class="flex items-center gap-3 text-gray-400">
+                                <Link :href="route('admin.usuarios.show', u.id)" title="Ver">
+                                    <i class="pi pi-eye cursor-pointer hover:text-gray-700"></i>
+                                </Link>
                                 <i
                                     class="pi cursor-pointer hover:text-gray-700"
                                     :class="u.estado === 'bloqueado' ? 'pi-lock-open' : 'pi-lock'"
                                     :title="u.estado === 'bloqueado' ? 'Desbloquear' : 'Bloquear'"
                                     @click="toggleBloqueo(u)"
                                 ></i>
+                                <Link :href="route('admin.usuarios.edit', u.id)" title="Editar">
+                                    <i class="pi pi-pencil cursor-pointer hover:text-gray-700"></i>
+                                </Link>
                                 <i
                                     class="pi pi-trash cursor-pointer hover:text-red-600"
                                     title="Eliminar"

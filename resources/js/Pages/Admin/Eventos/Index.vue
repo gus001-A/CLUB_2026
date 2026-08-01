@@ -1,7 +1,9 @@
 <script setup>
+import { useConfirm } from '@/composables/useConfirm';
+const { confirm } = useConfirm();
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 
 const props = defineProps({
     stats: Object,
@@ -16,6 +18,16 @@ const q = ref(props.filtros.q || '');
 const estado = ref(props.filtros.estado || '');
 const tipo = ref(props.filtros.tipo || '');
 const periodoEstadisticas = ref(props.filtros.periodo_stats || 'mes');
+
+async function eliminarEvento(evento) {
+    const ok = await confirm(`Esto eliminará el evento "${evento.nombre}". Esta acción no se puede deshacer.`, {
+        title: 'Eliminar evento',
+        confirmLabel: 'Sí, eliminar',
+        danger: true,
+    });
+    if (!ok) return;
+    router.delete(route('admin.eventos.destroy', evento.id), { preserveScroll: true });
+}
 
 let timeout = null;
 function aplicarFiltros() {
@@ -55,9 +67,94 @@ const tipoColores = {
     'vip': 'bg-rose-50 text-rose-600 border border-rose-100',
     'general': 'bg-emerald-50 text-emerald-600 border border-emerald-100',
 };
+
+// ------------------------------------------------------------------
+// Anillo de Estadísticas de Eventos: gráfica real con conic-gradient,
+// proporcional a los datos, y gris cuando no hay eventos en el periodo.
+// ------------------------------------------------------------------
+const anilloGradiente = computed(() => {
+    const en = props.estadisticas?.enVivo ?? 0;
+    const prog = props.estadisticas?.programados ?? 0;
+    const comp = props.estadisticas?.completados ?? 0;
+    const total = en + prog + comp;
+
+    if (!total) {
+        return '#e5e7eb'; // gris: sin eventos en este periodo
+    }
+
+    const finEnVivo = (en / total) * 360;
+    const finProg = finEnVivo + (prog / total) * 360;
+
+    return `conic-gradient(#ef4444 0deg ${finEnVivo}deg, #fb923c ${finEnVivo}deg ${finProg}deg, #10b981 ${finProg}deg 360deg)`;
+});
+
+// ------------------------------------------------------------------
+// Calendario: cuadrícula real de 6 semanas x 7 días, con días del mes
+// anterior/siguiente en gris y puntos de color por estado de evento.
+// ------------------------------------------------------------------
+const diasSemana = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+const puntoColor = {
+    en_vivo: 'bg-red-500',
+    programado: 'bg-orange-400',
+    completado: 'bg-emerald-500',
+    cancelado: 'bg-gray-400',
+    borrador: 'bg-yellow-400',
+};
+
+const celdas = computed(() => {
+    const mes = props.calendario?.mes ?? (new Date().getMonth() + 1);
+    const anio = props.calendario?.anio ?? new Date().getFullYear();
+
+    const primerDiaMes = new Date(anio, mes - 1, 1);
+    const ultimoDiaMes = new Date(anio, mes, 0).getDate();
+    const offsetInicio = primerDiaMes.getDay(); // 0 = domingo
+
+    const diasMesAnterior = new Date(anio, mes - 1, 0).getDate();
+
+    const hoy = new Date();
+    const esHoy = (d) => d === hoy.getDate() && (mes - 1) === hoy.getMonth() && anio === hoy.getFullYear();
+
+    const arr = [];
+
+    // Días del mes anterior (en gris)
+    for (let i = offsetInicio - 1; i >= 0; i--) {
+        arr.push({ dia: diasMesAnterior - i, actual: false, hoy: false, estados: [] });
+    }
+
+    // Días del mes actual
+    for (let d = 1; d <= ultimoDiaMes; d++) {
+        arr.push({ dia: d, actual: true, hoy: esHoy(d), estados: props.calendario?.dias?.[d] || [] });
+    }
+
+    // Completar hasta múltiplo de 7 con días del mes siguiente (en gris)
+    let diaSiguiente = 1;
+    while (arr.length % 7 !== 0) {
+        arr.push({ dia: diaSiguiente++, actual: false, hoy: false, estados: [] });
+    }
+
+    return arr;
+});
+
+function irMes(delta) {
+    let mes = (props.calendario?.mes ?? new Date().getMonth() + 1) + delta;
+    let anio = props.calendario?.anio ?? new Date().getFullYear();
+    if (mes > 12) { mes = 1; anio++; }
+    if (mes < 1) { mes = 12; anio--; }
+    router.get(route('admin.eventos.index'), { ...props.filtros, mes, anio }, { preserveState: true, preserveScroll: true, replace: true });
+}
+
+function irHoy() {
+    router.get(route('admin.eventos.index'), { ...props.filtros, mes: undefined, anio: undefined }, { preserveState: true, preserveScroll: true, replace: true });
+}
+
+function formatFecha(v) {
+    if (!v) return '—';
+    return new Date(v).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+}
 </script>
 
 <template>
+
     <Head title="Gestión de Eventos" />
 
     <AdminLayout>
@@ -66,7 +163,8 @@ const tipoColores = {
             <!-- Fila 1: KPIs (4 columnas) -->
             <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full">
                 <!-- KPI 1 -->
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                <div
+                    class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-400">Eventos Totales</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">
@@ -76,13 +174,15 @@ const tipoColores = {
                             +{{ stats?.nuevosEsteMes ?? 0 }} nuevos este mes
                         </p>
                     </div>
-                    <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                    <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0"
+                        style="width:44px;height:44px">
                         <i class="pi pi-calendar text-lg"></i>
                     </div>
                 </div>
 
                 <!-- KPI 2 -->
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                <div
+                    class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-400">Eventos Próximos</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">
@@ -92,13 +192,15 @@ const tipoColores = {
                             {{ stats?.total > 0 ? Math.round((stats.proximos / stats.total) * 100) : 0 }}% del total
                         </p>
                     </div>
-                    <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                    <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0"
+                        style="width:44px;height:44px">
                         <i class="pi pi-clock text-lg"></i>
                     </div>
                 </div>
 
                 <!-- KPI 3 -->
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                <div
+                    class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-400">Eventos en Vivo</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">
@@ -108,13 +210,15 @@ const tipoColores = {
                             Ahora mismo
                         </p>
                     </div>
-                    <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                    <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0"
+                        style="width:44px;height:44px">
                         <i class="pi pi-wifi text-lg"></i>
                     </div>
                 </div>
 
                 <!-- KPI 4 -->
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                <div
+                    class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-400">Eventos Completados</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">
@@ -124,7 +228,8 @@ const tipoColores = {
                             {{ stats?.total > 0 ? Math.round((stats.completados / stats.total) * 100) : 0 }}% del total
                         </p>
                     </div>
-                    <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                    <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0"
+                        style="width:44px;height:44px">
                         <i class="pi pi-check-circle text-lg"></i>
                     </div>
                 </div>
@@ -132,16 +237,18 @@ const tipoColores = {
 
             <!-- Fila 2: Tabla de Eventos (75%) + Calendario (25%) -->
             <div class="flex flex-col lg:flex-row items-stretch gap-6 mb-6 w-full">
-                
+
                 <!-- Columna Izquierda: Tabla de Eventos (75%) -->
-                <div class="w-full lg:w-3/4 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between self-stretch">
+                <div
+                    class="w-full lg:w-3/4 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between self-stretch">
                     <div class="flex flex-col flex-1">
                         <!-- Encabezado y Filtros Superiores -->
                         <div class="px-6 pt-6">
                             <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
                                 <div>
                                     <h2 class="text-xl font-semibold text-gray-900">Gestión de Eventos</h2>
-                                    <p class="text-sm text-gray-500 mt-1">Administra y supervisa todos los eventos programados.</p>
+                                    <p class="text-sm text-gray-500 mt-1">Administra y supervisa todos los eventos
+                                        programados.</p>
                                 </div>
                                 <Link :href="route('admin.eventos.create')"
                                     class="bg-red-600 hover:bg-red-700 text-white rounded-xl px-5 py-2.5 font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap shadow-sm">
@@ -149,11 +256,12 @@ const tipoColores = {
                                     Crear Evento
                                 </Link>
                             </div>
-                            
+
                             <div class="flex flex-wrap lg:flex-nowrap items-center gap-3 py-3">
                                 <!-- Buscador -->
                                 <div class="relative flex-1 min-w-[180px]">
-                                    <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                    <i
+                                        class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                                     <input v-model="q" type="text" placeholder="Buscar evento..."
                                         class="w-full rounded-xl border-gray-300 pl-10 py-2.5 text-sm focus:border-red-500 focus:ring-red-500">
                                 </div>
@@ -196,42 +304,51 @@ const tipoColores = {
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
-                                    <tr v-for="evento in eventos?.data" :key="evento.id" class="hover:bg-gray-50 transition">
+                                    <tr v-for="evento in eventos?.data" :key="evento.id"
+                                        class="hover:bg-gray-50 transition">
                                         <td class="px-6 py-4">
                                             <div class="flex items-center gap-3">
-                                                <img :src="evento.imagen || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80'" 
+                                                <img :src="evento.imagen || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80'"
                                                     class="w-10 h-10 rounded-lg object-cover border border-gray-200 shrink-0" />
                                                 <span class="font-semibold text-gray-900">{{ evento.nombre }}</span>
                                             </div>
                                         </td>
                                         <td class="px-4 py-4">
-                                            <span class="px-2.5 py-1 rounded-md text-xs font-medium uppercase" :class="tipoColores[evento.tipo]">
+                                            <span class="px-2.5 py-1 rounded-md text-xs font-medium uppercase"
+                                                :class="tipoColores[evento.tipo]">
                                                 {{ evento.tipo }}
                                             </span>
                                         </td>
-                                        <td class="px-4 py-4 text-gray-500 whitespace-nowrap text-xs">{{ formatDate(evento.fecha) }}</td>
+                                        <td class="px-4 py-4 text-gray-500 whitespace-nowrap text-xs">
+                                            {{ formatFecha(evento.fecha) }} · {{ evento.hora_formateada }}
+                                        </td>
                                         <td class="px-4 py-4 text-gray-600 text-xs">{{ evento.ciudad ?? '—' }}</td>
                                         <td class="px-4 py-4">
-                                            <span class="px-3 py-1 rounded-full text-xs font-semibold capitalize" :class="estadoColores[evento.estado_display]">
+                                            <span class="px-3 py-1 rounded-full text-xs font-semibold capitalize"
+                                                :class="estadoColores[evento.estado_display]">
                                                 {{ evento.estado_display.replace('_', ' ') }}
                                             </span>
                                         </td>
                                         <td class="px-6 py-4">
-                                            <div class="flex justify-center gap-2">
-                                                <button class="w-9 h-9 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center text-gray-600">
-                                                    <i class="pi pi-eye"></i>
-                                                </button>
-                                                <button class="w-9 h-9 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center text-gray-600">
-                                                    <i class="pi pi-pencil"></i>
-                                                </button>
-                                                <button class="w-9 h-9 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center text-gray-600">
-                                                    <i class="pi pi-ellipsis-v"></i>
+                                            <div class="flex justify-center items-center gap-1.5">
+                                                <Link :href="route('admin.eventos.show', evento.id)"
+                                                    class="w-8 h-8 min-w-[32px] max-w-[32px] min-h-[32px] max-h-[32px] flex-none rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
+                                                    <i class="pi pi-eye text-xs"></i>
+                                                </Link>
+                                                <Link :href="route('admin.eventos.edit', evento.id)"
+                                                    class="w-8 h-8 min-w-[32px] max-w-[32px] min-h-[32px] max-h-[32px] flex-none rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
+                                                    <i class="pi pi-pencil text-xs"></i>
+                                                </Link>
+                                                <button @click="eliminarEvento(evento)"
+                                                    class="w-8 h-8 min-w-[32px] max-w-[32px] min-h-[32px] max-h-[32px] flex-none rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 transition flex items-center justify-center">
+                                                    <i class="pi pi-trash text-xs"></i>
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                     <tr v-if="!eventos?.data?.length" class="h-full">
-                                        <td colspan="6" class="text-center text-gray-400 py-12 align-middle">No se encontraron eventos.</td>
+                                        <td colspan="6" class="text-center text-gray-400 py-12 align-middle">No se
+                                            encontraron eventos.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -239,8 +356,10 @@ const tipoColores = {
                     </div>
 
                     <!-- Footer / Paginación -->
-                    <div v-if="eventos?.last_page > 1" class="border-t border-gray-200 px-6 py-4 flex items-center justify-between">
-                        <p class="text-sm text-gray-500">Mostrando {{ eventos.from }}–{{ eventos.to }} de {{ eventos.total }}</p>
+                    <div v-if="eventos?.last_page > 1"
+                        class="border-t border-gray-200 px-6 py-4 flex items-center justify-between">
+                        <p class="text-sm text-gray-500">Mostrando {{ eventos.from }}–{{ eventos.to }} de {{
+                            eventos.total }}</p>
                         <div class="flex gap-1">
                             <template v-for="(link, i) in eventos.links" :key="i">
                                 <Link v-if="link.url" :href="link.url" preserve-scroll preserve-state
@@ -250,34 +369,88 @@ const tipoColores = {
                             </template>
                         </div>
                     </div>
+                    <div class="text-center mt-6 pt-4 border-t border-gray-100">
+                        <Link :href="route('admin.eventos.index')"
+                            class="text-red-600 text-sm font-medium hover:underline">
+                            Ver todos los eventos
+                        </Link>
+                    </div>
                 </div>
 
                 <!-- Columna Derecha: Tarjeta Calendario (25%) -->
                 <div class="w-full lg:w-1/4 flex flex-col gap-6 self-stretch">
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex-1 flex flex-col justify-between">
+                    <div
+                        class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex-1 flex flex-col justify-between">
                         <div>
-                            <div class="flex items-center justify-between mb-4">
-                                <h3 class="font-bold text-gray-900 text-sm">Calendario de Eventos</h3>
-                                <span class="text-xs font-medium px-2 text-gray-700 capitalize">{{ calendario?.nombreMes }}</span>
+                            <h3 class="font-bold text-gray-900 text-sm mb-4">Calendario de Eventos</h3>
+
+                            <!-- Navegación: < mes año > + Hoy -->
+                            <div style="display:flex;align-items:center;gap:4px;margin-bottom:16px">
+                                <button @click="irMes(-1)"
+                                    style="width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center"
+                                    class="rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500">
+                                    <i class="pi pi-chevron-left text-xs"></i>
+                                </button>
+                                <span
+                                    style="flex:1 1 0%;min-width:0;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                                    class="text-sm font-semibold text-gray-800 capitalize">
+                                    {{ calendario?.nombreMes }}
+                                </span>
+                                <button @click="irMes(1)"
+                                    style="width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center"
+                                    class="rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500">
+                                    <i class="pi pi-chevron-right text-xs"></i>
+                                </button>
+                                <button @click="irHoy"
+                                    style="height:30px;padding:0 12px;flex:none;display:flex;align-items:center;justify-content:center"
+                                    class="rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-medium text-gray-600">
+                                    Hoy
+                                </button>
                             </div>
-                            <div class="grid grid-cols-7 text-center text-[11px] font-semibold text-gray-400 mb-2">
-                                <span>DOM</span><span>LUN</span><span>MAR</span><span>MIÉ</span><span>JUE</span><span>VIE</span><span>SÁB</span>
+
+                            <!-- Encabezado días de la semana -->
+                            <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:8px"
+                                class="text-[10px] font-semibold text-gray-400">
+                                <span v-for="d in diasSemana" :key="d">{{ d }}</span>
                             </div>
-                            <!-- Renderizado simple de días del mes actual -->
-                            <div class="grid grid-cols-7 text-center text-xs gap-y-2 text-gray-600">
-                                <template v-for="dia in 31" :key="dia">
-                                    <span class="py-1" :class="{
-                                        'bg-red-600 text-white rounded-full font-bold': calendario?.dias?.[dia]
-                                    }">
-                                        {{ dia <= 31 ? dia : '' }}
+
+                            <!-- Cuadrícula del mes -->
+                            <div style="display:grid;grid-template-columns:repeat(7,1fr);row-gap:6px">
+                                <div v-for="(c, i) in celdas" :key="i"
+                                    style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 0">
+                                    <span
+                                        style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:9999px"
+                                        class="text-xs"
+                                        :class="[c.hoy ? 'bg-red-600 text-white font-bold' : (c.actual ? 'text-gray-700' : 'text-gray-300')]">
+                                        {{ c.dia }}
                                     </span>
-                                </template>
+                                    <div style="display:flex;gap:2px;height:6px;margin-top:2px">
+                                        <span v-for="est in c.estados.slice(0, 3)" :key="est"
+                                            style="width:4px;height:4px;border-radius:9999px"
+                                            :class="puntoColor[est] || 'bg-gray-300'"></span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500">
-                            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-orange-400"></span> Programado</span>
-                            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500"></span> En vivo</span>
-                            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Completado</span>
+
+                        <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:16px;padding-top:12px"
+                            class="border-t border-gray-100 text-[11px] text-gray-500">
+                            <span style="display:flex;align-items:center;gap:6px">
+                                <span
+                                    style="width:8px;height:8px;border-radius:9999px;background-color:#fb923c;flex:none"></span>
+                                Programado
+                            </span>
+                            <span style="display:flex;align-items:center;gap:6px">
+                                <span
+                                    style="width:8px;height:8px;border-radius:9999px;background-color:#ef4444;flex:none"></span>
+                                En
+                                vivo
+                            </span>
+                            <span style="display:flex;align-items:center;gap:6px">
+                                <span
+                                    style="width:8px;height:8px;border-radius:9999px;background-color:#10b981;flex:none"></span>
+                                Completado
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -286,18 +459,21 @@ const tipoColores = {
 
             <!-- Fila 3: Próximos Eventos (33%) + Estadísticas (39%) + Acciones Rápidas (28%) -->
             <div class="flex flex-col lg:flex-row gap-6 items-stretch">
-                
+
                 <!-- Próximos Eventos -->
-                <div class="w-full lg:w-[33%] bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div
+                    class="w-full lg:w-[33%] bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="font-bold text-gray-900 text-sm">Próximos Eventos</h3>
                             <button class="text-xs font-semibold text-red-600 hover:text-red-700">Ver todos</button>
                         </div>
                         <div class="space-y-3">
-                            <div v-for="evento in proximosEventos" :key="evento.id" class="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-gray-50/50 transition">
+                            <div v-for="evento in proximosEventos" :key="evento.id"
+                                class="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-gray-50/50 transition">
                                 <div class="flex items-center gap-3">
-                                    <img :src="evento.imagen || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80'" class="w-10 h-10 rounded-lg object-cover" />
+                                    <img :src="evento.imagen || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80'"
+                                        class="w-10 h-10 rounded-lg object-cover" />
                                     <div>
                                         <p class="text-xs font-bold text-gray-900">{{ evento.nombre }}</p>
                                         <div class="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
@@ -306,7 +482,9 @@ const tipoColores = {
                                         </div>
                                     </div>
                                 </div>
-                                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold capitalize bg-red-50 text-red-600 border border-red-200 shrink-0">{{ evento.estado_display.replace('_', ' ') }}</span>
+                                <span
+                                    class="px-2 py-0.5 rounded-md text-[10px] font-semibold capitalize bg-red-50 text-red-600 border border-red-200 shrink-0">{{
+                                        evento.estado_display.replace('_', ' ') }}</span>
                             </div>
                             <div v-if="!proximosEventos?.length" class="text-center text-gray-400 text-xs py-6">
                                 No hay próximos eventos.
@@ -316,34 +494,46 @@ const tipoColores = {
                 </div>
 
                 <!-- Estadísticas de Eventos -->
-                <div class="w-full lg:w-[39%] bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div
+                    class="w-full lg:w-[39%] bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="font-bold text-gray-900 text-sm">Estadísticas de Eventos</h3>
-                            <select v-model="periodoEstadisticas" @change="cambiarPeriodoStats" class="text-xs rounded-lg border-gray-200 bg-gray-50 py-1 px-2 focus:border-red-500 focus:ring-red-500">
+                            <select v-model="periodoEstadisticas" @change="cambiarPeriodoStats"
+                                class="text-xs rounded-lg border-gray-200 bg-gray-50 py-1 px-2 focus:border-red-500 focus:ring-red-500">
                                 <option value="dia">Este día</option>
                                 <option value="semana">Esta semana</option>
                                 <option value="mes">Este mes</option>
+                                <option value="anio">Este año</option>
                             </select>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
                             <div class="flex flex-col items-center justify-center p-2">
-                                <div class="w-20 h-20 rounded-full border-8 border-emerald-500 border-t-red-500 border-r-orange-400 flex flex-col items-center justify-center text-center">
-                                    <span class="text-base font-extrabold text-gray-900 leading-none">{{ estadisticas?.total ?? 0 }}</span>
-                                    <span class="text-[9px] text-gray-400 uppercase font-medium">Total</span>
+                                <div
+                                    :style="{ width: '80px', height: '80px', borderRadius: '9999px', background: anilloGradiente, display: 'flex', alignItems: 'center', justifyContent: 'center' }">
+                                    <div
+                                        style="width:56px;height:56px;background:#fff;border-radius:9999px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                                        <span class="text-base font-extrabold text-gray-900 leading-none">{{
+                                            estadisticas?.total ??
+                                            0 }}</span>
+                                        <span class="text-[9px] text-gray-400 uppercase font-medium">Total</span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="space-y-1.5 text-xs sm:col-span-2">
                                 <div class="flex items-center justify-between">
-                                    <span class="flex items-center gap-2 text-gray-600"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> En vivo</span>
+                                    <span class="flex items-center gap-2 text-gray-600"><span
+                                            class="w-2.5 h-2.5 rounded-full bg-red-500"></span> En vivo</span>
                                     <span class="font-bold text-gray-900">{{ estadisticas?.enVivo ?? 0 }}</span>
                                 </div>
                                 <div class="flex items-center justify-between">
-                                    <span class="flex items-center gap-2 text-gray-600"><span class="w-2.5 h-2.5 rounded-full bg-orange-400"></span> Programados</span>
+                                    <span class="flex items-center gap-2 text-gray-600"><span
+                                            class="w-2.5 h-2.5 rounded-full bg-orange-400"></span> Programados</span>
                                     <span class="font-bold text-gray-900">{{ estadisticas?.programados ?? 0 }}</span>
                                 </div>
                                 <div class="flex items-center justify-between">
-                                    <span class="flex items-center gap-2 text-gray-600"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Completados</span>
+                                    <span class="flex items-center gap-2 text-gray-600"><span
+                                            class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Completados</span>
                                     <span class="font-bold text-gray-900">{{ estadisticas?.completados ?? 0 }}</span>
                                 </div>
                             </div>
@@ -352,14 +542,21 @@ const tipoColores = {
 
                     <div class="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-gray-100">
                         <div class="flex items-center gap-2.5 bg-gray-50/50 p-2.5 rounded-xl">
-                            <div class="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0"><i class="pi pi-users text-xs"></i></div>
+                            <div
+                                class="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                                <i class="pi pi-users text-xs"></i>
+                            </div>
                             <div>
-                                <p class="text-sm font-bold text-gray-900">{{ estadisticas?.asistentesTotales ?? 0 }}</p>
+                                <p class="text-sm font-bold text-gray-900">{{ estadisticas?.asistentesTotales ?? 0 }}
+                                </p>
                                 <p class="text-[10px] text-gray-400">Asistentes totales</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2.5 bg-gray-50/50 p-2.5 rounded-xl">
-                            <div class="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0"><i class="pi pi-star text-xs"></i></div>
+                            <div
+                                class="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                                <i class="pi pi-star text-xs"></i>
+                            </div>
                             <div>
                                 <p class="text-sm font-bold text-gray-900">{{ estadisticas?.reservasTotales ?? 0 }}</p>
                                 <p class="text-[10px] text-gray-400">Reservas aprobadas</p>
@@ -369,33 +566,42 @@ const tipoColores = {
                 </div>
 
                 <!-- Acciones Rápidas -->
-                <div class="w-full lg:w-[28%] bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div
+                    class="w-full lg:w-[28%] bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <h3 class="font-bold text-gray-900 text-sm mb-3">Acciones Rápidas</h3>
                         <div class="space-y-2.5">
-                            <Link :href="route('admin.eventos.create')" class="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition cursor-pointer group">
-                                <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0" style="width:40px;height:40px"><i class="pi pi-calendar-plus text-xs"></i></div>
+                            <Link :href="route('admin.eventos.create')"
+                                class="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition cursor-pointer group">
+                                <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0"
+                                    style="width:40px;height:40px"><i class="pi pi-calendar-plus text-xs"></i></div>
                                 <div>
                                     <p class="text-xs font-bold text-gray-800">Crear Evento</p>
                                     <p class="text-[10px] text-gray-400">Organiza un nuevo evento</p>
                                 </div>
                             </Link>
-                            <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition cursor-pointer group">
-                                <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0" style="width:40px;height:40px"><i class="pi pi-file text-xs"></i></div>
+                            <div
+                                class="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition cursor-pointer group">
+                                <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0"
+                                    style="width:40px;height:40px"><i class="pi pi-file text-xs"></i></div>
                                 <div>
                                     <p class="text-xs font-bold text-gray-800">Plantillas de Eventos</p>
                                     <p class="text-[10px] text-gray-400">Usa plantillas prediseñadas</p>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition cursor-pointer group">
-                                <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0" style="width:40px;height:40px"><i class="pi pi-folder text-xs"></i></div>
+                            <div
+                                class="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition cursor-pointer group">
+                                <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0"
+                                    style="width:40px;height:40px"><i class="pi pi-folder text-xs"></i></div>
                                 <div>
                                     <p class="text-xs font-bold text-gray-800">Categorías de Eventos</p>
                                     <p class="text-[10px] text-gray-400">Gestiona categorías disponibles</p>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition cursor-pointer group">
-                                <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0" style="width:40px;height:40px"><i class="pi pi-cog text-xs"></i></div>
+                            <div
+                                class="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition cursor-pointer group">
+                                <div class="rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0"
+                                    style="width:40px;height:40px"><i class="pi pi-cog text-xs"></i></div>
                                 <div>
                                     <p class="text-xs font-bold text-gray-800">Configuración de Eventos</p>
                                     <p class="text-[10px] text-gray-400">Ajusta opciones y permisos</p>

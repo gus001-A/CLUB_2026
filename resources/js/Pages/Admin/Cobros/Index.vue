@@ -353,6 +353,11 @@ async function reembolsar(t) {
                             </template>
                         </div>
                     </div>
+                    <div class="text-center mt-6 pt-4 border-t border-gray-100">
+                        <Link :href="route('admin.cobros.index')" class="text-brand text-sm font-medium hover:underline">
+                            Ver todas las transacciones
+                        </Link>
+                    </div>
                 </div>
                 <!-- Columna Derecha: Resumen + Métodos de Pago (25%) -->
                 <div class="w-full lg:w-1/4 flex flex-col gap-6 self-stretch">

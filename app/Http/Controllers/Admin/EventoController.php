@@ -25,23 +25,29 @@ class EventoController extends Controller
             $queryStats->whereDate('fecha', $hoy);
         } elseif ($periodoStats === 'semana') {
             $queryStats->whereBetween('fecha', [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()]);
+        } elseif ($periodoStats === 'anio') {
+            $queryStats->whereYear('fecha', now()->year);
         } else {
             // 'mes' actual
             $queryStats->whereMonth('fecha', now()->month)
-                       ->whereYear('fecha', now()->year);
+                    ->whereYear('fecha', now()->year);
         }
 
         // Estadísticas filtradas dinámicamente por el periodo seleccionado
-        $totalPeriodo = (clone $queryStats)->count();
-        $enVivoPeriodo = (clone $queryStats)->where('estado', 'publicado')->whereDate('fecha', $hoy)->count();
-        $proximosPeriodo = (clone $queryStats)->where('estado', 'publicado')->where('fecha', '>', $hoy)->count();
-        $completadosPeriodo = (clone $queryStats)->whereIn('estado', ['completo', 'publicado'])->where('fecha', '<', $hoy)->count(); // o los que correspondan a tu lógica
+        $eventosPeriodo = (clone $queryStats)->get();
 
-        // Contadores generales para las tarjetas superiores (KPIs globales o del mes actual)
-        $total = Evento::count();
-        $proximos = Evento::where('estado', 'publicado')->where('fecha', '>', $hoy)->count();
-        $enVivo = Evento::where('estado', 'publicado')->where('fecha', $hoy)->count();
-        $completados = Evento::where('estado', 'completo')->count();
+        $totalPeriodo = $eventosPeriodo->count();
+        $enVivoPeriodo = $eventosPeriodo->filter(fn ($e) => $this->estadoDisplay($e, $hoy) === 'en_vivo')->count();
+        $proximosPeriodo = $eventosPeriodo->filter(fn ($e) => $this->estadoDisplay($e, $hoy) === 'programado')->count();
+        $completadosPeriodo = $eventosPeriodo->filter(fn ($e) => $this->estadoDisplay($e, $hoy) === 'completado')->count();
+
+        // Contadores generales para las tarjetas superiores (todos los eventos, con la misma lógica de fecha+hora)
+        $todosLosEventos = Evento::all();
+
+        $total = $todosLosEventos->count();
+        $proximos = $todosLosEventos->filter(fn ($e) => $this->estadoDisplay($e, $hoy) === 'programado')->count();
+        $enVivo = $todosLosEventos->filter(fn ($e) => $this->estadoDisplay($e, $hoy) === 'en_vivo')->count();
+        $completados = $todosLosEventos->filter(fn ($e) => $this->estadoDisplay($e, $hoy) === 'completado')->count();
 
         $query = Evento::query();
 
@@ -96,7 +102,11 @@ class EventoController extends Controller
             'calendario' => [
                 'mes' => $mes,
                 'anio' => $anio,
-                'nombreMes' => $inicioMes->translatedFormat('F Y'),
+                'nombreMes' => match ((int) $inicioMes->month) {
+                    1 => 'Enero', 2 => 'Febrero', 3 => 'Marzo', 4 => 'Abril',
+                    5 => 'Mayo', 6 => 'Junio', 7 => 'Julio', 8 => 'Agosto',
+                    9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre',
+                } . ' ' . $inicioMes->year,
                 'dias' => $diasMarcados,
             ],
             'proximosEventos' => Evento::where('estado', 'publicado')
@@ -151,14 +161,69 @@ class EventoController extends Controller
         return redirect()->route('admin.eventos.index')->with('success', "Evento \"{$evento->nombre}\" creado correctamente.");
     }
 
+    public function show(Evento $evento): Response
+    {
+        $evento->estado_display = $this->estadoDisplay($evento, now()->toDateString());
+
+        return Inertia::render('Admin/Eventos/Show', [
+            'evento' => $evento,
+        ]);
+    }
+
+    public function edit(Evento $evento): Response
+    {
+        return Inertia::render('Admin/Eventos/Edit', [
+            'evento' => $evento,
+        ]);
+    }
+
+    public function update(Request $request, Evento $evento)
+    {
+        $data = $request->validate([
+            'nombre' => ['required', 'string', 'max:255'],
+            'descripcion' => ['nullable', 'string'],
+            'fecha' => ['required', 'date'],
+            'hora' => ['required'],
+            'ciudad' => ['required', 'string', 'max:255'],
+            'zona_ubicacion' => ['nullable', 'string', 'max:255'],
+            'precio' => ['required', 'numeric', 'min:0'],
+            'capacidad' => ['nullable', 'integer', 'min:1'],
+            'tipo' => ['required', 'in:vip,general'],
+            'categoria' => ['nullable', 'string', 'max:255'],
+            'codigo_vestimenta' => ['nullable', 'string', 'max:255'],
+            'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
+        ]);
+
+        $evento->update($data);
+
+        return redirect()->route('admin.eventos.index')->with('success', "Evento \"{$evento->nombre}\" actualizado correctamente.");
+    }
+
+    public function destroy(Evento $evento)
+    {
+        $nombre = $evento->nombre;
+        $evento->delete();
+
+        return back()->with('success', "Evento \"{$nombre}\" eliminado correctamente.");
+    }
+
     private function estadoDisplay(Evento $e, string $hoy): string
     {
         if ($e->estado === 'cancelado') return 'cancelado';
         if ($e->estado === 'completo') return 'completado';
         if ($e->estado === 'borrador') return 'borrador';
-        // publicado:
-        if ($e->fecha->toDateString() === $hoy) return 'en_vivo';
-        if ($e->fecha->toDateString() > $hoy) return 'programado';
-        return 'completado';
+
+        // publicado: combinamos fecha + hora para saber si ya empezó de verdad
+        $horaTexto = $e->hora instanceof \Carbon\Carbon
+            ? $e->hora->format('H:i:s')
+            : \Carbon\Carbon::parse($e->hora)->format('H:i:s');
+
+        $inicio = \Carbon\Carbon::parse($e->fecha->toDateString() . ' ' . $horaTexto);
+
+        if (now()->lt($inicio)) {
+            return 'programado'; // aún no llega la hora
+        }
+
+        return 'en_vivo'; // ya pasó la hora de inicio y nadie lo ha marcado como completado
     }
 }

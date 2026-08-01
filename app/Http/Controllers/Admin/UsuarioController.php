@@ -95,9 +95,11 @@ public function index(Request $request): Response
     ]);
 }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
-        return Inertia::render('Admin/Usuarios/Create');
+        return Inertia::render('Admin/Usuarios/Create', [
+            'origen' => $request->query('from'),
+        ]);
     }
 
     public function store(Request $request)
@@ -119,6 +121,46 @@ public function index(Request $request): Response
         User::create($data);
 
         return redirect()->route('admin.usuarios.index')->with('success', "Usuario @{$data['apodo']} creado correctamente.");
+    }
+
+    public function show(User $usuario): Response
+    {
+        $usuario->load('perfil');
+
+        return Inertia::render('Admin/Usuarios/Show', [
+            'usuario' => $usuario,
+        ]);
+    }
+
+    public function edit(User $usuario): Response
+    {
+        return Inertia::render('Admin/Usuarios/Edit', [
+            'usuario' => $usuario,
+        ]);
+    }
+
+    public function update(Request $request, User $usuario)
+    {
+        $data = $request->validate([
+            'nombre' => ['required', 'string', 'max:255'],
+            'apodo' => ['required', 'string', 'max:255', Rule::unique('users', 'apodo')->ignore($usuario->id)],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($usuario->id)],
+            'password' => ['nullable', 'string', 'min:8'],
+            'telefono' => ['nullable', 'string', 'max:30'],
+            'fecha_nacimiento' => ['required', 'date', 'before:today'],
+            'rol' => ['required', Rule::in(['usuario', 'creador', 'admin'])],
+            'estado' => ['required', Rule::in(['pendiente', 'verificado', 'incompleto', 'bloqueado'])],
+        ]);
+
+        if (!empty($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        } else {
+            unset($data['password']);
+        }
+
+        $usuario->update($data);
+
+        return redirect()->route('admin.usuarios.index')->with('success', "Usuario @{$usuario->apodo} actualizado correctamente.");
     }
 
     /**

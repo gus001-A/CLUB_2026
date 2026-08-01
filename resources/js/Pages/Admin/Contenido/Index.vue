@@ -231,7 +231,9 @@ function irA(a) {
                                         <div class="flex justify-center items-center gap-1.5">
                                             <button title="Ver"
                                                 class="w-8 h-8 min-w-[32px] max-w-[32px] rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
-                                                <i class="pi pi-eye text-xs"></i>
+                                                <Link :href="route('admin.contenido.show', c.id)" class="text-gray-400 hover:text-gray-700">
+    <i class="pi pi-eye cursor-pointer" title="Ver"></i>
+</Link>
                                             </button>
                                         </div>
                                     </td>

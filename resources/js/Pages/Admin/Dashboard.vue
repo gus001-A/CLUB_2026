@@ -24,6 +24,20 @@ const estado = ref(props.filtros?.estado || '');
 
 let timeout = null;
 
+async function bloquearUsuario(u) {
+    const bloqueando = u.estado !== 'bloqueado';
+    const ok = await confirm(
+        `Esto ${bloqueando ? 'bloqueará' : 'desbloqueará'} a @${u.apodo}.`,
+        {
+            title: bloqueando ? 'Bloquear usuario' : 'Desbloquear usuario',
+            confirmLabel: bloqueando ? 'Sí, bloquear' : 'Sí, desbloquear',
+            danger: bloqueando,
+        }
+    );
+    if (!ok) return;
+    router.post(route('admin.usuarios.toggle-bloqueo', u.id), {}, { preserveScroll: true });
+}
+
 function aplicarFiltros() {
     clearTimeout(timeout);
     timeout = setTimeout(() => {
@@ -197,7 +211,7 @@ async function eliminarUsuario(u) {
             <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
                 <!-- Gestión de Usuarios -->
                 <div
-                    class="w-full lg:w-2/3 bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between">
+                    class="w-full lg:w-3/4 bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between">
                     <div>
                         <!-- Encabezado -->
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
@@ -205,7 +219,7 @@ async function eliminarUsuario(u) {
                                 <h2 class="text-xl font-semibold text-gray-900">Gestión de Usuarios</h2>
                                 <p class="text-xs text-gray-500 mt-0.5">Administra los usuarios registrados.</p>
                             </div>
-                            <Link :href="route('admin.usuarios.create')"
+                            <Link :href="route('admin.usuarios.create', { from: 'dashboard' })"
                                 class="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 transition flex-none shadow-sm">
                                 <i class="pi pi-plus text-xs"></i>
                                 Agregar Usuario
@@ -303,15 +317,16 @@ async function eliminarUsuario(u) {
 
                                         <td class="pl-2 pr-6 py-3.5 whitespace-nowrap">
                                             <div class="flex justify-center items-center gap-1.5">
-                                                <Link :href="route('admin.usuarios.index')"
+                                                <Link :href="route('admin.usuarios.show', u.id)"
                                                     class="w-8 h-8 min-w-[32px] max-w-[32px] min-h-[32px] max-h-[32px] flex-none rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
                                                     <i class="pi pi-eye text-xs"></i>
                                                 </Link>
 
-                                                <Link :href="route('admin.usuarios.index')"
+                                                <button @click="bloquearUsuario(u)"
                                                     class="w-8 h-8 min-w-[32px] max-w-[32px] min-h-[32px] max-h-[32px] flex-none rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
-                                                    <i class="pi pi-pencil text-xs"></i>
-                                                </Link>
+                                                    <i class="pi"
+                                                        :class="u.estado === 'bloqueado' ? 'pi-lock-open' : 'pi-lock'"></i>
+                                                </button>
 
                                                 <button @click="eliminarUsuario(u)"
                                                     class="w-8 h-8 min-w-[32px] max-w-[32px] min-h-[32px] max-h-[32px] flex-none rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 transition flex items-center justify-center">
@@ -342,7 +357,7 @@ async function eliminarUsuario(u) {
 
                 <!-- Acciones Rápidas (4 columnas al lado derecho) -->
                 <div
-                    class="w-full lg:w-1/3 bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col justify-between">
+                    class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col justify-between">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h2>
                         <div class="space-y-3">
@@ -387,7 +402,7 @@ async function eliminarUsuario(u) {
                                 </div>
                             </Link>
 
-                            <Link :href="route('admin.usuarios.index')"
+                            <Link :href="route('admin.eventos.create')"
                                 class="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group">
                                 <div class="rounded-full bg-red-50 text-brand flex items-center justify-center shrink-0"
                                     style="width:44px;height:44px">
@@ -401,7 +416,7 @@ async function eliminarUsuario(u) {
                                 </div>
                             </Link>
 
-                            <Link :href="route('admin.usuarios.index')"
+                            <Link :href="route('admin.invitaciones.create')"
                                 class="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group">
                                 <div class="rounded-full bg-red-50 text-brand flex items-center justify-center shrink-0"
                                     style="width:44px;height:44px">
