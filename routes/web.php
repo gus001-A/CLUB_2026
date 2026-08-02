@@ -8,6 +8,10 @@ use App\Http\Controllers\Usuarios\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
+// =======================================================================
+// RUTAS PÚBLICAS
+// =======================================================================
+
 Route::get('/', [LandingController::class, 'index'])->name('home');
 
 // =======================================================================
@@ -70,8 +74,15 @@ Route::get('/cookies', function () {
 })->name('cookies');
 
 // =======================================================================
+// RUTAS ADMIN (importadas desde admin.php)
+// =======================================================================
+
+require __DIR__.'/admin.php';
+
+// =======================================================================
 // RUTAS PROTEGIDAS (requieren autenticación)
 // =======================================================================
+
 Route::middleware(['auth'])->group(function () {
     // ============================================
     // RUTA PRINCIPAL - INICIO (CON CONTROLADOR)
@@ -143,7 +154,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // =======================================================================
-// RUTAS DE FALLBACK (404)
+// RUTA DE FALLBACK (404)
 // =======================================================================
 
 Route::fallback(function () {

@@ -16,6 +16,7 @@ return new class extends Migration
             $table->decimal('envio', 10, 2)->default(0);
             $table->decimal('total', 10, 2);
             $table->enum('estado', ['carrito', 'pagado', 'enviado', 'entregado', 'cancelado'])->default('carrito');
+            $table->enum('metodo_pago', ['tarjeta_credito', 'tarjeta_debito', 'paypal', 'transferencia', 'otro'])->nullable();
             $table->string('pago_id')->nullable();
             $table->json('direccion_envio')->nullable();
             $table->string('numero_seguimiento')->nullable();

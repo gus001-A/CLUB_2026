@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\CodigoInvitacion;
+use App\Models\Transaccion;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Illuminate\Support\Facades\Log;
@@ -51,20 +53,44 @@ class HandleInertiaRequests extends Middleware
         
         return [
             ...parent::share($request),
-            
-            // Compartir flash messages
-            'flash' => $flash,
-            
-            // Compartir toast directamente (para compatibilidad)
-            'toast' => $toast,
-            
-            // Compartir errores de validación
-            'errors' => $errors ? $errors->getBag('default')->getMessages() : (object) [],
-            
-            // Compartir usuario autenticado
+
             'auth' => [
-                'user' => $request->user(),
+                'admin' => $request->user('admin'),
             ],
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
+            'badges' => fn () => $this->badges($request),
         ];
     }
+
+    /**
+     * Contadores reales para los badges del sidebar y la campana de notificaciones.
+     * Solo se calculan si hay un admin autenticado, para no pegarle a la BD en /admin/login.
+     */
+    private function badges(Request $request): array
+    {
+        if (! $request->user('admin')) {
+            return [
+                'invitacionesPendientes' => 0,
+                'pagosPendientes'        => 0,
+                'notificaciones'         => 0,
+            ];
+        }
+
+        $pagosPendientes = Transaccion::where('estado', 'pendiente')->count();
+
+        // NOTIFICACIONES Y BADGES PARA EL ADMIN:
+        // 1. "invitacionesPendientes" en 0 para que no te alerte por invitaciones que tú mismo enviaste.
+        //    (Aquí podrás contar solo las solicitudes o respuestas cuando las configures en la BD).
+        // 2. "notificaciones" de la campana solo incluye pagos/eventos pendientes recibidos.
+
+        return [
+            'invitacionesPendientes' => 0, 
+            'pagosPendientes'        => $pagosPendientes,
+            'notificaciones'         => $pagosPendientes,
+        ];
+    }
+
 }

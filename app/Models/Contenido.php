@@ -15,6 +15,7 @@ class Contenido extends Model
         'creador_id',
         'tipo',
         'titulo',
+        'categoria',
         'descripcion',
         'archivos',
         'precio',
