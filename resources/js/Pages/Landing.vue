@@ -1,27 +1,42 @@
 <!-- resources/js/Pages/Landing.vue -->
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import AppIcon from '@/Components/AppIcon.vue';
 
 // -----------------------------------------------------------------------
-// Datos de la página
+// PROPS (recibidas del controlador)
+// -----------------------------------------------------------------------
+
+const props = defineProps({
+  eventosProximos: {
+    type: Array,
+    default: () => []
+  },
+  hayEventos: {
+    type: Boolean,
+    default: false
+  }
+});
+
+// -----------------------------------------------------------------------
+// Datos de la página (estáticos)
 // -----------------------------------------------------------------------
 
 const features = [
-  { icon: 'shield-check', title: 'Comunidad verificada', text: 'Perfiles reales, validados para tu tranquilidad.' },
-  { icon: 'map-pin', title: 'Geolocalización discreta', text: 'Conecta con personas cercanas sin revelar tu ubicación.' },
+  { icon: 'shield', title: 'Comunidad verificada', text: 'Perfiles reales, validados para tu tranquilidad.' },
+  { icon: 'map-marker', title: 'Geolocalización discreta', text: 'Conecta con personas cercanas sin revelar tu ubicación.' },
   { icon: 'lock', title: 'Privacidad y seguridad', text: 'Tecnología avanzada para proteger tu información.' },
-  { icon: 'gem', title: 'Experiencias exclusivas', text: 'Acceso a eventos y experiencias únicas para miembros.' },
+  { icon: 'diamond', title: 'Experiencias exclusivas', text: 'Acceso a eventos y experiencias únicas para miembros.' },
 ];
 
 const mission = [
   { icon: 'ticket', title: 'Acceso por invitación', text: 'Solo miembros seleccionados por invitación.' },
-  { icon: 'badge-check', title: 'Perfiles verificados', text: 'Validación de perfiles y sistema de reputación para mayor seguridad.' },
-  { icon: 'map-pin', title: 'Conexiones reales', text: 'Geolocalización inteligente para interacciones en tiempo real.' },
-  { icon: 'sparkles', title: 'Compatibilidad inteligente', text: 'Match dinámico basado en preferencias, intereses y comportamiento.' },
+  { icon: 'verified', title: 'Perfiles verificados', text: 'Validación de perfiles y sistema de reputación para mayor seguridad.' },
+  { icon: 'map-marker', title: 'Conexiones reales', text: 'Geolocalización inteligente para interacciones en tiempo real.' },
+  { icon: 'star-fill', title: 'Compatibilidad inteligente', text: 'Match dinámico basado en preferencias, intereses y comportamiento.' },
   { icon: 'calendar', title: 'Experiencias exclusivas', text: 'Eventos, fiestas y experiencias privadas para llevar tu estilo de vida al siguiente nivel.' },
-  { icon: 'eye-off', title: 'Discreción y privacidad', text: 'Tu privacidad es nuestra prioridad. Entorno seguro, discreto y 100% confiable.' },
+  { icon: 'eye-slash', title: 'Discreción y privacidad', text: 'Tu privacidad es nuestra prioridad. Entorno seguro, discreto y 100% confiable.' },
 ];
 
 const services = [
@@ -43,12 +58,6 @@ const experienceTypes = [
   { label: 'Encuentros sociales', image: '/images/experiences/social.jpg' },
 ];
 
-const events = [
-  { day: '24', month: 'MAY', title: 'Noche de Seducción', location: 'Ciudad de México', time: '23:00 hrs', text: 'Una noche para romper la rutina y dejarte llevar por la pasión en un ambiente exclusivo.', image: '/images/events/seduction.jpg' },
-  { day: '07', month: 'JUN', title: 'Jacuzzi Experience', location: 'Guadalajara', time: '20:00 hrs', text: 'Relájate, conecta y disfruta de una experiencia única bajo las estrellas.', image: '/images/events/jacuzzi.jpg' },
-  { day: '21', month: 'JUN', title: 'Club Fantasías', location: 'Monterrey', time: '22:00 hrs', text: 'Música, show y mucha energía para vivir una noche que recordarás siempre.', image: '/images/events/club.jpg' },
-];
-
 const faqs = ref([
   { q: '¿Cómo funciona el acceso por invitación?', a: 'Cada miembro nuevo ingresa mediante una invitación validada por la comunidad o el equipo de Club de Fantasías, lo que nos permite mantener un ambiente seguro y de confianza.', open: false },
   { q: '¿Cómo garantizan la privacidad de los miembros?', a: 'Usamos geolocalización aproximada, verificación de perfiles y cifrado de datos para que tu identidad y ubicación exacta nunca se compartan sin tu consentimiento.', open: false },
@@ -65,31 +74,150 @@ const contactForm = ref({ nombre: '', correo: '', asunto: '', mensaje: '' });
 function submitContact() {
   console.log('Enviar formulario de contacto', contactForm.value);
 }
+
+// -----------------------------------------------------------------------
+// SCROLL SUAVE CON ANIMACIÓN
+// -----------------------------------------------------------------------
+
+const activeLink = ref('inicio');
+const isMobileMenuOpen = ref(false);
+
+function scrollToSection(event, sectionId) {
+  event.preventDefault();
+  
+  // Cambiar el link activo
+  activeLink.value = sectionId;
+  
+  // Cerrar menú móvil si está abierto
+  if (isMobileMenuOpen.value) {
+    isMobileMenuOpen.value = false;
+  }
+  
+  // Obtener el elemento destino
+  const target = document.getElementById(sectionId);
+  
+  if (target) {
+    // Calcular offset para el navbar fijo
+    const header = document.querySelector('.cf-header');
+    const headerHeight = header ? header.offsetHeight : 80;
+    const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - headerHeight;
+    
+    // Animación de scroll suave
+    window.scrollTo({
+      top: targetPosition,
+      behavior: 'smooth'
+    });
+  }
+}
+
+// Actualizar link activo según el scroll
+function updateActiveLink() {
+  const sections = ['inicio', 'quienes-somos', 'servicios', 'eventos', 'contacto'];
+  const header = document.querySelector('.cf-header');
+  const headerHeight = header ? header.offsetHeight : 80;
+  
+  let currentSection = 'inicio';
+  
+  sections.forEach(sectionId => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      const rect = element.getBoundingClientRect();
+      if (rect.top <= headerHeight + 100) {
+        currentSection = sectionId;
+      }
+    }
+  });
+  
+  activeLink.value = currentSection;
+}
+
+// Detectar scroll para actualizar el link activo
+onMounted(() => {
+  window.addEventListener('scroll', updateActiveLink);
+});
+
+// -----------------------------------------------------------------------
+// NAVEGACIÓN DEL NAVBAR EN MÓVIL
+// -----------------------------------------------------------------------
+
+function toggleMobileMenu() {
+  isMobileMenuOpen.value = !isMobileMenuOpen.value;
+}
 </script>
 
 <template>
   <Head title="Inicio" />
 
   <div class="cf-page">
-    <!-- ================= NAVBAR ================= -->
+    <!-- ================= NAVBAR BLANCO ================= -->
     <header class="cf-header">
       <nav class="cf-nav">
         <Link href="/" class="cf-brand">
-          <span class="cf-brand__mark"></span>
-          <span class="cf-brand__name">Club<br />de Fantasías</span>
+          <img 
+            src="/images/LOGO.png" 
+            alt="Club de Fantasías" 
+            class="cf-brand__logo"
+          />
         </Link>
 
-        <div class="cf-nav__links">
-          <a href="#inicio" class="cf-nav__link cf-nav__link--active">Inicio</a>
-          <a href="#quienes-somos" class="cf-nav__link">Quiénes somos</a>
-          <a href="#servicios" class="cf-nav__link">Servicios</a>
-          <a href="#eventos" class="cf-nav__link">Eventos</a>
-          <a href="#contacto" class="cf-nav__link">Contacto</a>
+        <!-- Enlaces del navbar -->
+        <div class="cf-nav__links" :class="{ 'cf-nav__links--open': isMobileMenuOpen }">
+          <a 
+            href="#inicio" 
+            class="cf-nav__link" 
+            :class="{ 'cf-nav__link--active': activeLink === 'inicio' }"
+            @click="scrollToSection($event, 'inicio')"
+          >
+            Inicio
+          </a>
+          <a 
+            href="#quienes-somos" 
+            class="cf-nav__link"
+            :class="{ 'cf-nav__link--active': activeLink === 'quienes-somos' }"
+            @click="scrollToSection($event, 'quienes-somos')"
+          >
+            Quiénes somos
+          </a>
+          <a 
+            href="#servicios" 
+            class="cf-nav__link"
+            :class="{ 'cf-nav__link--active': activeLink === 'servicios' }"
+            @click="scrollToSection($event, 'servicios')"
+          >
+            Servicios
+          </a>
+          <a 
+            href="#eventos" 
+            class="cf-nav__link"
+            :class="{ 'cf-nav__link--active': activeLink === 'eventos' }"
+            @click="scrollToSection($event, 'eventos')"
+          >
+            Eventos
+          </a>
+          <a 
+            href="#contacto" 
+            class="cf-nav__link"
+            :class="{ 'cf-nav__link--active': activeLink === 'contacto' }"
+            @click="scrollToSection($event, 'contacto')"
+          >
+            Contacto
+          </a>
         </div>
 
         <div class="cf-nav__actions">
+          <!-- Botón hamburguesa para móvil -->
+          <button 
+            class="cf-nav__hamburger" 
+            @click="toggleMobileMenu"
+            aria-label="Menú"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+
           <Link :href="route('login')" class="cf-btn cf-btn--ghost">Iniciar sesión</Link>
-          <Link :href="route('register')" class="cf-btn cf-btn--primary">Registro</Link>
+          <Link :href="route('register.invite')" class="cf-btn cf-btn--primary">Registro</Link>
         </div>
       </nav>
     </header>
@@ -105,7 +233,7 @@ function submitContact() {
             Conexiones reales, experiencias auténticas y momentos inolvidables en un entorno seguro, exclusivo y privado.
           </p>
           <div class="cf-hero__actions">
-            <a href="#servicios" class="cf-btn cf-btn--primary cf-btn--lg">
+            <a href="#servicios" class="cf-btn cf-btn--primary cf-btn--lg" @click="scrollToSection($event, 'servicios')">
               Explorar experiencias <span aria-hidden="true">→</span>
             </a>
             <button type="button" class="cf-btn cf-btn--outline cf-btn--lg">
@@ -145,7 +273,7 @@ function submitContact() {
         <p class="cf-body cf-about__text">
           Club de Fantasías es la comunidad exclusiva para adultos que buscan conexiones reales, experiencias auténticas y momentos inolvidables en un entorno seguro, discreto y confiable.
         </p>
-        <a href="#servicios" class="cf-btn cf-btn--primary cf-btn--lg">
+        <a href="#servicios" class="cf-btn cf-btn--primary cf-btn--lg" @click="scrollToSection($event, 'servicios')">
           Únete a nuestra comunidad <span aria-hidden="true">→</span>
         </a>
       </div>
@@ -154,38 +282,26 @@ function submitContact() {
       </div>
     </section>
 
-    <!-- ================= NUESTRA MISIÓN ================= -->
+    <!-- ================= NUESTRA MISIÓN MEJORADA ================= -->
     <section class="cf-mission">
       <div class="cf-mission__intro">
-        <p class="cf-eyebrow cf-eyebrow--center">Nuestra misión</p>
-        <h2 class="cf-h2">Conectar personas, crear experiencias.</h2>
-        <p class="cf-body">
+        <span class="cf-mission__badge">✦ Nuestra misión</span>
+        <h2 class="cf-mission__title">
+          Conectar personas,<br />
+          <span class="cf-mission__title-highlight">crear experiencias.</span>
+        </h2>
+        <p class="cf-mission__description">
           Utilizamos tecnología e innovación para generar interacciones ágiles, reales e inmediatas, priorizando la seguridad, la confianza y la compatibilidad entre nuestros miembros.
         </p>
       </div>
 
       <div class="cf-mission__grid">
         <div v-for="m in mission" :key="m.title" class="cf-mission__card">
-          <AppIcon :name="m.icon" class="cf-icon cf-icon--brand cf-icon--lg" />
-          <p class="cf-mission__title">{{ m.title }}</p>
-          <p class="cf-mission__text">{{ m.text }}</p>
-        </div>
-      </div>
-
-      <div class="cf-mission__banner">
-        <div class="cf-mission__banner-item">
-          <AppIcon name="lock" class="cf-icon cf-icon--brand cf-icon--lg" />
-          <div>
-            <p class="cf-mission__title">Tu privacidad es nuestra prioridad</p>
-            <p class="cf-mission__text">Tecnología avanzada y políticas estrictas para proteger tu identidad y tu información.</p>
+          <div class="cf-mission__card-icon">
+            <AppIcon :name="m.icon" class="cf-icon cf-icon--brand cf-icon--lg" />
           </div>
-        </div>
-        <div class="cf-mission__banner-item">
-          <AppIcon name="users" class="cf-icon cf-icon--brand cf-icon--lg" />
-          <div>
-            <p class="cf-mission__title">Comunidad activa y real</p>
-            <p class="cf-mission__text">Miles de miembros reales compartiendo experiencias auténticas cada día.</p>
-          </div>
+          <h3 class="cf-mission__card-title">{{ m.title }}</h3>
+          <p class="cf-mission__card-text">{{ m.text }}</p>
         </div>
       </div>
     </section>
@@ -223,7 +339,7 @@ function submitContact() {
         <p class="cf-body cf-body--light">
           Fiestas exclusivas, reuniones privadas y experiencias diseñadas para conectar, explorar y disfrutar en un ambiente seguro, selecto y lleno de posibilidades.
         </p>
-        <a href="#proximos-eventos" class="cf-btn cf-btn--primary cf-btn--lg">
+        <a href="#proximos-eventos" class="cf-btn cf-btn--primary cf-btn--lg" @click="scrollToSection($event, 'proximos-eventos')">
           Descubrir próximos eventos <span aria-hidden="true">→</span>
         </a>
       </div>
@@ -244,41 +360,104 @@ function submitContact() {
       </div>
     </section>
 
-    <!-- ================= PRÓXIMOS EVENTOS ================= -->
+    <!-- ================= PRÓXIMOS EVENTOS MEJORADO ================= -->
     <section id="proximos-eventos" class="cf-section cf-upcoming">
-      <p class="cf-eyebrow cf-eyebrow--center">Próximos eventos</p>
-      <div class="cf-upcoming__grid">
-        <article v-for="ev in events" :key="ev.title" class="cf-event-card">
+      <div class="cf-upcoming__header">
+        <p class="cf-eyebrow cf-eyebrow--center">Próximos eventos</p>
+        <h2 class="cf-upcoming__title">
+          Descubre las próximas <span class="cf-accent-italic">experiencias</span>
+        </h2>
+        <p class="cf-upcoming__subtitle">
+          Eventos exclusivos diseñados para conectar, explorar y vivir momentos únicos.
+        </p>
+      </div>
+      
+      <!-- Si hay eventos -->
+      <div v-if="hayEventos" class="cf-upcoming__grid">
+        <article v-for="(ev, index) in eventosProximos" :key="ev.id" class="cf-event-card" :style="{ animationDelay: (index * 0.15) + 's' }">
           <div class="cf-event-card__media">
-            <img :src="ev.image" :alt="ev.title" />
+            <img :src="ev.imagen" :alt="ev.titulo" />
+            <div class="cf-event-card__badge">
+              <span class="cf-event-card__badge-icon">✦</span>
+              Evento exclusivo
+            </div>
             <div class="cf-event-card__date">
-              <span class="cf-event-card__day">{{ ev.day }}</span>
-              <span class="cf-event-card__month">{{ ev.month }}</span>
+              <span class="cf-event-card__day">{{ ev.dia }}</span>
+              <span class="cf-event-card__month">{{ ev.mes }}</span>
             </div>
           </div>
           <div class="cf-event-card__body">
-            <h3 class="cf-event-card__title">{{ ev.title }}</h3>
-            <p class="cf-event-card__meta">📍 {{ ev.location }} &nbsp; ⏱ {{ ev.time }}</p>
-            <p class="cf-event-card__text">{{ ev.text }}</p>
-            <a href="#" class="cf-link">Más información <span aria-hidden="true">→</span></a>
+            <div class="cf-event-card__meta-top">
+              <span class="cf-event-card__location">
+                <AppIcon name="map-marker" class="cf-event-card__icon" />
+                {{ ev.ubicacion }}
+              </span>
+              <span class="cf-event-card__time">
+                <AppIcon name="clock" class="cf-event-card__icon" />
+                {{ ev.hora }}
+              </span>
+            </div>
+            <h3 class="cf-event-card__title">{{ ev.titulo }}</h3>
+            <p class="cf-event-card__text">{{ ev.texto }}</p>
+            <div class="cf-event-card__footer">
+              <a href="#" class="cf-link">
+                Ver detalles <span aria-hidden="true">→</span>
+              </a>
+              <button class="cf-event-card__btn">
+                <AppIcon name="heart" class="cf-event-card__heart" />
+              </button>
+            </div>
           </div>
         </article>
       </div>
+
+      <!-- Si NO hay eventos -->
+      <div v-else class="cf-no-events">
+        <div class="cf-no-events__content">
+          <div class="cf-no-events__icon-wrapper">
+            <AppIcon name="calendar" class="cf-no-events__icon" />
+          </div>
+          <h3 class="cf-no-events__title">Próximamente nuevos eventos</h3>
+          <p class="cf-no-events__text">
+            Estamos preparando experiencias increíbles para ti. 
+            <br />¡Muy pronto anunciaremos nuestras próximas fechas!
+          </p>
+          <div class="cf-no-events__actions">
+            <Link :href="route('register.invite')" class="cf-btn cf-btn--primary cf-btn--sm">
+              <AppIcon name="bell" class="cf-btn__icon" />
+              Recibir notificaciones
+            </Link>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- ================= CTA COMUNIDAD ================= -->
+    <!-- ================= CTA COMUNIDAD MEJORADO ================= -->
     <section class="cf-cta">
-      <img src="/images/cta-band.jpg" alt="" class="cf-cta__bg" aria-hidden="true" />
+      <div class="cf-cta__bg-wrapper">
+        <img src="/images/cta-band.jpg" alt="" class="cf-cta__bg" />
+        <div class="cf-cta__overlay"></div>
+      </div>
       <div class="cf-cta__content">
-        <h2 class="cf-h2 cf-h2--light">Sé parte de algo excepcional.</h2>
-        <p class="cf-body cf-body--light cf-cta__text">
-          Únete a nuestra comunidad y accede a eventos, experiencias y momentos que transformarán tu forma de vivir tu fantasía.
-        </p>
-        <div class="cf-cta__grid">
-          <div class="cf-cta__item"><AppIcon name="ticket" class="cf-icon cf-icon--brand" /> Acceso a eventos</div>
-          <div class="cf-cta__item"><AppIcon name="mail" class="cf-icon cf-icon--brand" /> Invitaciones anticipadas</div>
-          <div class="cf-cta__item"><AppIcon name="shield-check" class="cf-icon cf-icon--brand" /> Comunidad segura y verificada</div>
-          <div class="cf-cta__item"><AppIcon name="gem" class="cf-icon cf-icon--brand" /> Experiencias inolvidables</div>
+        <div class="cf-cta__inner">
+          <span class="cf-cta__badge">✦ Comunidad exclusiva</span>
+          <h2 class="cf-cta__title">
+            Sé parte de algo <span class="cf-cta__title-highlight">excepcional.</span>
+          </h2>
+          <p class="cf-cta__text">
+            Únete a nuestra comunidad y accede a eventos, experiencias y momentos 
+            que transformarán tu forma de vivir tu fantasía.
+          </p>
+          <div class="cf-cta__actions">
+            <Link :href="route('register.invite')" class="cf-btn cf-btn--primary cf-btn--lg cf-cta__btn">
+              <AppIcon name="ticket" class="cf-btn__icon" />
+              Unirme ahora
+              <span aria-hidden="true">→</span>
+            </Link>
+            <a href="#servicios" class="cf-cta__link" @click="scrollToSection($event, 'servicios')">
+              Explorar servicios <span aria-hidden="true">→</span>
+            </a>
+          </div>
         </div>
       </div>
     </section>
@@ -291,20 +470,20 @@ function submitContact() {
         <p class="cf-body">Estamos para ayudarte. Escríbenos y nuestro equipo te responderá de manera discreta y personalizada.</p>
         <ul class="cf-contact__list">
           <li class="cf-contact__list-item">
-            <AppIcon name="shield-check" class="cf-icon cf-icon--brand" />
-            <div><p class="cf-mission__title">Privacidad garantizada</p><p class="cf-mission__text">Tu información está 100% protegida.</p></div>
+            <AppIcon name="shield" class="cf-icon cf-icon--brand" />
+            <div><p class="cf-mission__card-title">Privacidad garantizada</p><p class="cf-mission__card-text">Tu información está 100% protegida.</p></div>
           </li>
           <li class="cf-contact__list-item">
-            <AppIcon name="eye-off" class="cf-icon cf-icon--brand" />
-            <div><p class="cf-mission__title">Respuesta discreta</p><p class="cf-mission__text">Atención personalizada y confidencial.</p></div>
+            <AppIcon name="eye-slash" class="cf-icon cf-icon--brand" />
+            <div><p class="cf-mission__card-title">Respuesta discreta</p><p class="cf-mission__card-text">Atención personalizada y confidencial.</p></div>
           </li>
           <li class="cf-contact__list-item">
             <AppIcon name="ticket" class="cf-icon cf-icon--brand" />
-            <div><p class="cf-mission__title">Acceso por invitación</p><p class="cf-mission__text">Comunidad exclusiva y selecta.</p></div>
+            <div><p class="cf-mission__card-title">Acceso por invitación</p><p class="cf-mission__card-text">Comunidad exclusiva y selecta.</p></div>
           </li>
           <li class="cf-contact__list-item">
             <AppIcon name="clock" class="cf-icon cf-icon--brand" />
-            <div><p class="cf-mission__title">Tiempos de respuesta</p><p class="cf-mission__text">Respondemos en menos de 24 horas.</p></div>
+            <div><p class="cf-mission__card-title">Tiempos de respuesta</p><p class="cf-mission__card-text">Respondemos en menos de 24 horas.</p></div>
           </li>
         </ul>
       </div>
@@ -352,7 +531,7 @@ function submitContact() {
         </div>
 
         <div class="cf-help">
-          <p class="cf-mission__title">¿Necesitas ayuda?</p>
+          <p class="cf-mission__card-title">¿Necesitas ayuda?</p>
           <p class="cf-help__text">Nuestro equipo está listo para asesorarte en lo que necesites.</p>
           <a href="#" class="cf-btn cf-btn--primary cf-btn--sm">Hablar por WhatsApp</a>
         </div>
@@ -361,40 +540,125 @@ function submitContact() {
 
     <!-- ================= FOOTER ================= -->
     <footer class="cf-footer">
+      <!-- Grid principal del footer -->
       <div class="cf-footer__grid">
+        <!-- Columna 1: Marca -->
         <div class="cf-footer__brand">
-          <span class="cf-brand">
-            <span class="cf-brand__mark"></span>
-            <span class="cf-brand__name">Club<br />de Fantasías</span>
-          </span>
-          <p class="cf-footer__text">Conexiones reales, experiencias auténticas y momentos inolvidables en un entorno seguro, discreto y confiable.</p>
+          <Link href="/" class="cf-brand">
+            <img 
+              src="/images/LOGO.png" 
+              alt="Club de Fantasías" 
+              class="cf-footer__logo"
+            />
+          </Link>
+          <p class="cf-footer__text">
+            Conexiones reales, experiencias auténticas y momentos inolvidables en un entorno seguro, discreto y confiable.
+          </p>
+          <div class="cf-footer__social">
+            <a href="#" class="cf-footer__social-link" aria-label="Instagram">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+              </svg>
+            </a>
+            <a href="#" class="cf-footer__social-link" aria-label="Twitter">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/>
+              </svg>
+            </a>
+            <a href="#" class="cf-footer__social-link" aria-label="YouTube">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/>
+                <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/>
+              </svg>
+            </a>
+            <a href="#" class="cf-footer__social-link" aria-label="WhatsApp">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+              </svg>
+            </a>
+            <a href="#" class="cf-footer__social-link" aria-label="TikTok">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/>
+              </svg>
+            </a>
+          </div>
         </div>
+
+        <!-- Columna 2: Navegación -->
         <div class="cf-footer__col">
-          <p class="cf-footer__heading">Navegación</p>
+          <p class="cf-footer__heading">
+            <AppIcon name="compass" class="cf-icon cf-icon--brand" />
+            Navegación
+          </p>
           <ul class="cf-footer__list">
-            <li><a href="#inicio">Inicio</a></li>
-            <li><a href="#quienes-somos">Quiénes somos</a></li>
-            <li><a href="#servicios">Servicios</a></li>
-            <li><a href="#eventos">Eventos</a></li>
-            <li><a href="#contacto">Contacto</a></li>
+            <li><a href="#inicio" @click="scrollToSection($event, 'inicio')">Inicio</a></li>
+            <li><a href="#quienes-somos" @click="scrollToSection($event, 'quienes-somos')">Quiénes somos</a></li>
+            <li><a href="#servicios" @click="scrollToSection($event, 'servicios')">Servicios</a></li>
+            <li><a href="#eventos" @click="scrollToSection($event, 'eventos')">Eventos</a></li>
+            <li><a href="#contacto" @click="scrollToSection($event, 'contacto')">Contacto</a></li>
           </ul>
         </div>
+
+        <!-- Columna 3: Legal -->
         <div class="cf-footer__col">
-          <p class="cf-footer__heading">Legal</p>
+          <p class="cf-footer__heading">
+            <AppIcon name="shield" class="cf-icon cf-icon--brand" />
+            Legal
+          </p>
           <ul class="cf-footer__list">
             <li><a href="#">Términos y condiciones</a></li>
             <li><a href="#">Política de privacidad</a></li>
             <li><a href="#">Aviso legal</a></li>
+            <li><a href="#">Política de cookies</a></li>
+            <li><a href="#">Condiciones de uso</a></li>
           </ul>
         </div>
-        <div class="cf-footer__col">
-          <p class="cf-footer__heading">Únete a nuestra comunidad</p>
-          <p class="cf-footer__text">Acceso exclusivo por invitación.</p>
-          <Link :href="route('register')" class="cf-btn cf-btn--primary cf-btn--sm">Registro →</Link>
+
+        <!-- Columna 4: Comunidad + Contacto -->
+        <div class="cf-footer__col cf-footer__col--contact">
+          <p class="cf-footer__heading">
+            <AppIcon name="users" class="cf-icon cf-icon--brand" />
+            Comunidad
+          </p>
+          <p class="cf-footer__text cf-footer__text--small">
+            Acceso exclusivo por invitación. Únete a una comunidad de personas reales buscando experiencias auténticas.
+          </p>
+          <Link :href="route('register.invite')" class="cf-btn cf-btn--primary cf-btn--sm cf-footer__cta">
+            Registrarme <span aria-hidden="true">→</span>
+          </Link>
+          
+          <div class="cf-footer__contact-info">
+            <div class="cf-footer__contact-item">
+              <AppIcon name="envelope" class="cf-icon cf-icon--brand" />
+              <a href="mailto:info@clubfantasias.com">info@clubfantasias.com</a>
+            </div>
+            <div class="cf-footer__contact-item">
+              <AppIcon name="phone" class="cf-icon cf-icon--brand" />
+              <a href="tel:+521234567890">+52 123 456 7890</a>
+            </div>
+            <div class="cf-footer__contact-item">
+              <AppIcon name="clock" class="cf-icon cf-icon--brand" />
+              <span>Lun - Vie: 10:00 - 20:00</span>
+            </div>
+          </div>
         </div>
       </div>
+
+      <!-- Bottom bar -->
       <div class="cf-footer__bottom">
-        © {{ new Date().getFullYear() }} Club de Fantasías. Todos los derechos reservados.
+        <div class="cf-footer__bottom-content">
+          <span>
+            © {{ new Date().getFullYear() }} Club de Fantasías. 
+            <span class="cf-footer__bottom-separator">|</span>
+            Todos los derechos reservados.
+          </span>
+          <span class="cf-footer__bottom-badge">
+            <AppIcon name="shield" class="cf-icon cf-icon--brand" />
+            Comunidad verificada
+          </span>
+        </div>
       </div>
     </footer>
   </div>
@@ -496,6 +760,11 @@ function submitContact() {
   font-weight: 700;
   text-decoration: none;
   margin-top: 0.75rem;
+  transition: gap 0.3s ease;
+}
+
+.cf-link:hover {
+  gap: 0.6rem;
 }
 
 /* Botones */
@@ -512,8 +781,13 @@ function submitContact() {
   padding: 0.75rem 1.4rem;
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: all 0.3s ease;
   white-space: nowrap;
+}
+
+.cf-btn__icon {
+  width: 16px;
+  height: 16px;
 }
 
 .cf-btn--primary {
@@ -522,6 +796,8 @@ function submitContact() {
 }
 .cf-btn--primary:hover {
   background: var(--brand-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(200, 30, 58, 0.3);
 }
 
 .cf-btn--ghost {
@@ -569,29 +845,34 @@ function submitContact() {
 
 /* Iconos */
 .cf-icon {
-  width: 22px;
-  height: 22px;
+  font-size: 20px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .cf-icon--brand {
   color: var(--brand);
 }
 .cf-icon--lg {
-  width: 28px;
-  height: 28px;
-  margin-bottom: 1rem;
+  font-size: 28px;
+  margin-bottom: 0.5rem;
 }
 
 /* =========================================================================
-   NAVBAR
+   NAVBAR BLANCO
    ========================================================================= */
 .cf-header {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(6px);
+  background: var(--white);
   border-bottom: 1px solid var(--line);
+  transition: box-shadow 0.3s ease;
+}
+
+.cf-header.scrolled {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .cf-nav {
@@ -608,24 +889,19 @@ function submitContact() {
 .cf-brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
   text-decoration: none;
   color: var(--ink);
 }
 
-.cf-brand__mark {
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  background: var(--ink);
-  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+.cf-brand__logo {
+  height: 50px;
+  width: auto;
+  object-fit: contain;
+  transition: transform 0.3s ease;
 }
 
-.cf-brand__name {
-  font-family: var(--font-serif);
-  font-weight: 600;
-  font-size: 1.05rem;
-  line-height: 1.15;
+.cf-brand__logo:hover {
+  transform: scale(1.05);
 }
 
 .cf-nav__links {
@@ -641,20 +917,67 @@ function submitContact() {
   text-decoration: none;
   color: inherit;
   padding-bottom: 0.35rem;
-  transition: color 0.15s ease;
+  position: relative;
+  transition: color 0.3s ease;
+  cursor: pointer;
 }
+
+.cf-nav__link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--brand);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .cf-nav__link:hover {
   color: var(--brand);
 }
+
+.cf-nav__link:hover::after {
+  width: 100%;
+}
+
 .cf-nav__link--active {
   color: var(--ink);
-  border-bottom: 2px solid var(--brand);
+  font-weight: 600;
+}
+
+.cf-nav__link--active::after {
+  width: 100%;
+  background: var(--brand);
 }
 
 .cf-nav__actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.cf-nav__hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.cf-nav__hamburger span {
+  display: block;
+  width: 25px;
+  height: 2.5px;
+  background: var(--ink);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.cf-nav__hamburger:hover span {
+  background: var(--brand);
 }
 
 /* =========================================================================
@@ -722,7 +1045,6 @@ function submitContact() {
   background: linear-gradient(to right, var(--white), rgba(255, 255, 255, 0.05));
 }
 
-/* Franja de features */
 .cf-features {
   border-top: 1px solid var(--line);
 }
@@ -740,9 +1062,15 @@ function submitContact() {
   gap: 0.75rem;
   padding: 2rem 1.5rem;
   border-left: 1px solid var(--line);
+  transition: background-color 0.3s ease;
 }
+
 .cf-features__item:first-child {
   border-left: none;
+}
+
+.cf-features__item:hover {
+  background: var(--surface);
 }
 
 .cf-features__title {
@@ -779,6 +1107,12 @@ function submitContact() {
 .cf-about__media {
   border-radius: var(--radius-lg);
   overflow: hidden;
+  transition: transform 0.5s ease, box-shadow 0.5s ease;
+}
+
+.cf-about__media:hover {
+  transform: scale(1.02);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
 }
 
 .cf-about__media img {
@@ -788,64 +1122,139 @@ function submitContact() {
 }
 
 /* =========================================================================
-   NUESTRA MISIÓN
+   NUESTRA MISIÓN MEJORADA
    ========================================================================= */
 .cf-mission {
-  background: var(--surface);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--white) 100%);
   padding: 6rem 0;
 }
 
 .cf-mission__intro {
-  max-width: 620px;
+  max-width: 700px;
   margin: 0 auto;
   text-align: center;
   padding: 0 1.5rem;
 }
 
-.cf-mission__grid {
-  max-width: var(--container);
-  margin: 3.5rem auto 0;
-  padding: 0 2.5rem;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  background: var(--line);
-}
-
-.cf-mission__card {
-  background: var(--surface);
-  padding: 2rem;
+.cf-mission__badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--brand);
+  background: rgba(200, 30, 58, 0.08);
+  padding: 0.4rem 1.2rem;
+  border-radius: var(--radius-full);
+  margin-bottom: 1.5rem;
 }
 
 .cf-mission__title {
-  font-weight: 600;
-  font-size: 0.85rem;
-  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 2.8rem;
+  font-weight: 500;
+  line-height: 1.1;
+  margin: 0 0 1.5rem;
 }
 
-.cf-mission__text {
-  font-size: 0.78rem;
+.cf-mission__title-highlight {
+  color: var(--brand);
+  font-style: italic;
+  position: relative;
+}
+
+.cf-mission__title-highlight::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: rgba(200, 30, 58, 0.15);
+  border-radius: 2px;
+}
+
+.cf-mission__description {
+  font-size: 1.05rem;
   color: var(--muted);
-  line-height: 1.6;
-  margin: 0.4rem 0 0;
+  line-height: 1.8;
+  max-width: 560px;
+  margin: 0 auto;
 }
 
-.cf-mission__banner {
+.cf-mission__grid {
   max-width: var(--container);
-  margin: 1px auto 0;
+  margin: 4rem auto 0;
   padding: 0 2.5rem;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1px;
-  background: var(--line);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
 }
 
-.cf-mission__banner-item {
+.cf-mission__card {
   background: var(--white);
-  padding: 2rem;
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+  padding: 2.5rem 2rem;
+  border-radius: var(--radius-lg);
+  text-align: center;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+}
+
+.cf-mission__card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--brand);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.cf-mission__card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.06);
+  border-color: transparent;
+}
+
+.cf-mission__card:hover::before {
+  opacity: 1;
+}
+
+.cf-mission__card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(200, 30, 58, 0.06);
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+
+.cf-mission__card:hover .cf-mission__card-icon {
+  background: var(--brand);
+}
+
+.cf-mission__card:hover .cf-mission__card-icon .cf-icon {
+  color: var(--white) !important;
+}
+
+.cf-mission__card-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin: 0 0 0.5rem;
+}
+
+.cf-mission__card-text {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
 }
 
 /* =========================================================================
@@ -864,6 +1273,15 @@ function submitContact() {
   gap: 1.5rem;
 }
 
+.cf-service-card {
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.cf-service-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+}
+
 .cf-service-card__media {
   aspect-ratio: 4 / 3;
   border-radius: var(--radius-md);
@@ -875,10 +1293,11 @@ function submitContact() {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.4s ease;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .cf-service-card:hover .cf-service-card__media img {
-  transform: scale(1.05);
+  transform: scale(1.08);
 }
 
 .cf-service-card__title {
@@ -920,6 +1339,7 @@ function submitContact() {
 .cf-events-hero__media {
   position: relative;
   min-height: 320px;
+  overflow: hidden;
 }
 
 .cf-events-hero__media img {
@@ -928,9 +1348,16 @@ function submitContact() {
   object-fit: cover;
   position: absolute;
   inset: 0;
+  transition: transform 0.6s ease;
 }
 
-/* Tipos de experiencias */
+.cf-events-hero__media:hover img {
+  transform: scale(1.05);
+}
+
+/* =========================================================================
+   EXPERIENCIAS
+   ========================================================================= */
 .cf-experiences {
   padding-top: 4rem;
   padding-bottom: 4rem;
@@ -948,22 +1375,29 @@ function submitContact() {
   border-radius: var(--radius-sm);
   overflow: hidden;
   aspect-ratio: 1 / 1;
+  cursor: pointer;
 }
 
 .cf-experiences__item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.4s ease;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .cf-experiences__item:hover img {
-  transform: scale(1.05);
+  transform: scale(1.1);
 }
 
 .cf-experiences__overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.05) 60%, transparent);
+  transition: opacity 0.3s ease;
+}
+
+.cf-experiences__item:hover .cf-experiences__overlay {
+  opacity: 0.8;
 }
 
 .cf-experiences__label {
@@ -975,125 +1409,409 @@ function submitContact() {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  transition: transform 0.3s ease;
 }
 
-/* Próximos eventos */
+.cf-experiences__item:hover .cf-experiences__label {
+  transform: translateY(-4px);
+}
+
+/* =========================================================================
+   PRÓXIMOS EVENTOS MEJORADO
+   ========================================================================= */
+.cf-upcoming__header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.cf-upcoming__title {
+  font-family: var(--font-serif);
+  font-size: 2.4rem;
+  font-weight: 500;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.cf-upcoming__subtitle {
+  color: var(--muted);
+  font-size: 0.95rem;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
 .cf-upcoming__grid {
-  margin-top: 2.5rem;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem;
+  gap: 1.8rem;
 }
 
 .cf-event-card {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  background: var(--white);
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  border: 1px solid var(--line);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  transform: translateY(30px);
+  animation: fadeInUp 0.6s ease forwards;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cf-event-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.08);
+  border-color: var(--brand);
 }
 
 .cf-event-card__media {
   position: relative;
   aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--ink);
 }
 
 .cf-event-card__media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cf-event-card:hover .cf-event-card__media img {
+  transform: scale(1.08);
+}
+
+.cf-event-card__badge {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: var(--brand);
+  color: var(--white);
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cf-event-card__badge-icon {
+  font-size: 0.5rem;
 }
 
 .cf-event-card__date {
   position: absolute;
-  top: 0.75rem;
+  bottom: 0.75rem;
   left: 0.75rem;
-  background: var(--white);
-  border-radius: 8px;
-  padding: 0.4rem 0.75rem;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.7rem;
   text-align: center;
   line-height: 1;
+  min-width: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .cf-event-card__day {
   display: block;
-  color: var(--brand);
+  color: var(--white);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 1.1rem;
 }
 
 .cf-event-card__month {
   display: block;
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: var(--muted);
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .cf-event-card__body {
-  padding: 1.25rem;
+  padding: 1.25rem 1.25rem 1.25rem;
+}
+
+.cf-event-card__meta-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.cf-event-card__location,
+.cf-event-card__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  color: var(--muted-light);
+}
+
+.cf-event-card__icon {
+  font-size: 12px;
+  color: var(--brand);
 }
 
 .cf-event-card__title {
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  margin: 0;
-}
-
-.cf-event-card__meta {
-  font-size: 0.72rem;
-  color: var(--muted-light);
-  margin: 0.4rem 0 0;
+  margin: 0 0 0.4rem;
 }
 
 .cf-event-card__text {
   font-size: 0.78rem;
   color: var(--muted);
   line-height: 1.6;
-  margin: 0.5rem 0 0;
+  margin: 0 0 0.75rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cf-event-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.cf-event-card__btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.3s ease;
+  color: var(--muted-light);
+}
+
+.cf-event-card__btn:hover {
+  background: rgba(200, 30, 58, 0.06);
+  color: var(--brand);
+  transform: scale(1.1);
+}
+
+.cf-event-card__heart {
+  font-size: 18px;
+  color: currentColor;
 }
 
 /* =========================================================================
-   CTA COMUNIDAD
+   NO EVENTS MEJORADO
+   ========================================================================= */
+.cf-no-events {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  padding: 2rem;
+}
+
+.cf-no-events__content {
+  text-align: center;
+  max-width: 500px;
+  padding: 3rem 2rem;
+}
+
+.cf-no-events__icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(200, 30, 58, 0.06);
+  margin-bottom: 1.5rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.cf-no-events__icon {
+  font-size: 40px;
+  color: var(--brand);
+}
+
+.cf-no-events__title {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  font-weight: 500;
+  margin: 0 0 0.75rem;
+  color: var(--ink);
+}
+
+.cf-no-events__text {
+  font-size: 0.95rem;
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 0 0 1.5rem;
+}
+
+.cf-no-events__actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* =========================================================================
+   CTA COMUNIDAD MEJORADO
    ========================================================================= */
 .cf-cta {
   position: relative;
   background: var(--ink);
   color: var(--white);
   overflow: hidden;
+  min-height: 520px;
+  width: 100%;
 }
 
-.cf-cta__bg {
+.cf-cta__bg-wrapper {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+}
+
+.cf-cta__bg {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  opacity: 0.4;
+  object-position: center 40%;
+  display: block;
+}
+
+.cf-cta__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(23, 20, 18, 0.85) 0%,
+    rgba(23, 20, 18, 0.4) 50%,
+    rgba(23, 20, 18, 0.7) 100%
+  );
 }
 
 .cf-cta__content {
   position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 520px;
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+.cf-cta__inner {
   max-width: var(--container);
   margin: 0 auto;
   padding: 4rem 2.5rem;
+  width: 100%;
+}
+
+.cf-cta__badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.35rem 1rem;
+  border-radius: var(--radius-full);
+  margin-bottom: 1.5rem;
+}
+
+.cf-cta__title {
+  font-family: var(--font-serif);
+  font-size: 3.2rem;
+  font-weight: 500;
+  line-height: 1.1;
+  margin: 0 0 1.25rem;
+  max-width: 700px;
+}
+
+.cf-cta__title-highlight {
+  color: var(--brand);
+  font-style: italic;
+  position: relative;
+}
+
+.cf-cta__title-highlight::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: rgba(200, 30, 58, 0.25);
+  border-radius: 2px;
 }
 
 .cf-cta__text {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.8;
   max-width: 560px;
+  margin: 0 0 2rem;
 }
 
-.cf-cta__grid {
-  margin-top: 2rem;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
-  max-width: 720px;
-}
-
-.cf-cta__item {
+.cf-cta__actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.78rem;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.cf-cta__btn {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--white);
+  padding: 0.85rem 2rem;
+  font-size: 0.9rem;
+  gap: 0.75rem;
+}
+
+.cf-cta__btn:hover {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(200, 30, 58, 0.35);
+}
+
+.cf-cta__link {
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  font-size: 0.85rem;
   font-weight: 500;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cf-cta__link:hover {
+  color: var(--white);
+  gap: 0.8rem;
 }
 
 /* =========================================================================
@@ -1118,12 +1836,25 @@ function submitContact() {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.3s ease;
+}
+
+.cf-contact__list-item:hover {
+  background: var(--surface);
 }
 
 .cf-form {
   background: var(--surface);
   border-radius: var(--radius-lg);
   padding: 2rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.cf-form:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
 }
 
 .cf-form__title {
@@ -1161,7 +1892,9 @@ function submitContact() {
   font-family: inherit;
   color: var(--ink);
   background: var(--white);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
+
 .cf-input:focus {
   outline: none;
   border-color: var(--brand);
@@ -1179,6 +1912,9 @@ function submitContact() {
   margin: 0.75rem 0 0;
 }
 
+/* =========================================================================
+   FAQ
+   ========================================================================= */
 .cf-faq__list {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -1206,6 +1942,11 @@ function submitContact() {
   font-weight: 500;
   color: var(--ink);
   cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.cf-faq__question:hover {
+  color: var(--brand);
 }
 
 .cf-faq__toggle {
@@ -1213,6 +1954,11 @@ function submitContact() {
   font-size: 1.2rem;
   line-height: 1;
   flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.cf-faq__open .cf-faq__toggle {
+  transform: rotate(45deg);
 }
 
 .cf-faq__answer {
@@ -1229,9 +1975,14 @@ function submitContact() {
   color: var(--white);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
+  transition: transform 0.3s ease;
 }
 
-.cf-help .cf-mission__title {
+.cf-help:hover {
+  transform: translateY(-4px);
+}
+
+.cf-help .cf-mission__card-title {
   color: var(--white);
 }
 
@@ -1250,7 +2001,9 @@ function submitContact() {
    FOOTER
    ========================================================================= */
 .cf-footer {
-  border-top: 1px solid var(--line);
+  background: var(--ink);
+  color: var(--white);
+  border-top: none;
 }
 
 .cf-footer__grid {
@@ -1258,24 +2011,86 @@ function submitContact() {
   margin: 0 auto;
   padding: 4rem 2.5rem;
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 1.2fr;
   gap: 2.5rem;
 }
 
+.cf-footer__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cf-footer__logo {
+  height: 45px;
+  width: auto;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.cf-footer__logo:hover {
+  transform: scale(1.05);
+}
+
 .cf-footer__text {
-  font-size: 0.78rem;
-  color: var(--muted);
-  line-height: 1.6;
-  max-width: 260px;
-  margin: 1rem 0 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.7;
+  max-width: 320px;
+  margin: 0;
+}
+
+.cf-footer__text--small {
+  font-size: 0.75rem;
+}
+
+.cf-footer__social {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.cf-footer__social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.cf-footer__social-link:hover {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--white);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(200, 30, 58, 0.3);
+}
+
+.cf-footer__col {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cf-footer__col--contact {
+  gap: 0.75rem;
 }
 
 .cf-footer__heading {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin: 0 0 1rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 0 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .cf-footer__list {
@@ -1284,28 +2099,107 @@ function submitContact() {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.5rem;
 }
 
 .cf-footer__list a {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.6);
   text-decoration: none;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
 }
-.cf-footer__list a:hover {
+
+.cf-footer__list a::before {
+  content: '›';
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.3s ease;
   color: var(--brand);
 }
 
-.cf-footer__col .cf-btn {
+.cf-footer__list a:hover {
+  color: var(--white);
+  transform: translateX(4px);
+}
+
+.cf-footer__list a:hover::before {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.cf-footer__cta {
+  background: var(--brand);
+  border-color: var(--brand);
+  align-self: flex-start;
   margin-top: 0.5rem;
 }
 
+.cf-footer__cta:hover {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+}
+
+.cf-footer__contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cf-footer__contact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cf-footer__contact-item a {
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.cf-footer__contact-item a:hover {
+  color: var(--white);
+}
+
 .cf-footer__bottom {
-  border-top: 1px solid var(--line);
-  padding: 1.5rem;
-  text-align: center;
-  font-size: 0.68rem;
-  color: var(--muted-light);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 1.25rem 2.5rem;
+}
+
+.cf-footer__bottom-content {
+  max-width: var(--container);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cf-footer__bottom-separator {
+  margin: 0 0.5rem;
+  opacity: 0.3;
+}
+
+.cf-footer__bottom-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* =========================================================================
@@ -1318,8 +2212,7 @@ function submitContact() {
   .cf-experiences__grid {
     grid-template-columns: repeat(3, 1fr);
   }
-  .cf-mission__grid,
-  .cf-mission__banner {
+  .cf-mission__grid {
     grid-template-columns: repeat(2, 1fr);
   }
   .cf-contact {
@@ -1328,12 +2221,34 @@ function submitContact() {
   .cf-footer__grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .cf-upcoming__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 900px) {
   .cf-nav__links {
     display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 80px;
+    left: 0;
+    right: 0;
+    background: var(--white);
+    padding: 1.5rem;
+    gap: 1.25rem;
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   }
+
+  .cf-nav__links--open {
+    display: flex;
+  }
+
+  .cf-nav__hamburger {
+    display: flex;
+  }
+
   .cf-hero__grid,
   .cf-about,
   .cf-events-hero {
@@ -1361,15 +2276,47 @@ function submitContact() {
     border-left: none;
     border-top: 1px solid var(--line);
   }
-  .cf-upcoming__grid,
   .cf-services__grid {
     grid-template-columns: 1fr;
   }
   .cf-experiences__grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .cf-upcoming__grid {
+    grid-template-columns: 1fr;
+  }
   .cf-nav__actions .cf-btn--ghost {
     display: none;
+  }
+
+  .cf-mission__title {
+    font-size: 2.2rem;
+  }
+
+  .cf-cta {
+    min-height: 450px;
+  }
+
+  .cf-cta__content {
+    min-height: 450px;
+  }
+
+  .cf-cta__inner {
+    padding: 3rem 1.5rem;
+  }
+
+  .cf-cta__title {
+    font-size: 2.5rem;
+    max-width: 100%;
+  }
+
+  .cf-cta__text {
+    font-size: 1rem;
+    max-width: 100%;
+  }
+
+  .cf-cta__bg {
+    object-position: center 50%;
   }
 }
 
@@ -1379,6 +2326,13 @@ function submitContact() {
   }
   .cf-nav {
     padding: 0 1.25rem;
+    height: 70px;
+  }
+  .cf-brand__logo {
+    height: 40px;
+  }
+  .cf-footer__logo {
+    height: 38px;
   }
   .cf-h2 {
     font-size: 1.9rem;
@@ -1389,11 +2343,139 @@ function submitContact() {
   .cf-footer__grid {
     grid-template-columns: 1fr;
     padding: 3rem 1.25rem;
+    gap: 2rem;
   }
-  .cf-mission__grid,
-  .cf-mission__banner {
+  
+  .cf-nav__links {
+    top: 70px;
+  }
+
+  .cf-footer__bottom {
+    padding: 1rem 1.25rem;
+  }
+
+  .cf-footer__bottom-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .cf-footer__bottom-separator {
+    display: none;
+  }
+
+  .cf-footer__social {
+    justify-content: center;
+  }
+
+  .cf-footer__cta {
+    align-self: center;
+  }
+
+  .cf-footer__text {
+    max-width: none;
+    text-align: center;
+  }
+
+  .cf-footer__brand {
+    align-items: center;
+  }
+
+  .cf-footer__col {
+    align-items: center;
+    text-align: center;
+  }
+
+  .cf-footer__list a {
+    justify-content: center;
+  }
+
+  .cf-footer__contact-info {
+    align-items: center;
+  }
+
+  .cf-mission__grid {
     grid-template-columns: 1fr;
     padding: 0 1.25rem;
+  }
+
+  .cf-mission__title {
+    font-size: 1.8rem;
+  }
+
+  .cf-no-events {
+    min-height: 250px;
+    padding: 1rem;
+  }
+
+  .cf-no-events__content {
+    padding: 2rem 1rem;
+  }
+
+  .cf-no-events__title {
+    font-size: 1.3rem;
+  }
+
+  .cf-cta__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cf-upcoming__title {
+    font-size: 1.8rem;
+  }
+
+  .cf-event-card__badge {
+    font-size: 0.45rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .cf-event-card__date {
+    min-width: 44px;
+    padding: 0.3rem 0.5rem;
+  }
+
+  .cf-event-card__day {
+    font-size: 0.9rem;
+  }
+
+  .cf-cta {
+    min-height: 400px;
+  }
+
+  .cf-cta__content {
+    min-height: 400px;
+  }
+
+  .cf-cta__inner {
+    padding: 2.5rem 1.25rem;
+    text-align: center;
+  }
+
+  .cf-cta__title {
+    font-size: 2rem;
+  }
+
+  .cf-cta__text {
+    font-size: 0.9rem;
+  }
+
+  .cf-cta__actions {
+    justify-content: center;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cf-cta__btn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .cf-cta__link {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .cf-cta__badge {
+    font-size: 0.55rem;
   }
 }
 </style>

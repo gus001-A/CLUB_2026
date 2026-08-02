@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Illuminate\Support\Facades\Log;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -35,9 +36,35 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Obtener datos de la sesión
+        $flash = session('flash', []);
+        $toast = session('toast');
+        $errors = session('errors');
+        
+        // LOG PARA DEBUG
+        Log::info('📦 HandleInertiaRequests - Share:', [
+            'flash' => $flash,
+            'toast' => $toast,
+            'has_errors' => !is_null($errors),
+            'session_id' => session()->getId()
+        ]);
+        
         return [
             ...parent::share($request),
-            //
+            
+            // Compartir flash messages
+            'flash' => $flash,
+            
+            // Compartir toast directamente (para compatibilidad)
+            'toast' => $toast,
+            
+            // Compartir errores de validación
+            'errors' => $errors ? $errors->getBag('default')->getMessages() : (object) [],
+            
+            // Compartir usuario autenticado
+            'auth' => [
+                'user' => $request->user(),
+            ],
         ];
     }
 }
