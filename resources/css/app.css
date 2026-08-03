@@ -11,3 +11,56 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/* ============================================================
+   Clases reutilizables del Panel de Administrador.
+   Úsalas en vez de repetir "bg-white rounded-2xl border..."
+   en cada página nueva.
+
+   IMPORTANTE: cada clase lleva su lista completa de utilidades.
+   No se encadenan clases personalizadas entre sí con @apply
+   (ej. @apply admin-card dentro de otra clase), porque Tailwind v4
+   no siempre resuelve bien esa herencia y termina sin aplicar nada.
+   ============================================================ */
+@layer components {
+
+    /* Tarjeta blanca base (KPIs, listas, formularios, etc.) */
+    .admin-card {
+        @apply bg-white rounded-2xl border border-gray-200 shadow-sm;
+    }
+
+    /* Tarjeta de KPI (número grande + icono a la derecha) */
+    .admin-kpi-card {
+        @apply bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between;
+    }
+
+    /* Círculo de icono (KPIs, listas, acciones rápidas) */
+    .admin-icon-circle {
+        @apply rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0;
+    }
+
+    /* Botón principal (rojo, para "Crear/Agregar/Guardar") */
+    .admin-btn-primary {
+        @apply bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 transition shadow-sm;
+    }
+
+    /* Botón secundario (borde gris, para "Cancelar/Volver") */
+    .admin-btn-secondary {
+        @apply text-gray-500 hover:text-gray-700 border border-gray-300 rounded-xl px-4 py-2.5 text-sm transition;
+    }
+
+    /* Input/select de filtros */
+    .admin-input {
+        @apply w-full rounded-xl border-gray-300 text-sm focus:border-brand focus:ring-brand;
+    }
+
+    /* Botón de acción pequeño en tablas (ver/editar/bloquear/eliminar) */
+    .admin-table-action {
+        @apply w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-100 transition flex items-center justify-center shrink-0;
+    }
+
+    /* Icono degradado de encabezado de sección (formularios: Crear/Editar) */
+    .admin-icon-gradient {
+        @apply rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0;
+    }
+}

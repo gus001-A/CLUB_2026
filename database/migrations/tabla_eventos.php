@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('eventos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('organizador_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('organizador_id')->nullable()->constrained('administradores')->nullOnDelete();
             $table->string('nombre');
             $table->text('descripcion')->nullable();
             $table->date('fecha');

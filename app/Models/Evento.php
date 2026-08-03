@@ -47,7 +47,7 @@ class Evento extends Model
     // Relaciones
     public function organizador()
     {
-        return $this->belongsTo(User::class, 'organizador_id');
+        return $this->belongsTo(Administrador::class, 'organizador_id');
     }
 
     public function reservas()

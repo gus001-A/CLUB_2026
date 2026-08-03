@@ -156,20 +156,20 @@ class EventoController extends Controller
             'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
         ]);
 
-        $evento = Evento::create($data + ['organizador_id' => null]);
+        $evento = Evento::create($data + ['organizador_id' => \Illuminate\Support\Facades\Auth::guard('admin')->id()]);
 
         return redirect()->route('admin.eventos.index')->with('success', "Evento \"{$evento->nombre}\" creado correctamente.");
     }
 
     public function show(Evento $evento): Response
     {
+        $evento->load('organizador:id,nombre');
         $evento->estado_display = $this->estadoDisplay($evento, now()->toDateString());
 
         return Inertia::render('Admin/Eventos/Show', [
             'evento' => $evento,
         ]);
     }
-
     public function edit(Evento $evento): Response
     {
         return Inertia::render('Admin/Eventos/Edit', [
