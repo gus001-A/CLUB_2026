@@ -1,10 +1,15 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import KpiCard from '@/Components/KpiCard.vue';
+import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
 import { Line } from 'vue-chartjs';
 import { Chart as ChartJS, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler } from 'chart.js';
 import { useToast } from '@/composables/useToast';
+import { useConfirm } from '@/composables/useConfirm';
+import { useFormatters } from '@/composables/useFormatters';
+import { useContenidoMeta } from '@/composables/useContenidoMeta';
 
 ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
@@ -18,10 +23,14 @@ const props = defineProps({
 });
 
 const toast = useToast();
+const { confirm } = useConfirm();
+const { formatDate } = useFormatters();
+const { tipoLabel, tipoIcono, tipoColor, estadoColores, estadoLabel } = useContenidoMeta();
 
 const q = ref(props.filtros.q || '');
 const tipo = ref(props.filtros.tipo || '');
 const estado = ref(props.filtros.estado || '');
+const periodoEstadisticas = ref(props.filtros.periodo_stats || 'mes');
 
 let timeout = null;
 watch([q, tipo, estado], () => {
@@ -31,26 +40,19 @@ watch([q, tipo, estado], () => {
             q: q.value || undefined,
             tipo: tipo.value || undefined,
             estado: estado.value || undefined,
+            periodo_stats: periodoEstadisticas.value,
         }, { preserveState: true, replace: true });
     }, 350);
 });
 
-function formatDate(v) {
-    if (!v) return '—';
-    return new Date(v).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+function cambiarPeriodoEstadisticas() {
+    router.get(route('admin.contenido.index'), {
+        q: q.value || undefined,
+        tipo: tipo.value || undefined,
+        estado: estado.value || undefined,
+        periodo_stats: periodoEstadisticas.value,
+    }, { preserveState: true, preserveScroll: true, replace: true });
 }
-
-const tipoLabel = { foto: 'Foto', video: 'Video', galeria: 'Galería', audio: 'Audio', articulo: 'Artículo', documento: 'Documento', exclusivo: 'Exclusivo' };
-const tipoIcono = { foto: 'pi-image', video: 'pi-video', galeria: 'pi-images', audio: 'pi-volume-up', articulo: 'pi-file-edit', documento: 'pi-file', exclusivo: 'pi-star' };
-const tipoColor = { video: 'bg-red-50 text-red-600', articulo: 'bg-blue-50 text-blue-600', galeria: 'bg-purple-50 text-purple-600', audio: 'bg-amber-50 text-amber-600', documento: 'bg-gray-100 text-gray-600', foto: 'bg-pink-50 text-pink-600', exclusivo: 'bg-brand/10 text-brand' };
-
-const estadoColores = {
-    publicado: 'bg-green-100 text-green-700',
-    borrador: 'bg-amber-100 text-amber-700',
-    programado: 'bg-blue-100 text-blue-700',
-    archivado: 'bg-gray-200 text-gray-600',
-};
-const estadoLabel = { publicado: 'Publicado', borrador: 'Borrador', programado: 'Programado', archivado: 'Archivado' };
 
 const tiposIconos = { video: 'pi-video', articulo: 'pi-file-edit', galeria: 'pi-images', audio: 'pi-volume-up', documento: 'pi-file' };
 const tiposNombres = { video: 'Videos', articulo: 'Artículos', galeria: 'Galerías', audio: 'Audios', documento: 'Documentos' };
@@ -67,7 +69,29 @@ const lineData = computed(() => ({
         pointRadius: 2,
     }],
 }));
-const lineOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } };
+const lineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+        x: {
+            ticks: {
+                autoSkip: false,
+                maxRotation: 0,
+                callback: function (value, index) {
+                    const label = this.getLabelForValue(value);
+                    const total = props.estadisticas.vistasPorDia.length;
+                    if (total <= 10) return label;
+                    const d = props.estadisticas.vistasPorDia[index];
+                    if (!d) return label;
+                    const dia = new Date(d.fecha).getDate();
+                    return (dia === 1 || (dia % 5 === 0 && dia < 30)) ? label : '';
+                },
+            },
+        },
+        y: { beginAtZero: true },
+    },
+};
 
 const accionesRapidas = [
     { label: 'Nuevo Video', desc: 'Sube y publica un nuevo video', icon: 'pi-video', tipo: 'video' },
@@ -83,6 +107,16 @@ function irA(a) {
     }
     router.visit(route('admin.contenido.create', { tipo: a.tipo }));
 }
+
+async function eliminarContenido(c) {
+    const ok = await confirm(`Esto eliminará "${c.titulo}" permanentemente.`, {
+        title: 'Eliminar contenido',
+        confirmLabel: 'Sí, eliminar',
+        danger: true,
+    });
+    if (!ok) return;
+    router.delete(route('admin.contenido.destroy', c.id), { preserveScroll: true });
+}
 </script>
 
 <template>
@@ -96,48 +130,21 @@ function irA(a) {
 
             <!-- Fila 1: KPIs -->
             <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full">
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">Total de Contenidos</p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.total }}</p>
-                        <p class="text-xs text-brand mt-1 font-medium">+{{ stats.nuevosEsteMes }} nuevos este mes</p>
-                    </div>
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                        <i class="pi pi-play text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Total de Contenidos" :value="stats.total" icon="pi-play"
+                        :hint="`+${stats.nuevosEsteMes} nuevos este mes`" />
                 </div>
-
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">Publicados</p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.publicados }}</p>
-                        <p class="text-xs text-gray-400 mt-1 font-medium">{{ stats.total ? Math.round((stats.publicados / stats.total) * 100) : 0 }}% del total</p>
-                    </div>
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                        <i class="pi pi-check-circle text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Publicados" :value="stats.publicados" icon="pi-check-circle"
+                        :hint="`${stats.total ? Math.round((stats.publicados / stats.total) * 100) : 0}% del total`" hint-color="text-gray-400" />
                 </div>
-
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">Borradores</p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.borradores }}</p>
-                        <p class="text-xs text-gray-400 mt-1 font-medium">{{ stats.total ? Math.round((stats.borradores / stats.total) * 100) : 0 }}% del total</p>
-                    </div>
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                        <i class="pi pi-file text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Borradores" :value="stats.borradores" icon="pi-file"
+                        :hint="`${stats.total ? Math.round((stats.borradores / stats.total) * 100) : 0}% del total`" hint-color="text-gray-400" />
                 </div>
-
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">Archivados</p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.archivados }}</p>
-                        <p class="text-xs text-gray-400 mt-1 font-medium">{{ stats.total ? Math.round((stats.archivados / stats.total) * 100) : 0 }}% del total</p>
-                    </div>
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                        <i class="pi pi-box text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Archivados" :value="stats.archivados" icon="pi-box"
+                        :hint="`${stats.total ? Math.round((stats.archivados / stats.total) * 100) : 0}% del total`" hint-color="text-gray-400" />
                 </div>
             </div>
 
@@ -145,52 +152,53 @@ function irA(a) {
             <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
 
                 <!-- Gestión de Contenido -->
-                <div class="w-full lg:w-2/3 bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
-                        <div>
-                            <h2 class="text-xl font-semibold text-gray-900">Gestión de Contenido</h2>
-                            <p class="text-xs text-gray-500 mt-0.5">Administra el contenido publicado en la plataforma.</p>
+                <div class="w-full lg:flex-[2] min-w-0 bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between">
+                    <div class="flex flex-col flex-1">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-900">Gestión de Contenido</h2>
+                                <p class="text-xs text-gray-500 mt-0.5">Administra el contenido publicado en la plataforma.</p>
+                            </div>
+                            <Link :href="route('admin.contenido.create')"
+                                class="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 transition flex-none shadow-sm">
+                                <i class="pi pi-plus text-xs"></i>
+                                Nuevo Contenido
+                            </Link>
                         </div>
-                        <Link :href="route('admin.contenido.create')"
-                            class="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 transition flex-none shadow-sm">
-                            <i class="pi pi-plus text-xs"></i>
-                            Nuevo Contenido
-                        </Link>
-                    </div>
 
-                    <!-- Filtros -->
-                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 px-6 py-4">
-                        <div class="sm:col-span-6 relative">
-                            <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                            <input v-model="q" type="text" placeholder="Buscar contenido..."
-                                class="w-full rounded-xl border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-brand focus:ring-brand">
+                        <!-- Filtros -->
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 px-6 py-4">
+                            <div class="sm:col-span-6 relative">
+                                <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <input v-model="q" type="text" placeholder="Buscar contenido..."
+                                    class="w-full rounded-xl border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-brand focus:ring-brand">
+                            </div>
+                            <div class="sm:col-span-3">
+                                <select v-model="tipo" class="w-full rounded-xl border-gray-300 py-2 text-sm focus:border-brand focus:ring-brand">
+                                    <option value="">Todos los tipos</option>
+                                    <option value="video">Video</option>
+                                    <option value="articulo">Artículo</option>
+                                    <option value="galeria">Galería</option>
+                                    <option value="audio">Audio</option>
+                                    <option value="documento">Documento</option>
+                                    <option value="foto">Foto</option>
+                                    <option value="exclusivo">Exclusivo</option>
+                                </select>
+                            </div>
+                            <div class="sm:col-span-3">
+                                <select v-model="estado" class="w-full rounded-xl border-gray-300 py-2 text-sm focus:border-brand focus:ring-brand">
+                                    <option value="">Todos los estados</option>
+                                    <option value="publicado">Publicado</option>
+                                    <option value="borrador">Borrador</option>
+                                    <option value="programado">Programado</option>
+                                    <option value="archivado">Archivado</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="sm:col-span-3">
-                            <select v-model="tipo" class="w-full rounded-xl border-gray-300 py-2 text-sm focus:border-brand focus:ring-brand">
-                                <option value="">Todos los tipos</option>
-                                <option value="video">Video</option>
-                                <option value="articulo">Artículo</option>
-                                <option value="galeria">Galería</option>
-                                <option value="audio">Audio</option>
-                                <option value="documento">Documento</option>
-                                <option value="foto">Foto</option>
-                                <option value="exclusivo">Exclusivo</option>
-                            </select>
-                        </div>
-                        <div class="sm:col-span-3">
-                            <select v-model="estado" class="w-full rounded-xl border-gray-300 py-2 text-sm focus:border-brand focus:ring-brand">
-                                <option value="">Todos los estados</option>
-                                <option value="publicado">Publicado</option>
-                                <option value="borrador">Borrador</option>
-                                <option value="programado">Programado</option>
-                                <option value="archivado">Archivado</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <!-- Tabla -->
-                    <div class="overflow-x-auto w-full">
-                        <table class="w-full text-left text-sm min-w-[700px]">
+                        <!-- Tabla -->
+                        <div class="overflow-x-auto flex-1 flex flex-col">
+                            <table class="w-full text-left text-sm min-w-[700px] flex-1">
                             <thead>
                                 <tr class="border-y border-gray-100 bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider">
                                     <th class="pl-6 pr-4 py-3 font-semibold">Contenido</th>
@@ -225,15 +233,18 @@ function irA(a) {
                                             {{ estadoLabel[c.estado] }}
                                         </span>
                                     </td>
-                                    <td class="px-3 py-3.5 text-gray-500 text-xs whitespace-nowrap">{{ formatDate(c.created_at) }}</td>
+                                    <td class="px-3 py-3.5 text-gray-500 text-xs whitespace-nowrap">{{ formatDate(c.created_at, { hour: '2-digit', minute: '2-digit' }) }}</td>
                                     <td class="px-3 py-3.5 text-gray-600 text-xs whitespace-nowrap">{{ c.estado === 'borrador' ? '—' : c.vistas.toLocaleString() }}</td>
                                     <td class="pl-2 pr-6 py-3.5 whitespace-nowrap">
                                         <div class="flex justify-center items-center gap-1.5">
-                                            <button title="Ver"
-                                                class="w-8 h-8 min-w-[32px] max-w-[32px] rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
-                                                <Link :href="route('admin.contenido.show', c.id)" class="text-gray-400 hover:text-gray-700">
-    <i class="pi pi-eye cursor-pointer" title="Ver"></i>
-</Link>
+                                            <Link :href="route('admin.contenido.show', c.id)" title="Ver" class="admin-table-action text-gray-600">
+                                                <i class="pi pi-eye text-xs"></i>
+                                            </Link>
+                                            <Link :href="route('admin.contenido.edit', c.id)" title="Editar" class="admin-table-action text-gray-600">
+                                                <i class="pi pi-pencil text-xs"></i>
+                                            </Link>
+                                            <button @click="eliminarContenido(c)" title="Eliminar" class="admin-table-action text-red-600 hover:bg-red-50">
+                                                <i class="pi pi-trash text-xs"></i>
                                             </button>
                                         </div>
                                     </td>
@@ -243,24 +254,22 @@ function irA(a) {
                                 </tr>
                             </tbody>
                         </table>
+                        </div>
                     </div>
 
                     <!-- Paginación -->
-                    <div v-if="contenidos.last_page > 1" class="border-t border-gray-100 px-6 py-4 flex items-center justify-between">
-                        <p class="text-xs text-gray-500">Mostrando {{ contenidos.from }}–{{ contenidos.to }} de {{ contenidos.total }}</p>
-                        <div class="flex gap-1">
-                            <template v-for="(link, i) in contenidos.links" :key="i">
-                                <Link v-if="link.url" :href="link.url" preserve-scroll preserve-state v-html="link.label"
-                                    class="px-3 py-1.5 rounded-lg text-xs"
-                                    :class="link.active ? 'bg-brand text-white' : 'hover:bg-gray-100 text-gray-600'" />
-                                <span v-else class="px-3 py-1.5 text-gray-300 text-xs" v-html="link.label" />
-                            </template>
-                        </div>
+                    <div v-if="contenidos.last_page > 1" class="border-t border-gray-100 px-6 py-4">
+                        <Pagination :data="contenidos" />
+                    </div>
+                    <div class="border-t border-gray-100 py-3.5 text-center">
+                        <Link :href="route('admin.contenido.index')" class="text-brand font-medium hover:underline text-xs">
+                            Ver todo el contenido
+                        </Link>
                     </div>
                 </div>
 
                 <!-- Tipos de Contenido + Acciones Rápidas -->
-                <div class="w-full lg:w-1/3 flex flex-col gap-6">
+                <div class="w-full lg:flex-1 min-w-0 flex flex-col gap-6">
                     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                         <h2 class="text-lg font-semibold text-gray-900 mb-4">Tipos de Contenido</h2>
                         <ul class="space-y-3">
@@ -296,7 +305,7 @@ function irA(a) {
             <div class="flex flex-col lg:flex-row gap-6 w-full items-stretch">
 
                 <!-- Contenido Reciente -->
-                <div class="w-full lg:w-1/3 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-semibold text-gray-900 text-lg">Contenido Reciente</h2>
@@ -310,7 +319,7 @@ function irA(a) {
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <p class="text-xs font-semibold text-gray-800 truncate">{{ c.titulo }}</p>
-                                    <p class="text-[10px] text-gray-400">{{ tipoLabel[c.tipo] }} · {{ formatDate(c.created_at) }}</p>
+                                    <p class="text-[10px] text-gray-400">{{ tipoLabel[c.tipo] }} · {{ formatDate(c.created_at, { hour: '2-digit', minute: '2-digit' }) }}</p>
                                 </div>
                                 <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0" :class="estadoColores[c.estado]">
                                     {{ estadoLabel[c.estado] }}
@@ -322,20 +331,20 @@ function irA(a) {
                 </div>
 
                 <!-- Estadísticas de Contenido -->
-                <div class="w-full lg:w-2/3 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="w-full lg:flex-[2] min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-semibold text-gray-900 text-lg">Estadísticas de Contenido</h2>
-                            <select class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-500 focus:outline-none focus:border-brand">
-                                <option>Este mes</option>
+                            <select v-model="periodoEstadisticas" @change="cambiarPeriodoEstadisticas"
+                                class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-500 focus:outline-none focus:border-brand">
+                                <option value="semana">Esta semana</option>
+                                <option value="mes">Este mes</option>
+                                <option value="anio">Este año</option>
                             </select>
                         </div>
                         <div class="flex flex-col sm:flex-row gap-4">
                             <div class="flex-1" style="height:240px">
-                                <Line v-if="estadisticas.vistasPorDia.length" :data="lineData" :options="lineOptions" />
-                                <div v-else class="h-full flex items-center justify-center">
-                                    <p class="text-gray-400 text-sm">Aún no hay vistas registradas.</p>
-                                </div>
+                                <Line :data="lineData" :options="lineOptions" />
                             </div>
                             <div class="flex sm:flex-col gap-4 sm:w-44 justify-between">
                                 <div class="flex items-center gap-3">

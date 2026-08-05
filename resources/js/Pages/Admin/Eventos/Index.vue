@@ -106,7 +106,7 @@ async function eliminarEvento(evento) {
 
             <!-- Fila 1: KPIs -->
             <div class="flex flex-col lg:flex-row gap-6 w-full">
-                <div class="w-full lg:w-1/4">
+                <div class="w-full lg:flex-1 min-w-0">
                     <KpiCard
                         label="Eventos Totales"
                         :value="stats?.total ?? 0"
@@ -114,7 +114,7 @@ async function eliminarEvento(evento) {
                         :hint="`+${stats?.nuevosEsteMes ?? 0} nuevos este mes`"
                     />
                 </div>
-                <div class="w-full lg:w-1/4">
+                <div class="w-full lg:flex-1 min-w-0">
                     <KpiCard
                         label="Eventos Próximos"
                         :value="stats?.proximos ?? 0"
@@ -122,7 +122,7 @@ async function eliminarEvento(evento) {
                         :hint="`${stats?.total > 0 ? Math.round((stats.proximos / stats.total) * 100) : 0}% del total`"
                     />
                 </div>
-                <div class="w-full lg:w-1/4">
+                <div class="w-full lg:flex-1 min-w-0">
                     <KpiCard
                         label="Eventos en Vivo"
                         :value="stats?.enVivo ?? 0"
@@ -130,7 +130,7 @@ async function eliminarEvento(evento) {
                         hint="Ahora mismo"
                     />
                 </div>
-                <div class="w-full lg:w-1/4">
+                <div class="w-full lg:flex-1 min-w-0">
                     <KpiCard
                         label="Eventos Completados"
                         :value="stats?.completados ?? 0"
@@ -144,8 +144,8 @@ async function eliminarEvento(evento) {
             <div class="flex flex-col lg:flex-row items-stretch gap-6 w-full">
 
                 <!-- Columna Izquierda: Tabla de Eventos -->
-                <div class="w-full lg:w-3/4 admin-card flex flex-col justify-between">
-                    <div class="flex flex-col flex-1">
+                <div class="w-full lg:flex-[3.45] min-w-0 admin-card flex flex-col justify-between">
+                    <div class="flex flex-col flex-1 min-w-0">
                         <!-- Encabezado y Filtros -->
                         <div class="px-6 pt-6">
                             <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
@@ -199,10 +199,13 @@ async function eliminarEvento(evento) {
                                 <tbody class="divide-y divide-gray-100">
                                     <tr v-for="evento in eventos?.data" :key="evento.id" class="hover:bg-gray-50 transition">
                                         <td class="px-6 py-4">
-                                            <div class="flex items-center gap-3">
+                                            <div class="flex items-center gap-3 min-w-0">
                                                 <img :src="evento.imagen || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80'"
-                                                    class="w-10 h-10 rounded-lg object-cover border border-gray-200 shrink-0" />
-                                                <span class="font-semibold text-gray-900">{{ evento.nombre }}</span>
+                                                    style="width:40px;height:40px;flex:none;object-fit:cover"
+                                                    class="rounded-lg border border-gray-200" />
+                                                <span class="font-semibold text-gray-900 truncate" style="max-width:180px;display:inline-block" :title="evento.nombre">
+                                                    {{ evento.nombre }}
+                                                </span>
                                             </div>
                                         </td>
                                         <td class="px-4 py-4">
@@ -245,10 +248,15 @@ async function eliminarEvento(evento) {
                     <div class="border-t border-gray-200 px-6 py-4">
                         <Pagination :data="eventos" />
                     </div>
+                    <div class="text-center pb-5">
+                        <Link :href="route('admin.eventos.todos')" class="text-brand text-sm font-medium hover:underline">
+                            Ver todos los eventos
+                        </Link>
+                    </div>
                 </div>
 
                 <!-- Columna Derecha: Calendario -->
-                <div class="w-full lg:w-1/4 admin-card p-6 flex flex-col justify-between">
+                <div class="w-full lg:flex-1 min-w-0 admin-card p-6 flex flex-col justify-between">
                     <div>
                         <h3 class="font-bold text-gray-900 text-sm mb-4">Calendario de Eventos</h3>
                         <Calendario
@@ -268,25 +276,26 @@ async function eliminarEvento(evento) {
             <div class="flex flex-col lg:flex-row gap-6 items-stretch">
 
                 <!-- Próximos Eventos -->
-                <div class="w-full lg:w-[33%] admin-card p-6 flex flex-col justify-between">
+                <div class="w-full lg:flex-[33] min-w-0 admin-card p-6 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="font-bold text-gray-900 text-sm">Próximos Eventos</h3>
-                            <Link :href="route('admin.eventos.index')" class="text-xs font-semibold text-red-600 hover:text-red-700">Ver todos</Link>
+                            <Link :href="route('admin.eventos.todos')" class="text-xs font-semibold text-red-600 hover:text-red-700">Ver todos</Link>
                         </div>
                         <div class="space-y-3">
-                            <div v-for="evento in proximosEventos" :key="evento.id" class="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-gray-50/50 transition">
-                                <div class="flex items-center gap-3">
-                                    <img :src="evento.imagen || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80'" class="w-10 h-10 rounded-lg object-cover" />
-                                    <div>
-                                        <p class="text-xs font-bold text-gray-900">{{ evento.nombre }}</p>
-                                        <div class="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
-                                            <span><i class="pi pi-calendar mr-0.5"></i> {{ evento.fecha }}</span>
-                                            <span><i class="pi pi-clock mr-0.5"></i> {{ evento.hora_formateada }}</span>
+                            <div v-for="evento in proximosEventos" :key="evento.id" class="flex items-center justify-between gap-2 p-3 rounded-xl border border-gray-100 hover:bg-gray-50/50 transition">
+                                <div class="flex items-center gap-3 min-w-0" style="flex:1 1 0%">
+                                    <img :src="evento.imagen || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80'"
+                                        style="width:40px;height:40px;flex:none;object-fit:cover" class="rounded-lg" />
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-bold text-gray-900 truncate" :title="evento.nombre">{{ evento.nombre }}</p>
+                                        <div style="display:flex;align-items:center;gap:8px;white-space:nowrap" class="text-[10px] text-gray-400 mt-0.5">
+                                            <span><i class="pi pi-calendar mr-0.5"></i>{{ evento.fecha }}</span>
+                                            <span><i class="pi pi-clock mr-0.5"></i>{{ evento.hora_formateada }}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold capitalize bg-red-50 text-red-600 border border-red-200 shrink-0">
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold capitalize bg-red-50 text-red-600 border border-red-200" style="flex:none;white-space:nowrap">
                                     {{ evento.estado_display.replace('_', ' ') }}
                                 </span>
                             </div>
@@ -298,7 +307,7 @@ async function eliminarEvento(evento) {
                 </div>
 
                 <!-- Estadísticas de Eventos -->
-                <div class="w-full lg:w-[39%] admin-card p-6 flex flex-col justify-between">
+                <div class="w-full lg:flex-[39] min-w-0 admin-card p-6 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="font-bold text-gray-900 text-sm">Estadísticas de Eventos</h3>
@@ -354,7 +363,7 @@ async function eliminarEvento(evento) {
                 </div>
 
                 <!-- Acciones Rápidas -->
-                <div class="w-full lg:w-[28%] admin-card p-6 flex flex-col justify-between">
+                <div class="w-full lg:flex-[28] min-w-0 admin-card p-6 flex flex-col justify-between">
                     <div>
                         <h3 class="font-bold text-gray-900 text-sm mb-3">Acciones Rápidas</h3>
                         <div class="space-y-2.5">

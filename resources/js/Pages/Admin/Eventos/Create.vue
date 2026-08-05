@@ -1,9 +1,11 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import { useToast } from '@/composables/useToast';
 
 const toast = useToast();
+const imagenValida = ref(null);
 
 const form = useForm({
     nombre: '',
@@ -43,11 +45,13 @@ function submit() {
         <template #title>Nuevo evento</template>
         <template #breadcrumb>Dashboard &gt; Eventos &gt; Nuevo evento</template>
 
-        <Link :href="route('admin.eventos.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
-            <i class="pi pi-arrow-left text-xs"></i> Volver a Eventos
-        </Link>
+        <div class="max-w-3xl mx-auto">
+            <Link :href="route('admin.eventos.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
+                <i class="pi pi-arrow-left text-xs"></i> Volver a Eventos
+            </Link>
 
-        <form @submit.prevent="submit" class="max-w-3xl admin-card overflow-hidden">
+            <form @submit.prevent="submit" class="admin-card overflow-hidden">
+                <div style="height:6px;background:linear-gradient(90deg,#ef4444,#f97316)"></div>
 
             <!-- Sección 1: Datos del evento -->
             <div class="p-6">
@@ -192,7 +196,28 @@ function submit() {
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Imagen (URL)</label>
                         <input v-model="form.imagen" type="text" placeholder="https://..." class="admin-input px-3 py-2.5" />
-                        <p class="text-xs text-gray-400 mt-1">La subida de archivos directa se agregará más adelante; por ahora usa una URL.</p>
+                        <p class="text-xs text-gray-400 mt-1">
+                            Debe ser el link directo al archivo (termina en .jpg, .png, .webp...), no a una página de producto.
+                        </p>
+
+                        <!-- Vista previa en vivo -->
+                        <div v-if="form.imagen" class="mt-3">
+                            <div class="w-full rounded-xl overflow-hidden border border-gray-200 bg-gray-50" style="height:160px">
+                                <img
+                                    :src="form.imagen"
+                                    class="w-full h-full object-cover"
+                                    @load="imagenValida = true"
+                                    @error="imagenValida = false"
+                                />
+                            </div>
+                            <p v-if="imagenValida === false" class="text-red-600 text-xs mt-1.5 flex items-center gap-1">
+                                <i class="pi pi-exclamation-triangle"></i>
+                                Esta URL no cargó una imagen. Revisa que sea el link directo al archivo.
+                            </p>
+                            <p v-else-if="imagenValida === true" class="text-green-600 text-xs mt-1.5 flex items-center gap-1">
+                                <i class="pi pi-check-circle"></i> Se ve bien.
+                            </p>
+                        </div>
                     </div>
 
                     <label class="flex items-center gap-2.5 cursor-pointer">
@@ -213,5 +238,6 @@ function submit() {
                 </Link>
             </div>
         </form>
+        </div>
     </AdminLayout>
 </template>

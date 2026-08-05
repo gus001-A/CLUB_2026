@@ -36,7 +36,7 @@ class ReporteController extends Controller
             $query->where('estado', $estado);
         }
 
-        $reportes = $query->latest()->paginate(10)->withQueryString();
+        $reportes = $query->latest()->paginate(5)->withQueryString();
         $reportes->through(fn ($r) => [
             'id' => $r->id,
             'tipo' => $r->tipo,

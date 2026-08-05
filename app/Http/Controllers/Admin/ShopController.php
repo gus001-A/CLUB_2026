@@ -53,7 +53,7 @@ class ShopController extends Controller
             $query->where('metodo_pago', $metodo);
         }
 
-        $pedidos = $query->latest()->paginate(8)->withQueryString();
+        $pedidos = $query->latest()->paginate(4)->withQueryString();
         $pedidos->through(fn ($p) => [
             'id' => $p->id,
             'numero_pedido' => $p->numero_pedido,

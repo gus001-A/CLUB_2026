@@ -3,9 +3,11 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useToast } from '@/composables/useToast';
+import { useFormatters } from '@/composables/useFormatters';
 
 const toast = useToast();
 const page = usePage();
+const { formatDate } = useFormatters();
 
 const props = defineProps({
     invitacionesRecientes: Array,
@@ -21,17 +23,24 @@ const form = useForm({
     vigencia_dias: 7,
     usos_maximos: 1,
     mensaje: '',
+    codigo: '',
 });
 
 // --- Vista previa del código ---
+// IMPORTANTE: este código SÍ se manda al backend (form.codigo) para que
+// lo que ves/copias/compartes aquí sea EXACTAMENTE el código que se
+// guarda en la BD. Antes se generaba uno random solo para mostrarlo, y
+// el servidor guardaba otro distinto sin que el admin se diera cuenta.
 function generarPreview() {
     const chars = '23456789ACDEFGHJKLMNPQRSTUVWXYZ';
     const bloque = () => Array.from({ length: 4 }, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
     return `${bloque()}-${bloque()}-${bloque()}`;
 }
 const codigoPreview = ref(generarPreview());
+form.codigo = codigoPreview.value;
 function regenerar() {
     codigoPreview.value = generarPreview();
+    form.codigo = codigoPreview.value;
 }
 
 const vigenciaLabel = computed(() => {
@@ -97,11 +106,6 @@ const estadoColores = {
     utilizada: 'bg-blue-100 text-blue-700',
 };
 const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Expirada', utilizada: 'Utilizada' };
-
-function formatDate(v) {
-    if (!v) return '—';
-    return new Date(v).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
 </script>
 
 <template>

@@ -101,203 +101,210 @@ function irA(a) {
 
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
-            <!-- Fila 1: KPIs (2/3) | Resumen de Ventas (1/3) -->
+            <!-- Columna izquierda: KPIs + Pedidos | Columna derecha: Resumen de Ventas + Acciones Rápidas -->
             <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
 
-                <div class="w-full lg:w-2/3 flex flex-col sm:flex-row gap-4">
-                    <div class="w-full sm:w-1/3 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                        <div>
-                            <p class="text-sm text-gray-400">Pedidos Totales</p>
-                            <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.pedidosTotales }}</p>
-                        </div>
-                        <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                            <i class="pi pi-shopping-cart text-lg"></i>
-                        </div>
-                    </div>
-                    <div class="w-full sm:w-1/3 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                        <div>
-                            <p class="text-sm text-gray-400">Ventas Totales</p>
-                            <p class="text-2xl font-semibold text-gray-800 mt-1">{{ money(stats.ventasTotales) }}</p>
-                            <p v-if="stats.variacion !== null" class="text-xs mt-1 font-medium" :class="stats.variacion >= 0 ? 'text-green-600' : 'text-red-500'">
-                                {{ stats.variacion >= 0 ? '+' : '' }}{{ stats.variacion }}% vs mes anterior
-                            </p>
-                        </div>
-                        <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                            <i class="pi pi-dollar text-lg"></i>
-                        </div>
-                    </div>
-                    <div class="w-full sm:w-1/3 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                        <div>
-                            <p class="text-sm text-gray-400">Pedidos Completados</p>
-                            <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.pedidosCompletados }}</p>
-                            <p class="text-xs text-gray-400 mt-1 font-medium">{{ stats.porcentajeCompletados }}% del total</p>
-                        </div>
-                        <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                            <i class="pi pi-clock text-lg"></i>
-                        </div>
-                    </div>
-                </div>
+                <!-- Columna izquierda -->
+                <div class="w-full lg:flex-[3] min-w-0 flex flex-col gap-6">
 
-                <!-- Resumen de Ventas -->
-                <div class="w-full lg:w-1/3 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="font-semibold text-gray-900 text-lg">Resumen de Ventas</h2>
-                        <select v-model="periodo" class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-500 focus:outline-none focus:border-brand">
-                            <option value="dia">Hoy</option>
-                            <option value="semana">Esta semana</option>
-                            <option value="mes">Este mes</option>
-                        </select>
-                    </div>
-                    <div class="space-y-3 text-sm">
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Subtotal</span>
-                            <span class="font-semibold text-gray-800">{{ money(resumen.subtotal) }}</span>
+                    <!-- KPIs -->
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <div class="w-full sm:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-400">Pedidos Totales</p>
+                                <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.pedidosTotales }}</p>
+                            </div>
+                            <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                                <i class="pi pi-shopping-cart text-lg"></i>
+                            </div>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Envíos</span>
-                            <span class="font-semibold text-gray-800">{{ money(resumen.envios) }}</span>
+                        <div class="w-full sm:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-400">Ventas Totales</p>
+                                <p class="text-2xl font-semibold text-gray-800 mt-1">{{ money(stats.ventasTotales) }}</p>
+                                <p v-if="stats.variacion !== null" class="text-xs mt-1 font-medium" :class="stats.variacion >= 0 ? 'text-green-600' : 'text-red-500'">
+                                    {{ stats.variacion >= 0 ? '+' : '' }}{{ stats.variacion }}% vs mes anterior
+                                </p>
+                            </div>
+                            <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                                <i class="pi pi-dollar text-lg"></i>
+                            </div>
                         </div>
-                        <div class="border-t border-gray-100 pt-3 flex justify-between">
-                            <span class="font-semibold text-gray-700">Ventas Totales</span>
-                            <span class="font-bold text-brand">{{ money(resumen.ventasTotales) }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Fila 2: Pedidos (2/3) | Acciones Rápidas (1/3) -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
-
-                <!-- Pedidos -->
-                <div id="tabla-pedidos" class="w-full lg:w-2/3 bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
-                        <div>
-                            <h2 class="text-xl font-semibold text-gray-900">Pedidos</h2>
-                            <p class="text-xs text-gray-500 mt-0.5">Consulta y administra los pedidos de la tienda.</p>
+                        <div class="w-full sm:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-400">Pedidos Completados</p>
+                                <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.pedidosCompletados }}</p>
+                                <p class="text-xs text-gray-400 mt-1 font-medium">{{ stats.porcentajeCompletados }}% del total</p>
+                            </div>
+                            <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                                <i class="pi pi-clock text-lg"></i>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="flex flex-col sm:flex-row flex-wrap gap-3 px-6 py-4">
-                        <div class="relative flex-1 min-w-[160px]">
-                            <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                            <input v-model="q" type="text" placeholder="Buscar pedido, usuario..."
-                                class="w-full rounded-xl border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-brand focus:ring-brand">
-                        </div>
-                        <select v-model="estado" class="rounded-xl border-gray-300 text-sm px-3 py-2 focus:border-brand focus:ring-brand">
-                            <option value="">Todos los estados</option>
-                            <option value="pagado">Procesando</option>
-                            <option value="enviado">Enviado</option>
-                            <option value="entregado">Completado</option>
-                            <option value="cancelado">Cancelado</option>
-                        </select>
-                        <select v-model="metodo" class="rounded-xl border-gray-300 text-sm px-3 py-2 focus:border-brand focus:ring-brand">
-                            <option value="">Todos los métodos</option>
-                            <option value="tarjeta_credito">Tarjeta de Crédito</option>
-                            <option value="tarjeta_debito">Tarjeta de Débito</option>
-                            <option value="paypal">PayPal</option>
-                            <option value="transferencia">Transferencia</option>
-                        </select>
-                        <a :href="route('admin.shop.exportar', { estado: estado || undefined })"
-                            class="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 shrink-0 shadow-sm">
-                            <i class="pi pi-download text-xs"></i> Exportar
-                        </a>
-                    </div>
+                    <!-- Pedidos -->
+                    <div id="tabla-pedidos" class="flex-1 bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between">
+                        <div class="flex flex-col flex-1">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
+                                <div>
+                                    <h2 class="text-xl font-semibold text-gray-900">Pedidos</h2>
+                                    <p class="text-xs text-gray-500 mt-0.5">Consulta y administra los pedidos de la tienda.</p>
+                                </div>
+                            </div>
 
-                    <div class="overflow-x-auto w-full">
-                        <table class="w-full text-left text-sm min-w-[760px]">
-                            <thead>
-                                <tr class="border-y border-gray-100 bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider">
-                                    <th class="pl-6 pr-4 py-3 font-semibold">Pedido</th>
-                                    <th class="px-3 py-3 font-semibold">Usuario</th>
-                                    <th class="px-3 py-3 font-semibold">Productos</th>
-                                    <th class="px-3 py-3 font-semibold">Total</th>
-                                    <th class="px-3 py-3 font-semibold">Método</th>
-                                    <th class="px-3 py-3 font-semibold">Estado</th>
-                                    <th class="px-3 py-3 font-semibold">Fecha</th>
-                                    <th class="pl-2 pr-6 py-3 text-center font-semibold">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                <tr v-for="p in pedidos.data" :key="p.id" class="hover:bg-gray-50/50 transition">
-                                    <td class="pl-6 pr-4 py-3.5 text-gray-500 text-xs whitespace-nowrap">#{{ p.numero_pedido }}</td>
-                                    <td class="px-3 py-3.5 whitespace-nowrap">
-                                        <p class="font-semibold text-gray-800 text-sm">{{ p.usuario?.nombre ?? '—' }}</p>
-                                        <p class="text-gray-400 text-xs">@{{ p.usuario?.apodo ?? '—' }}</p>
-                                    </td>
-                                    <td class="px-3 py-3.5 whitespace-nowrap">
-                                        <div class="flex items-center">
-                                            <div v-for="(img, idx) in p.miniaturas" :key="idx"
-                                                class="w-7 h-7 rounded-full border-2 border-white bg-gray-100 overflow-hidden -ml-2 first:ml-0">
-                                                <img :src="img" class="w-full h-full object-cover" />
+                            <div class="flex flex-col sm:flex-row flex-wrap gap-3 px-6 py-4">
+                                <div class="relative flex-1 min-w-[160px]">
+                                    <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                    <input v-model="q" type="text" placeholder="Buscar pedido, usuario..."
+                                        class="w-full rounded-xl border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-brand focus:ring-brand">
+                                </div>
+                                <select v-model="estado" class="rounded-xl border-gray-300 text-sm px-3 py-2 focus:border-brand focus:ring-brand">
+                                    <option value="">Todos los estados</option>
+                                    <option value="pagado">Procesando</option>
+                                    <option value="enviado">Enviado</option>
+                                    <option value="entregado">Completado</option>
+                                    <option value="cancelado">Cancelado</option>
+                                </select>
+                                <select v-model="metodo" class="rounded-xl border-gray-300 text-sm px-3 py-2 focus:border-brand focus:ring-brand">
+                                    <option value="">Todos los métodos</option>
+                                    <option value="tarjeta_credito">Tarjeta de Crédito</option>
+                                    <option value="tarjeta_debito">Tarjeta de Débito</option>
+                                    <option value="paypal">PayPal</option>
+                                    <option value="transferencia">Transferencia</option>
+                                </select>
+                                <a :href="route('admin.shop.exportar', { estado: estado || undefined })"
+                                    class="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 shrink-0 shadow-sm">
+                                    <i class="pi pi-download text-xs"></i> Exportar
+                                </a>
+                            </div>
+
+                            <div class="overflow-x-auto flex-1 flex flex-col">
+                                <table class="w-full text-left text-sm min-w-[760px] flex-1">
+                                <thead>
+                                    <tr class="border-y border-gray-100 bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider">
+                                        <th class="pl-6 pr-4 py-3 font-semibold">Pedido</th>
+                                        <th class="px-3 py-3 font-semibold">Usuario</th>
+                                        <th class="px-3 py-3 font-semibold">Productos</th>
+                                        <th class="px-3 py-3 font-semibold">Total</th>
+                                        <th class="px-3 py-3 font-semibold">Método</th>
+                                        <th class="px-3 py-3 font-semibold">Estado</th>
+                                        <th class="px-3 py-3 font-semibold">Fecha</th>
+                                        <th class="pl-2 pr-6 py-3 text-center font-semibold">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <tr v-for="p in pedidos.data" :key="p.id" class="hover:bg-gray-50/50 transition">
+                                        <td class="pl-6 pr-4 py-3.5 text-gray-500 text-xs whitespace-nowrap">#{{ p.numero_pedido }}</td>
+                                        <td class="px-3 py-3.5 whitespace-nowrap">
+                                            <p class="font-semibold text-gray-800 text-sm">{{ p.usuario?.nombre ?? '—' }}</p>
+                                            <p class="text-gray-400 text-xs">@{{ p.usuario?.apodo ?? '—' }}</p>
+                                        </td>
+                                        <td class="px-3 py-3.5 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div v-for="(img, idx) in p.miniaturas" :key="idx"
+                                                    class="w-7 h-7 rounded-full border-2 border-white bg-gray-100 overflow-hidden -ml-2 first:ml-0">
+                                                    <img :src="img" class="w-full h-full object-cover" />
+                                                </div>
+                                                <span class="text-gray-400 text-xs ml-2">{{ p.total_items }} artículo{{ p.total_items === 1 ? '' : 's' }}</span>
                                             </div>
-                                            <span class="text-gray-400 text-xs ml-2">{{ p.total_items }} artículo{{ p.total_items === 1 ? '' : 's' }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="px-3 py-3.5 font-semibold text-gray-800 text-xs whitespace-nowrap">{{ money(p.total) }}</td>
-                                    <td class="px-3 py-3.5 text-gray-600 text-xs whitespace-nowrap">{{ p.metodo_pago ? metodoLabel[p.metodo_pago] : '—' }}</td>
-                                    <td class="px-3 py-3.5 whitespace-nowrap">
-                                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold" :class="estadoColores[p.estado]">
-                                            {{ estadoLabel[p.estado] }}
-                                        </span>
-                                    </td>
-                                    <td class="px-3 py-3.5 text-gray-500 text-xs whitespace-nowrap">{{ formatDate(p.created_at) }}</td>
-                                    <td class="pl-2 pr-6 py-3.5 whitespace-nowrap">
-                                        <div class="flex justify-center items-center gap-1.5">
-                                            <Link :href="route('admin.shop.show', p.id)" title="Ver detalle"
-                                                class="w-8 h-8 min-w-[32px] max-w-[32px] rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
-                                                <i class="pi pi-eye text-xs"></i>
-                                            </Link>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr v-if="!pedidos.data.length">
-                                    <td colspan="8" class="py-8 text-center text-gray-400 text-xs">No se encontraron pedidos.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Paginación / footer -->
-                    <div v-if="pedidos.last_page > 1" class="border-t border-gray-100 px-6 py-4 flex items-center justify-between">
-                        <p class="text-xs text-gray-500">Mostrando {{ pedidos.from }}–{{ pedidos.to }} de {{ pedidos.total }}</p>
-                        <div class="flex gap-1">
-                            <template v-for="(link, i) in pedidos.links" :key="i">
-                                <Link v-if="link.url" :href="link.url" preserve-scroll preserve-state v-html="link.label"
-                                    class="px-3 py-1.5 rounded-lg text-xs"
-                                    :class="link.active ? 'bg-brand text-white' : 'hover:bg-gray-100 text-gray-600'" />
-                                <span v-else class="px-3 py-1.5 text-gray-300 text-xs" v-html="link.label" />
-                            </template>
+                                        </td>
+                                        <td class="px-3 py-3.5 font-semibold text-gray-800 text-xs whitespace-nowrap">{{ money(p.total) }}</td>
+                                        <td class="px-3 py-3.5 text-gray-600 text-xs whitespace-nowrap">{{ p.metodo_pago ? metodoLabel[p.metodo_pago] : '—' }}</td>
+                                        <td class="px-3 py-3.5 whitespace-nowrap">
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold" :class="estadoColores[p.estado]">
+                                                {{ estadoLabel[p.estado] }}
+                                            </span>
+                                        </td>
+                                        <td class="px-3 py-3.5 text-gray-500 text-xs whitespace-nowrap">{{ formatDate(p.created_at) }}</td>
+                                        <td class="pl-2 pr-6 py-3.5 whitespace-nowrap">
+                                            <div class="flex justify-center items-center gap-1.5">
+                                                <Link :href="route('admin.shop.show', p.id)" title="Ver detalle"
+                                                    class="w-8 h-8 min-w-[32px] max-w-[32px] rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
+                                                    <i class="pi pi-eye text-xs"></i>
+                                                </Link>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr v-if="!pedidos.data.length">
+                                        <td colspan="8" class="py-8 text-center text-gray-400 text-xs">No se encontraron pedidos.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            </div>
                         </div>
-                    </div>
-                    <div v-else class="border-t border-gray-100 py-3.5 text-center">
-                        <Link :href="route('admin.shop.index')" class="text-brand font-medium hover:underline text-xs">
-                            Ver todos los pedidos
-                        </Link>
+
+                        <!-- Paginación / footer -->
+                        <div v-if="pedidos.last_page > 1" class="border-t border-gray-100 px-6 py-4 flex items-center justify-between">
+                            <p class="text-xs text-gray-500">Mostrando {{ pedidos.from }}–{{ pedidos.to }} de {{ pedidos.total }}</p>
+                            <div class="flex gap-1">
+                                <template v-for="(link, i) in pedidos.links" :key="i">
+                                    <Link v-if="link.url" :href="link.url" preserve-scroll preserve-state v-html="link.label"
+                                        class="px-3 py-1.5 rounded-lg text-xs"
+                                        :class="link.active ? 'bg-brand text-white' : 'hover:bg-gray-100 text-gray-600'" />
+                                    <span v-else class="px-3 py-1.5 text-gray-300 text-xs" v-html="link.label" />
+                                </template>
+                            </div>
+                        </div>
+                        <div v-else class="border-t border-gray-100 py-3.5 text-center">
+                            <Link :href="route('admin.shop.index')" class="text-brand font-medium hover:underline text-xs">
+                                Ver todos los pedidos
+                            </Link>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Acciones Rápidas -->
-                <div class="w-full lg:w-1/3 bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4 px-2 pt-2">Acciones Rápidas</h2>
-                    <div class="space-y-3">
-                        <button v-for="a in accionesRapidas" :key="a.label" type="button" @click="irA(a)"
-                            class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group text-left">
-                            <div class="rounded-full bg-red-50 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                                <i class="pi text-sm" :class="a.icon"></i>
+                <!-- Columna derecha -->
+                <div class="w-full lg:flex-1 min-w-0 flex flex-col gap-6">
+
+                    <!-- Resumen de Ventas -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <h2 class="font-semibold text-gray-900 text-base">Resumen de Ventas</h2>
+                            <select v-model="periodo" class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 focus:outline-none focus:border-brand">
+                                <option value="dia">Hoy</option>
+                                <option value="semana">Esta semana</option>
+                                <option value="mes">Este mes</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2.5 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Subtotal</span>
+                                <span class="font-semibold text-gray-800">{{ money(resumen.subtotal) }}</span>
                             </div>
-                            <div class="min-w-0">
-                                <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">{{ a.label }}</p>
-                                <p class="text-xs text-gray-400">{{ a.desc }}</p>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Envíos</span>
+                                <span class="font-semibold text-gray-800">{{ money(resumen.envios) }}</span>
                             </div>
-                        </button>
+                            <div class="border-t border-gray-100 pt-2.5 flex justify-between">
+                                <span class="font-semibold text-gray-700 text-sm">Ventas Totales</span>
+                                <span class="font-bold text-brand text-sm">{{ money(resumen.ventasTotales) }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Acciones Rápidas -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4 px-2 pt-2">Acciones Rápidas</h2>
+                        <div class="space-y-3">
+                            <button v-for="a in accionesRapidas" :key="a.label" type="button" @click="irA(a)"
+                                class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group text-left">
+                                <div class="rounded-full bg-red-50 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                                    <i class="pi text-sm" :class="a.icon"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">{{ a.label }}</p>
+                                    <p class="text-xs text-gray-400">{{ a.desc }}</p>
+                                </div>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Fila 3: Productos Más Vendidos (1/2) | Ventas por Categoría (1/2) -->
+            <!-- Fila 2: Productos Más Vendidos | Ventas por Categoría -->
             <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
 
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <h2 class="font-semibold text-gray-900 text-lg mb-4">Productos Más Vendidos</h2>
                         <ul class="space-y-3.5">
@@ -317,7 +324,7 @@ function irA(a) {
                     </div>
                 </div>
 
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <h2 class="font-semibold text-gray-900 text-lg mb-4">Ventas por Categoría</h2>
                         <div v-if="ventasPorCategoria.length" class="relative mx-auto" style="height:160px;width:160px">
@@ -342,10 +349,10 @@ function irA(a) {
                 </div>
             </div>
 
-            <!-- Fila 4: Métodos de Pago (1/2) | Actividad Reciente (1/2) -->
+            <!-- Fila 3: Métodos de Pago | Actividad Reciente -->
             <div class="flex flex-col lg:flex-row gap-6 w-full items-stretch">
 
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <h2 class="font-semibold text-gray-900 text-lg mb-5">Métodos de Pago</h2>
                         <div class="space-y-5">
@@ -363,7 +370,7 @@ function irA(a) {
                     </div>
                 </div>
 
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <h2 class="font-semibold text-gray-900 text-lg mb-4">Actividad Reciente</h2>
                         <ul class="space-y-3.5">

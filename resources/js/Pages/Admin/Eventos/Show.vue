@@ -57,30 +57,59 @@ async function eliminar() {
 
             <!-- Banner principal -->
             <div class="relative admin-card overflow-hidden mb-6">
-                <div style="height:8px;background:linear-gradient(90deg,#ef4444,#f97316)"></div>
-                <div class="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div class="flex items-center gap-4">
-                        <div class="admin-icon-gradient" style="width:64px;height:64px">
-                            <i class="pi pi-calendar" style="font-size:1.5rem"></i>
-                        </div>
+                <!-- Imagen del evento (si tiene) o franja de color como respaldo -->
+                <div v-if="evento.imagen" class="relative w-full" style="height:220px">
+                    <img :src="evento.imagen" class="w-full h-full object-cover" @error="$event.target.style.display='none'" />
+                    <div class="absolute inset-0" style="background:linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%)"></div>
+                    <span v-if="evento.destacado" class="absolute top-4 right-4 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-400 text-amber-900 flex items-center gap-1.5 shadow">
+                        <i class="pi pi-star-fill"></i> Destacado
+                    </span>
+                    <div class="absolute bottom-4 left-6 right-6 flex items-center justify-between gap-4">
                         <div>
-                            <h1 class="text-xl font-bold text-gray-900">{{ evento.nombre }}</h1>
-                            <p class="text-sm text-gray-400 mt-0.5">{{ evento.categoria || 'Sin categoría asignada' }}</p>
+                            <h1 class="text-xl font-bold text-white drop-shadow">{{ evento.nombre }}</h1>
+                            <p class="text-sm text-white/80 mt-0.5">{{ evento.categoria || 'Sin categoría asignada' }}</p>
                         </div>
-                    </div>
-                    <div class="flex items-center gap-2 shrink-0">
-                        <span class="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase" :class="tipoColores[evento.tipo]">{{ evento.tipo }}</span>
-                        <span class="px-3 py-1.5 rounded-lg text-xs font-semibold" :class="estadoColores[evento.estado_display]">
-                            {{ estadoLabel[evento.estado_display] }}
-                        </span>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase" :class="tipoColores[evento.tipo]">{{ evento.tipo }}</span>
+                            <span class="px-3 py-1.5 rounded-lg text-xs font-semibold" :class="estadoColores[evento.estado_display]">
+                                {{ estadoLabel[evento.estado_display] }}
+                            </span>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Sin imagen: banner con icono como antes -->
+                <template v-else>
+                    <div style="height:8px;background:linear-gradient(90deg,#ef4444,#f97316)"></div>
+                    <div class="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <div class="admin-icon-gradient" style="width:64px;height:64px">
+                                <i class="pi pi-calendar" style="font-size:1.5rem"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                    {{ evento.nombre }}
+                                    <span v-if="evento.destacado" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 flex items-center gap-1">
+                                        <i class="pi pi-star-fill"></i> Destacado
+                                    </span>
+                                </h1>
+                                <p class="text-sm text-gray-400 mt-0.5">{{ evento.categoria || 'Sin categoría asignada' }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase" :class="tipoColores[evento.tipo]">{{ evento.tipo }}</span>
+                            <span class="px-3 py-1.5 rounded-lg text-xs font-semibold" :class="estadoColores[evento.estado_display]">
+                                {{ estadoLabel[evento.estado_display] }}
+                            </span>
+                        </div>
+                    </div>
+                </template>
             </div>
 
             <div class="flex flex-col lg:flex-row gap-6 items-start w-full">
 
                 <!-- Columna izquierda: detalles -->
-                <div class="w-full lg:w-2/3 flex flex-col gap-6">
+                <div class="w-full lg:w-2/3 min-w-0 flex flex-col gap-6">
 
                     <!-- Descripción -->
                     <div v-if="evento.descripcion" class="admin-card p-6">
@@ -136,11 +165,18 @@ async function eliminar() {
                                     <p class="text-sm font-semibold text-gray-800">{{ evento.capacidad || 'Ilimitada' }}</p>
                                 </div>
                             </div>
-                            <div v-if="evento.codigo_vestimenta" class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3 sm:col-span-2">
+                            <div v-if="evento.codigo_vestimenta" class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
                                 <div class="admin-icon-circle bg-red-50 text-red-600" style="width:40px;height:40px"><i class="pi pi-star text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Código de vestimenta</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ evento.codigo_vestimenta }}</p>
+                                </div>
+                            </div>
+                            <div v-if="evento.organizador" class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
+                                <div class="admin-icon-circle bg-red-50 text-red-600" style="width:40px;height:40px"><i class="pi pi-user text-sm"></i></div>
+                                <div>
+                                    <p class="text-[11px] text-gray-400 uppercase font-medium">Organizado por</p>
+                                    <p class="text-sm font-semibold text-gray-800">{{ evento.organizador.nombre }}</p>
                                 </div>
                             </div>
                         </div>
@@ -148,7 +184,7 @@ async function eliminar() {
                 </div>
 
                 <!-- Columna derecha: estado + acciones -->
-                <div class="w-full lg:w-1/3 flex flex-col gap-6">
+                <div class="w-full lg:w-1/3 min-w-0 flex flex-col gap-6">
 
                     <!-- Estado destacado -->
                     <div class="admin-card p-6 text-center">

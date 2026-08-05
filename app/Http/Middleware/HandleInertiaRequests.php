@@ -47,6 +47,7 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
             ],
             'badges' => fn () => $this->badges($request),
+            'notificaciones' => fn () => $this->notificaciones($request),
         ];
     }
 
@@ -76,5 +77,33 @@ class HandleInertiaRequests extends Middleware
             'pagosPendientes'        => $pagosPendientes,
             'notificaciones'         => $pagosPendientes,
         ];
+    }
+
+    /**
+     * Lista real que alimenta el panel de la campana (no solo el número).
+     * Por ahora son los pagos pendientes, porque es lo único que "badges"
+     * está contando de verdad. Cuando exista una tabla de notificaciones,
+     * esto se reemplaza por Notificacion::where('leida', false)->...
+     */
+    private function notificaciones(Request $request): array
+    {
+        if (! $request->user('admin')) {
+            return [];
+        }
+
+        return Transaccion::with('usuario:id,nombre,apodo')
+            ->where('estado', 'pendiente')
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(fn ($t) => [
+                'id' => $t->id,
+                'titulo' => 'Pago pendiente de aprobación',
+                'mensaje' => '@' . ($t->usuario?->apodo ?? $t->usuario?->nombre ?? 'usuario')
+                    . ' — $' . number_format($t->monto, 2),
+                'fecha' => $t->created_at->diffForHumans(),
+                'route' => 'admin.cobros.index',
+            ])
+            ->all();
     }
 }

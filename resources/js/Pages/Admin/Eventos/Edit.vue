@@ -1,9 +1,11 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import { useToast } from '@/composables/useToast';
 
 const toast = useToast();
+const imagenValida = ref(null);
 
 const props = defineProps({
     evento: Object,
@@ -16,12 +18,16 @@ const form = useForm({
     hora: props.evento.hora?.length > 5 ? props.evento.hora.slice(0, 5) : props.evento.hora || '',
     ciudad: props.evento.ciudad || '',
     zona_ubicacion: props.evento.zona_ubicacion || '',
+    ubicacion_lat: props.evento.ubicacion_lat ?? '',
+    ubicacion_lng: props.evento.ubicacion_lng ?? '',
     precio: props.evento.precio || 0,
     capacidad: props.evento.capacidad || '',
     tipo: props.evento.tipo,
     categoria: props.evento.categoria || '',
     codigo_vestimenta: props.evento.codigo_vestimenta || '',
     estado: props.evento.estado,
+    imagen: props.evento.imagen || '',
+    destacado: !!props.evento.destacado,
 });
 
 function submit() {
@@ -43,12 +49,15 @@ function submit() {
         <template #title>Editar evento</template>
         <template #breadcrumb>Dashboard &gt; Eventos &gt; Editar</template>
 
-        <Link :href="route('admin.eventos.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
-            <i class="pi pi-arrow-left text-xs"></i> Volver a Eventos
-        </Link>
+        <div class="max-w-3xl mx-auto">
+            <Link :href="route('admin.eventos.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
+                <i class="pi pi-arrow-left text-xs"></i> Volver a Eventos
+            </Link>
 
-        <form @submit.prevent="submit" class="max-w-3xl admin-card overflow-hidden">
-            <!-- Datos del evento -->
+            <form @submit.prevent="submit" class="admin-card overflow-hidden">
+                <div style="height:6px;background:linear-gradient(90deg,#ef4444,#f97316)"></div>
+
+            <!-- Sección 1: Datos del evento -->
             <div class="p-6">
                 <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
                     <div class="admin-icon-gradient" style="width:48px;height:48px">
@@ -84,7 +93,22 @@ function submit() {
                             <p v-if="form.errors.hora" class="text-red-600 text-xs mt-1">{{ form.errors.hora }}</p>
                         </div>
                     </div>
+                </div>
+            </div>
 
+            <!-- Sección 2: Ubicación -->
+            <div class="p-6 bg-gray-50/50 border-t border-gray-100">
+                <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
+                    <div class="admin-icon-gradient" style="width:48px;height:48px">
+                        <i class="pi pi-map-marker text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-semibold text-gray-800">Ubicación</h2>
+                        <p class="text-xs text-gray-400">Dónde se llevará a cabo</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Ciudad *</label>
@@ -96,11 +120,23 @@ function submit() {
                             <input v-model="form.zona_ubicacion" type="text" placeholder="Ej. Polanco" class="admin-input px-3 py-2.5" />
                         </div>
                     </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Latitud (opcional)</label>
+                            <input v-model="form.ubicacion_lat" type="number" step="0.00000001" placeholder="Ej. 19.4326" class="admin-input px-3 py-2.5" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Longitud (opcional)</label>
+                            <input v-model="form.ubicacion_lng" type="number" step="0.00000001" placeholder="Ej. -99.1332" class="admin-input px-3 py-2.5" />
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400">Para ubicar el evento en un mapa. Puedes dejarlo en blanco por ahora.</p>
                 </div>
             </div>
 
-            <!-- Precio, cupo y tipo -->
-            <div class="p-6 bg-gray-50/50 border-t border-gray-100">
+            <!-- Sección 3: Precio y capacidad -->
+            <div class="p-6 border-t border-gray-100">
                 <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
                     <div class="admin-icon-gradient" style="width:48px;height:48px">
                         <i class="pi pi-ticket text-lg"></i>
@@ -148,6 +184,53 @@ function submit() {
                 </div>
             </div>
 
+            <!-- Sección 4: Presentación -->
+            <div class="p-6 bg-gray-50/50 border-t border-gray-100">
+                <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
+                    <div class="admin-icon-gradient" style="width:48px;height:48px">
+                        <i class="pi pi-image text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-semibold text-gray-800">Presentación</h2>
+                        <p class="text-xs text-gray-400">Cómo se verá en la plataforma</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Imagen (URL)</label>
+                        <input v-model="form.imagen" type="text" placeholder="https://..." class="admin-input px-3 py-2.5" />
+                        <p class="text-xs text-gray-400 mt-1">
+                            Debe ser el link directo al archivo (termina en .jpg, .png, .webp...), no a una página de producto.
+                        </p>
+
+                        <!-- Vista previa en vivo -->
+                        <div v-if="form.imagen" class="mt-3">
+                            <div class="w-full rounded-xl overflow-hidden border border-gray-200 bg-gray-50" style="height:160px">
+                                <img
+                                    :src="form.imagen"
+                                    class="w-full h-full object-cover"
+                                    @load="imagenValida = true"
+                                    @error="imagenValida = false"
+                                />
+                            </div>
+                            <p v-if="imagenValida === false" class="text-red-600 text-xs mt-1.5 flex items-center gap-1">
+                                <i class="pi pi-exclamation-triangle"></i>
+                                Esta URL no cargó una imagen. Revisa que sea el link directo al archivo.
+                            </p>
+                            <p v-else-if="imagenValida === true" class="text-green-600 text-xs mt-1.5 flex items-center gap-1">
+                                <i class="pi pi-check-circle"></i> Se ve bien.
+                            </p>
+                        </div>
+                    </div>
+
+                    <label class="flex items-center gap-2.5 cursor-pointer">
+                        <input v-model="form.destacado" type="checkbox" class="rounded border-gray-300 text-brand focus:ring-brand w-4 h-4" />
+                        <span class="text-sm text-gray-700">Marcar como evento destacado</span>
+                    </label>
+                </div>
+            </div>
+
             <!-- Acciones -->
             <div class="p-6 border-t border-gray-100 flex items-center gap-3">
                 <button type="submit" :disabled="form.processing" class="admin-btn-primary disabled:opacity-50">
@@ -159,5 +242,6 @@ function submit() {
                 </Link>
             </div>
         </form>
+        </div>
     </AdminLayout>
 </template>

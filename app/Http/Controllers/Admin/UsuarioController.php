@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Administrador;
+use App\Models\Creador;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -106,26 +107,44 @@ public function index(Request $request): Response
     {
         $data = $request->validate([
             'nombre' => ['required', 'string', 'max:255'],
-            'apodo' => ['required', 'string', 'max:255', 'unique:users,apodo'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'apodo' => ['required_unless:rol,admin', 'nullable', 'string', 'max:255', 'unique:users,apodo'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email', 'unique:administradores,email'],
             'password' => ['required', 'string', 'min:8'],
             'telefono' => ['nullable', 'string', 'max:30'],
-            'fecha_nacimiento' => ['required', 'date', 'before:today'],
+            'fecha_nacimiento' => ['required_unless:rol,admin', 'nullable', 'date', 'before:today'],
             'rol' => ['required', Rule::in(['usuario', 'creador', 'admin'])],
             'estado' => ['required', Rule::in(['pendiente', 'verificado', 'incompleto', 'bloqueado'])],
         ]);
 
+        if ($data['rol'] === 'admin') {
+            Administrador::create([
+                'nombre' => $data['nombre'],
+                'email' => $data['email'],
+                'password' => Hash::make($data['password']),
+                'esta_activo' => $data['estado'] === 'verificado',
+            ]);
+
+            return redirect()->route('admin.usuarios.index')->with('success', "Administrador {$data['nombre']} creado correctamente.");
+        }
+
         $data['password'] = Hash::make($data['password']);
         $data['email_verificado_en'] = $data['estado'] === 'verificado' ? now() : null;
 
-        User::create($data);
+        $usuario = User::create($data);
+
+        if ($usuario->rol === 'creador') {
+            Creador::firstOrCreate(
+                ['usuario_id' => $usuario->id],
+                ['estado_verificacion' => 'pendiente']
+            );
+        }
 
         return redirect()->route('admin.usuarios.index')->with('success', "Usuario @{$data['apodo']} creado correctamente.");
     }
 
     public function show(User $usuario): Response
     {
-        $usuario->load('perfil');
+        $usuario->load('perfil', 'creador');
 
         return Inertia::render('Admin/Usuarios/Show', [
             'usuario' => $usuario,
@@ -158,7 +177,18 @@ public function index(Request $request): Response
             unset($data['password']);
         }
 
+        $eraCreador = $usuario->rol === 'creador';
+
         $usuario->update($data);
+
+        if ($usuario->rol === 'creador' && !$eraCreador) {
+            Creador::firstOrCreate(
+                ['usuario_id' => $usuario->id],
+                ['estado_verificacion' => 'pendiente']
+            );
+        }
+        // Si deja de ser creador, su fila en `creadores` NO se toca — se
+        // conserva por si vuelve a serlo más adelante (decisión del cliente).
 
         return redirect()->route('admin.usuarios.index')->with('success', "Usuario @{$usuario->apodo} actualizado correctamente.");
     }
@@ -166,20 +196,42 @@ public function index(Request $request): Response
     /**
      * Alterna el estado de un usuario entre bloqueado / verificado.
      */
-    public function toggleBloqueo(User $usuario)
+    public function toggleBloqueo(Request $request, $id)
     {
-        $usuario->estado = $usuario->estado === 'bloqueado' ? 'verificado' : 'bloqueado';
-        $usuario->save();
+        // Si viene la bandera es_admin desde la petición o si no existe en Users
+        $usuario = User::find($id);
 
-        return back()->with('success', $usuario->estado === 'bloqueado'
-            ? "Usuario @{$usuario->apodo} bloqueado."
-            : "Usuario @{$usuario->apodo} desbloqueado.");
+        if ($usuario) {
+            $usuario->estado = $usuario->estado === 'bloqueado' ? 'verificado' : 'bloqueado';
+            $usuario->save();
+            $apodo = $usuario->apodo;
+            $estado = $usuario->estado;
+        } else {
+            $admin = Administrador::findOrFail($id);
+            $admin->esta_activo = !$admin->esta_activo;
+            $admin->save();
+            $apodo = $admin->nombre;
+            $estado = $admin->esta_activo ? 'verificado' : 'bloqueado';
+        }
+
+        return back()->with('success', $estado === 'bloqueado'
+            ? "Usuario @{$apodo} bloqueado."
+            : "Usuario @{$apodo} desbloqueado.");
     }
 
-    public function destroy(User $usuario)
+    public function destroy(Request $request, $id)
     {
-        $usuario->delete(); // soft delete
+        $usuario = User::find($id);
 
-        return back()->with('success', "Usuario @{$usuario->apodo} eliminado.");
+        if ($usuario) {
+            $apodo = $usuario->apodo;
+            $usuario->delete();
+        } else {
+            $admin = Administrador::findOrFail($id);
+            $apodo = $admin->nombre;
+            $admin->delete();
+        }
+
+        return back()->with('success', "Usuario @{$apodo} eliminado.");
     }
 }
