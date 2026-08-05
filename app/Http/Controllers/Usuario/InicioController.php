@@ -1,13 +1,15 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Usuario;
 
+use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Perfil;
 use App\Models\Evento;
 use App\Models\Mensaje;
 use App\Models\Coincidencia;
 use App\Models\Chat;
+use App\Models\Publicacion;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -33,8 +35,29 @@ class InicioController extends Controller
         }
 
         try {
-            // Verificar si el usuario tiene perfil
-            $tienePerfil = Perfil::where('usuario_id', $user->id)->exists();
+            $perfil = Perfil::where('usuario_id', $user->id)->first();
+            
+            if (!$perfil) {
+                Log::info('Usuario sin perfil, redirigiendo a completar perfil', [
+                    'user_id' => $user->id,
+                    'estado' => $user->estado
+                ]);
+                
+                return redirect()->route('perfil.completar')->with('flash', [
+                    'toast' => [
+                        'type' => 'info',
+                        'title' => 'Completa tu perfil',
+                        'message' => 'Para acceder a todas las funcionalidades, completa tu perfil.',
+                        'duration' => 5000,
+                    ]
+                ]);
+            }
+
+            Log::info('Usuario con perfil, accediendo al inicio', [
+                'user_id' => $user->id,
+                'estado' => $user->estado,
+                'perfil_id' => $perfil->id
+            ]);
 
             $usuarioData = [
                 'id' => $user->id,
@@ -44,25 +67,25 @@ class InicioController extends Controller
                 'avatar' => $user->avatar ?? '/images/shared/avatar-default.jpg',
                 'verificado' => ($user->estado === 'verificado' || $user->email_verificado_en !== null),
                 'rol' => $user->rol ?? 'usuario',
-                'tiene_perfil' => $tienePerfil,
+                'tiene_perfil' => true,
+                'estado' => $user->estado ?? 'incompleto',
             ];
 
-            // Obtener datos con manejo de errores individual
-            $quickStats = $this->getQuickStats($user);
-            $panelInteligente = $this->getPanelInteligente($user);
-            $coincidencias = $this->getCoincidencias($user);
+            $quickStats = $this->getQuickStats($user, $perfil);
+            $panelInteligente = $this->getPanelInteligente($user, $perfil);
             $eventos = $this->getEventos($user);
             $mensajesRecientes = $this->getMensajesRecientes($user);
             $actividadReciente = $this->getActividadReciente($user);
+            $publicacionesRecientes = $this->getPublicacionesRecientes($user);
 
-            return Inertia::render('Inicio', [
+            return Inertia::render('Usuario/Inicio', [
                 'usuario' => $usuarioData,
                 'quickStats' => $quickStats,
                 'panelInteligente' => $panelInteligente,
-                'coincidencias' => $coincidencias,
                 'eventos' => $eventos,
                 'mensajesRecientes' => $mensajesRecientes,
                 'actividadReciente' => $actividadReciente,
+                'publicacionesRecientes' => $publicacionesRecientes,
             ]);
 
         } catch (\Exception $e) {
@@ -74,7 +97,6 @@ class InicioController extends Controller
                 'user_id' => $user->id ?? null
             ]);
 
-            // Redirigir al login con mensaje de error específico
             return redirect()->route('login')->with('flash', [
                 'toast' => [
                     'type' => 'error',
@@ -89,7 +111,7 @@ class InicioController extends Controller
     /**
      * Obtiene las estadísticas rápidas del usuario
      */
-    protected function getQuickStats($user)
+    protected function getQuickStats($user, $perfil)
     {
         try {
             $coincidenciasPendientes = Coincidencia::where(function($query) use ($user) {
@@ -111,9 +133,7 @@ class InicioController extends Controller
                 ->where('estado', 'publicado')
                 ->count();
 
-            $perfilVerificado = Perfil::where('usuario_id', $user->id)
-                ->where('esta_verificado', true)
-                ->exists();
+            $perfilVerificado = $perfil->esta_verificado ?? false;
 
             return [
                 [
@@ -151,7 +171,6 @@ class InicioController extends Controller
                 'user_id' => $user->id
             ]);
             
-            // Retornar datos vacíos pero no fallar
             return [
                 [
                     'icon' => 'pi-bolt',
@@ -184,10 +203,9 @@ class InicioController extends Controller
     /**
      * Obtiene los datos del panel inteligente
      */
-    protected function getPanelInteligente($user)
+    protected function getPanelInteligente($user, $perfil)
     {
         try {
-            $perfil = Perfil::where('usuario_id', $user->id)->first();
             $tokens = $user->tokens ?? 0;
             $nivelConfianza = $perfil->puntuacion_compatibilidad ?? 0;
             
@@ -255,65 +273,6 @@ class InicioController extends Controller
                     'link' => '#',
                 ],
             ];
-        }
-    }
-
-    /**
-     * Obtiene las coincidencias para el usuario
-     */
-    protected function getCoincidencias($user)
-    {
-        try {
-            $coincidencias = Coincidencia::where(function($query) use ($user) {
-                    $query->where('usuario_a_id', $user->id)
-                          ->orWhere('usuario_b_id', $user->id);
-                })
-                ->where('estado', 'coincidencia')
-                ->with(['usuarioA', 'usuarioB', 'usuarioA.perfil', 'usuarioB.perfil'])
-                ->orderBy('created_at', 'desc')
-                ->limit(3)
-                ->get();
-
-            $resultados = [];
-
-            foreach ($coincidencias as $coincidencia) {
-                $otroUsuario = $coincidencia->usuario_a_id === $user->id 
-                    ? $coincidencia->usuarioB 
-                    : $coincidencia->usuarioA;
-
-                if ($otroUsuario) {
-                    $perfil = $otroUsuario->perfil;
-                    $edad = $otroUsuario->fecha_nacimiento ? Carbon::parse($otroUsuario->fecha_nacimiento)->age : null;
-                    $compatibilidad = $coincidencia->compatibilidad ?? 0;
-                    $tipoPerfil = $perfil->tipo ?? 'Usuario';
-                    $nombreCompleto = $otroUsuario->nombre ?? $otroUsuario->apodo ?? 'Usuario';
-                    
-                    if ($tipoPerfil === 'pareja' && $edad) {
-                        $nombreCompleto = $nombreCompleto . ' & Pareja, ' . $edad . ' & ' . ($edad + rand(-2, 2));
-                    } elseif ($edad) {
-                        $nombreCompleto = $nombreCompleto . ', ' . $edad;
-                    }
-
-                    $resultados[] = [
-                        'imagen' => $perfil->foto_principal ?? '/images/inicio/avatar-default.jpg',
-                        'nombre' => $nombreCompleto,
-                        'ciudad' => $perfil->ubicacion_ciudad ?? $otroUsuario->ciudad ?? 'Ciudad no especificada',
-                        'distancia' => $this->calcularDistancia($user, $otroUsuario, $perfil),
-                        'compatibilidad' => $compatibilidad,
-                        'disponible' => $otroUsuario->estado === 'verificado',
-                        'cercano' => $this->esCercano($user, $otroUsuario, $perfil),
-                    ];
-                }
-            }
-
-            return $resultados;
-        } catch (\Exception $e) {
-            Log::error('Error en getCoincidencias', [
-                'message' => $e->getMessage(),
-                'user_id' => $user->id
-            ]);
-            
-            return [];
         }
     }
 
@@ -431,7 +390,6 @@ class InicioController extends Controller
         try {
             $actividad = [];
 
-            // Nuevas coincidencias
             $nuevasCoincidencias = Coincidencia::where(function($query) use ($user) {
                     $query->where('usuario_a_id', $user->id)
                           ->orWhere('usuario_b_id', $user->id);
@@ -459,7 +417,6 @@ class InicioController extends Controller
                 }
             }
 
-            // Mensajes nuevos no leídos
             $nuevosMensajes = Mensaje::whereHas('chat.coincidencia', function($query) use ($user) {
                     $query->where('usuario_a_id', $user->id)
                           ->orWhere('usuario_b_id', $user->id);
@@ -484,7 +441,6 @@ class InicioController extends Controller
                 }
             }
 
-            // Eventos próximos en su ciudad
             if ($user->ciudad) {
                 $eventosProximos = Evento::where('fecha', '>=', Carbon::now()->toDateString())
                     ->where('estado', 'publicado')
@@ -503,7 +459,6 @@ class InicioController extends Controller
                 }
             }
 
-            // Ordenar por tiempo (más reciente primero)
             usort($actividad, function($a, $b) {
                 if ($a['tiempo'] === 'Próximo') return 1;
                 if ($b['tiempo'] === 'Próximo') return -1;
@@ -513,6 +468,88 @@ class InicioController extends Controller
             return array_slice($actividad, 0, 4);
         } catch (\Exception $e) {
             Log::error('Error en getActividadReciente', [
+                'message' => $e->getMessage(),
+                'user_id' => $user->id
+            ]);
+            
+            return [];
+        }
+    }
+
+    /**
+     * Obtiene publicaciones recientes de la comunidad (SOLO VISUALIZACIÓN - ÚLTIMAS 6)
+     */
+    protected function getPublicacionesRecientes($user)
+    {
+        try {
+            $publicaciones = Publicacion::with(['usuario'])
+                ->where('estado', 'publicado')
+                ->orderBy('created_at', 'desc')
+                ->limit(6)
+                ->get();
+
+            $resultados = [];
+
+            foreach ($publicaciones as $publicacion) {
+                $usuario = $publicacion->usuario;
+                
+                // 🔥 OBTENER AVATAR DEL USUARIO usando el accesor avatar del modelo User
+                // Este accesor usa foto_principal automáticamente
+                $avatar = '/images/shared/avatar-default.jpg';
+                if ($usuario) {
+                    // Usamos el accesor avatar que ya existe en el modelo User
+                    $avatar = $usuario->avatar ?? '/images/shared/avatar-default.jpg';
+                    
+                    // 🔥 CORRECCIÓN: Si el avatar no tiene http ni empieza con /, agregar prefijo
+                    if ($avatar && !str_starts_with($avatar, 'http') && !str_starts_with($avatar, '/')) {
+                        $avatar = '/storage/' . $avatar;
+                    }
+                }
+
+                // 🔥 Obtener la URL de la imagen del post
+                $mediaUrl = $publicacion->imagen ?? null;
+                
+                // Si la imagen existe y no tiene http ni empieza con /storage/, agregar el prefijo
+                if ($mediaUrl && !str_starts_with($mediaUrl, 'http') && !str_starts_with($mediaUrl, '/')) {
+                    $mediaUrl = '/storage/' . $mediaUrl;
+                }
+
+                // Detectar si es imagen o video
+                $esVideo = false;
+                $esImagen = false;
+                
+                if ($mediaUrl) {
+                    $videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'wmv', 'flv', 'mkv'];
+                    $extension = strtolower(pathinfo($mediaUrl, PATHINFO_EXTENSION));
+                    $esVideo = in_array($extension, $videoExtensions);
+                    $esImagen = !$esVideo;
+                }
+
+                $resultados[] = [
+                    'id' => $publicacion->id,
+                    'usuario' => [
+                        'id' => $usuario?->id,
+                        'nombre' => $usuario?->nombre ?? $usuario?->apodo ?? 'Usuario desconocido',
+                        'apodo' => $usuario?->apodo ?? $usuario?->nombre ?? 'Usuario',
+                        'avatar' => $avatar,
+                        'verificado' => ($usuario?->estado === 'verificado' || $usuario?->email_verificado_en !== null),
+                        'es_creador' => ($usuario?->rol ?? '') === 'creador',
+                    ],
+                    'texto' => $publicacion->texto ?? '',
+                    'imagen' => $mediaUrl,
+                    'es_video' => $esVideo,
+                    'es_imagen' => $esImagen,
+                    'es_premium' => $publicacion->es_premium ?? false,
+                    'likes' => $publicacion->likes ?? 0,
+                    'comentarios_count' => $publicacion->comentarios_count ?? 0,
+                    'tiempo' => $this->formatearTiempo($publicacion->created_at),
+                    'created_at' => $publicacion->created_at->toISOString(),
+                ];
+            }
+
+            return $resultados;
+        } catch (\Exception $e) {
+            Log::error('Error en getPublicacionesRecientes', [
                 'message' => $e->getMessage(),
                 'user_id' => $user->id
             ]);
@@ -561,25 +598,5 @@ class InicioController extends Controller
         } catch (\Exception $e) {
             return 'Recién';
         }
-    }
-
-    protected function calcularDistancia($user, $otroUsuario, $perfil = null)
-    {
-        $ciudadUser = $user->ciudad;
-        $ciudadOtro = $perfil->ubicacion_ciudad ?? $otroUsuario->ciudad;
-        
-        if ($ciudadUser && $ciudadOtro && $ciudadUser === $ciudadOtro) {
-            return 'A ' . rand(1, 5) . ' km de ti';
-        }
-        
-        return 'A ' . rand(5, 50) . ' km de ti';
-    }
-
-    protected function esCercano($user, $otroUsuario, $perfil = null)
-    {
-        $ciudadUser = $user->ciudad;
-        $ciudadOtro = $perfil->ubicacion_ciudad ?? $otroUsuario->ciudad;
-        
-        return $ciudadUser && $ciudadOtro && $ciudadUser === $ciudadOtro;
     }
 }

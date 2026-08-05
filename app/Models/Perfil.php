@@ -17,7 +17,6 @@ class Perfil extends Model
         'descripcion',
         'intereses',
         'pasatiempos',
-        'fotos',
         'privacidad_fotos',
         'estado_verificacion',
         'esta_verificado',
@@ -31,7 +30,6 @@ class Perfil extends Model
     protected $casts = [
         'intereses' => 'array',
         'pasatiempos' => 'array',
-        'fotos' => 'array',
         'esta_verificado' => 'boolean',
         'puntuacion_compatibilidad' => 'integer',
         'ubicacion_lat' => 'decimal:8',

@@ -21,6 +21,8 @@ const props = defineProps({
             fecha_nacimiento: null,
             estado: 'incompleto',
             email_verificado_en: null,
+            avatar: '/images/shared/avatar-default.jpg',
+            foto_principal: null,
         })
     },
     perfil: {
@@ -39,6 +41,8 @@ const props = defineProps({
             ubicacion_ciudad: '',
             metadatos: {},
             pareja: null,
+            perfil_completo: false,
+            usuario_verificado: false,
         })
     },
     fechaNacimiento: {
@@ -73,6 +77,7 @@ const form = useForm({
 const bioMax = 300;
 const bioLength = computed(() => form.bio.length);
 const isFormValid = ref(false);
+const isSaving = ref(false);
 
 /* ---------------------------------------------------------------
  * Intereses
@@ -122,6 +127,39 @@ const interesesCount = computed(() => intereses.filter(i => i.selected).length);
 const buscandoCount = computed(() => buscando.filter(i => i.selected).length);
 
 /* ---------------------------------------------------------------
+ * Fotos - Función para obtener URL correcta
+ * --------------------------------------------------------------- */
+function getFotoUrl(foto) {
+    if (!foto) return '/images/shared/avatar-default.jpg';
+    
+    if (foto.url) {
+        if (foto.url.startsWith('http://') || foto.url.startsWith('https://')) {
+            return foto.url;
+        }
+        if (foto.url.startsWith('/storage/') || foto.url.startsWith('/images/')) {
+            return foto.url;
+        }
+        return '/storage/' + foto.url.replace(/^\/+/, '');
+    }
+    
+    if (foto.ruta_foto) {
+        return '/storage/' + foto.ruta_foto.replace(/^\/+/, '');
+    }
+    
+    if (typeof foto === 'string') {
+        if (foto.startsWith('http://') || foto.startsWith('https://')) {
+            return foto;
+        }
+        if (foto.startsWith('/storage/') || foto.startsWith('/images/')) {
+            return foto;
+        }
+        return '/storage/' + foto.replace(/^\/+/, '');
+    }
+    
+    return '/images/shared/avatar-default.jpg';
+}
+
+/* ---------------------------------------------------------------
  * Fotos
  * --------------------------------------------------------------- */
 const fotos = reactive([]);
@@ -130,13 +168,27 @@ const fotos = reactive([]);
 onMounted(() => {
     if (props.perfil?.fotos && props.perfil.fotos.length > 0) {
         props.perfil.fotos.forEach(f => {
-            const url = f.url || f.ruta_foto || f.ruta || '';
+            const url = getFotoUrl(f);
             fotos.push({
                 url: url,
                 file: null,
                 principal: f.principal || f.es_principal || false,
-                existente: true
+                existente: true,
+                ruta_foto: f.ruta_foto || '',
+                id: f.id || null
             });
+        });
+    }
+    
+    if (fotos.length === 0 && props.user?.foto_principal) {
+        const url = getFotoUrl(props.user.foto_principal);
+        fotos.push({
+            url: url,
+            file: null,
+            principal: true,
+            existente: true,
+            ruta_foto: props.user.foto_principal,
+            id: null
         });
     }
     
@@ -184,7 +236,9 @@ function onFileSelected(event) {
                 url: e.target.result, 
                 file: file,
                 principal: fotos.length === 0,
-                existente: false
+                existente: false,
+                ruta_foto: '',
+                id: null
             });
             validarFormulario();
         };
@@ -212,6 +266,13 @@ function getFotoCountText() {
     return `${count} fotos subidas`;
 }
 
+function getFotoPrincipal() {
+    const principal = fotos.find(f => f.principal);
+    if (principal) return principal.url;
+    if (fotos.length > 0) return fotos[0].url;
+    return props.user?.avatar || '/images/shared/avatar-default.jpg';
+}
+
 /* ---------------------------------------------------------------
  * VALIDACIONES
  * --------------------------------------------------------------- */
@@ -222,7 +283,6 @@ function validarFormulario() {
     const errores = [];
     const pendientes = [];
     
-    // 1. Validar nickname, edad, ciudad
     if (!form.nickname || form.nickname.trim() === '') {
         errores.push('El nombre o nickname es obligatorio.');
         pendientes.push('Nombre o nickname');
@@ -236,25 +296,21 @@ function validarFormulario() {
         pendientes.push('Ciudad');
     }
     
-    // 2. Validar descripción (bio)
     if (!form.bio || form.bio.trim().length < 10) {
         errores.push('La descripción es obligatoria y debe tener al menos 10 caracteres.');
         pendientes.push('Descripción (mínimo 10 caracteres)');
     }
     
-    // 3. Validar fotos (al menos 1)
     if (fotos.length === 0) {
         errores.push('Debes subir al menos una foto.');
         pendientes.push('Foto de perfil');
     }
     
-    // 4. Validar visibilidad de fotos
     if (!form.visibilidadFotos) {
         errores.push('Debes seleccionar quién puede ver tus fotos.');
         pendientes.push('Visibilidad de fotos');
     }
     
-    // 5. Validar según tipo de perfil
     if (form.tipoPerfil === 'personal') {
         if (buscandoCount.value < 1) {
             errores.push('Debes seleccionar al menos una opción de "Qué estás buscando".');
@@ -356,10 +412,9 @@ const beneficios = [
 ];
 
 /* ---------------------------------------------------------------
- * FUNCIONES DE GUARDADO - CORREGIDAS
+ * FUNCIONES DE GUARDADO
  * --------------------------------------------------------------- */
 function prepararFormulario() {
-    // Actualizar los arrays de intereses en el form
     form.intereses = intereses.filter(i => i.selected).map(i => i.label);
     form.buscando = buscando.filter(i => i.selected).map(i => i.label);
 }
@@ -374,15 +429,10 @@ function guardarYContinuar() {
         return;
     }
     
-    // Preparar los datos del formulario
+    isSaving.value = true;
     prepararFormulario();
     
-    // Crear FormData con todos los datos
     const formData = new FormData();
-    
-    // ============================================================
-    // AGREGAR TODOS LOS CAMPOS DEL FORMULARIO
-    // ============================================================
     
     // Campos básicos
     formData.append('nickname', form.nickname || '');
@@ -393,8 +443,7 @@ function guardarYContinuar() {
     formData.append('tipoPerfil', form.tipoPerfil || 'personal');
     formData.append('visibilidadFotos', form.visibilidadFotos || 'todos');
     
-    // ✅ CORREGIDO: Enviar intereses como array, no como JSON string
-    // Laravel espera un array, no un string JSON
+    // Intereses
     if (form.intereses && form.intereses.length > 0) {
         form.intereses.forEach((interes, index) => {
             formData.append(`intereses[${index}]`, interes);
@@ -419,43 +468,33 @@ function guardarYContinuar() {
     // Fotos
     fotos.forEach((foto, index) => {
         if (foto.file) {
-            // Es un archivo nuevo
+            // Archivo nuevo
             formData.append(`fotos[${index}][file]`, foto.file);
             formData.append(`fotos[${index}][principal]`, foto.principal ? '1' : '0');
-        } else if (foto.existente && foto.url) {
-            // Es una foto existente
-            formData.append(`fotos[${index}][url]`, foto.url);
+        } else if (foto.existente && foto.id) {
+            // Foto existente con ID
+            formData.append(`fotos[${index}][id]`, String(foto.id));
+            formData.append(`fotos[${index}][principal]`, foto.principal ? '1' : '0');
+        } else if (foto.existente && foto.ruta_foto) {
+            // Foto existente con ruta (sin ID)
+            formData.append(`fotos[${index}][ruta_foto]`, foto.ruta_foto);
             formData.append(`fotos[${index}][principal]`, foto.principal ? '1' : '0');
         }
     });
     
-    // ============================================================
-    // DEBUG: Mostrar datos en consola
-    // ============================================================
-    console.log('📤 Enviando datos del perfil:');
-    for (let [key, value] of formData.entries()) {
-        if (key.includes('file')) {
-            console.log(key, 'Archivo:', value.name, value.size);
-        } else {
-            console.log(key, value);
-        }
-    }
-    
-    // ============================================================
-    // ENVIAR CON INERTIA
-    // ============================================================
+    // Enviar con Inertia
     router.post(route('perfil.guardar'), formData, {
         preserveScroll: true,
         preserveState: true,
         headers: {
             'Content-Type': 'multipart/form-data',
         },
-        onSuccess: (page) => {
-            console.log('✅ Perfil guardado exitosamente', page);
+        onSuccess: () => {
+            isSaving.value = false;
             if (window.showToast) {
                 window.showToast({
                     type: 'success',
-                    title: 'Perfil completado',
+                    title: 'Perfil guardado',
                     message: 'Tu perfil ha sido guardado correctamente.',
                     duration: 3000,
                 });
@@ -465,7 +504,8 @@ function guardarYContinuar() {
             }, 800);
         },
         onError: (errors) => {
-            console.error('❌ Errores al guardar perfil:', errors);
+            isSaving.value = false;
+            console.error('❌ Errores al guardar:', errors);
             const firstError = Object.values(errors)[0];
             if (window.showToast) {
                 window.showToast({
@@ -486,7 +526,7 @@ function irAInicio() {
 }
 
 /* ---------------------------------------------------------------
- * Watch para mantener sincronía con el formulario
+ * Watchers
  * --------------------------------------------------------------- */
 watch(() => form.tipoPerfil, (newVal) => {
     if (newVal === 'personal') {
@@ -508,24 +548,13 @@ watch([() => form.nickname, () => form.edad, () => form.ciudad, () => form.bio, 
 watch(() => form.pareja, () => {
     validarFormulario();
 }, { deep: true });
-
-onMounted(() => {
-    if (props.perfil?.metadatos?.pareja) {
-        form.pareja = {
-            nombre1: props.perfil.metadatos.pareja.nombre1 || '',
-            edad1: props.perfil.metadatos.pareja.edad1 || '',
-            nombre2: props.perfil.metadatos.pareja.nombre2 || '',
-            edad2: props.perfil.metadatos.pareja.edad2 || '',
-            visibleParaAmbos: props.perfil.metadatos.pareja.visibleParaAmbos ?? true,
-        };
-    }
-});
 </script>
+
 <template>
     <AppLayout activeNav="perfil">
         <Head title="Completa tu perfil" />
 
-        <div class="cf-page">
+        <div class="completar-page">
             <!-- ============================================================ -->
             <!-- HEADER -->
             <!-- ============================================================ -->
@@ -824,7 +853,7 @@ onMounted(() => {
                             <p class="card__hint"><strong>Mínimo 1 foto</strong> para completar tu perfil</p>
                             <div class="photo-grid">
                                 <div v-for="(foto, idx) in fotos" :key="idx" class="photo" @click="setPrincipal(idx)">
-                                    <img :src="foto.url" :alt="`Foto ${idx + 1}`" />
+                                    <img :src="foto.url" :alt="`Foto ${idx + 1}`" @error="(e) => { e.target.src = '/images/placeholder-image.png' }" />
                                     <span v-if="foto.principal" class="photo__badge">Principal</span>
                                     <span v-if="foto.existente" class="photo__badge photo__badge--existing">Guardada</span>
                                     <button class="photo__delete" @click.stop="eliminarFoto(idx)" type="button">
@@ -894,11 +923,11 @@ onMounted(() => {
                         <div class="card__body">
                             <div class="preview">
                                 <div v-if="fotos.length === 0" class="preview__empty">
-                                    <img src="/images/avatar.png" alt="Avatar" class="preview__avatar" />
+                                    <img :src="props.user.avatar || '/images/shared/avatar-default.jpg'" alt="Avatar" class="preview__avatar" />
                                     <div class="preview__empty-text">Sin foto principal</div>
                                 </div>
                                 <template v-else>
-                                    <img :src="fotos[0]?.url" alt="Foto principal" />
+                                    <img :src="getFotoPrincipal()" alt="Foto principal" @error="(e) => { e.target.src = '/images/shared/avatar-default.jpg' }" />
                                     <span class="preview__verified"><i class="pi pi-check-circle"></i> Verificado</span>
                                 </template>
                                 <div class="preview__overlay">
@@ -967,27 +996,23 @@ onMounted(() => {
                     <div class="card">
                         <div class="card__body">
                             <div class="actions">
-                                <button class="btn btn--text" @click="irAInicio" type="button">
+                                <button class="btn btn--text" @click="irAInicio" type="button" :disabled="isSaving">
                                     <i class="pi pi-times"></i> Cancelar
                                 </button>
                                 <button 
                                     class="btn btn--primary" 
                                     @click="guardarYContinuar" 
-                                    :disabled="form.processing"
-                                    :class="{ 'btn--pulse': isFormValid && !form.processing }"
+                                    :disabled="isSaving"
+                                    :class="{ 'btn--pulse': isFormValid && !isSaving }"
                                     type="button"
                                 >
-                                    <i class="pi" :class="form.processing ? 'pi-spin pi-spinner' : 'pi-check'"></i> 
-                                    {{ form.processing ? 'Guardando...' : 'Completar perfil' }}
+                                    <i class="pi" :class="isSaving ? 'pi-spin pi-spinner' : 'pi-check'"></i> 
+                                    {{ isSaving ? 'Guardando...' : 'Completar perfil' }}
                                 </button>
                             </div>
                             <div v-if="!isFormValid" class="actions__hint">
                                 <i class="pi pi-info-circle"></i>
                                 Completa todos los campos obligatorios
-                            </div>
-                            <div v-else class="actions__hint actions__hint--success">
-                                <i class="pi pi-check-circle"></i>
-                                Todo listo para guardar
                             </div>
                         </div>
                     </div>
@@ -999,9 +1024,9 @@ onMounted(() => {
 
 <style scoped>
 /* =========================================================================
-   TOKENS DE MARCA
+   PÁGINA COMPLETAR
    ========================================================================= */
-.cf-page {
+.completar-page {
   --brand: #C81E3A;
   --brand-dark: #A6152D;
   --brand-soft: #FBEAEC;
@@ -1031,14 +1056,20 @@ onMounted(() => {
   background: #f7f7f8;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
-  padding-bottom: 3rem;
+  padding: 1rem 2rem 3rem;
 }
 
-.cf-page * {
+@media (max-width: 768px) {
+  .completar-page {
+    padding: 0.5rem 0.5rem 2rem;
+  }
+}
+
+.completar-page * {
   box-sizing: border-box;
 }
 
-.cf-page img {
+.completar-page img {
   max-width: 100%;
   display: block;
 }
@@ -1048,19 +1079,33 @@ onMounted(() => {
    ========================================================================= */
 .page-header {
     max-width: 1400px;
-    margin: 2rem auto 1.5rem;
-    padding: 0 2rem;
+    margin: 0 auto 1.5rem;
+    padding: 1.5rem 2rem;
+    background: var(--white);
+    border-radius: var(--radius-md);
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 2rem;
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+  }
 }
 
 .page-header h1 {
     font-family: var(--font-serif);
-    font-size: 2rem;
+    font-size: 1.8rem;
     font-weight: 400;
     margin: 0 0 0.3rem;
+    color: var(--ink);
 }
 
 .page-header h1 strong {
@@ -1113,6 +1158,7 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 1.25rem;
+    flex-shrink: 0;
 }
 
 .progress-info {
@@ -1125,6 +1171,8 @@ onMounted(() => {
 .progress-info__label {
     font-size: 0.7rem;
     color: var(--muted-light);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .progress-info__value {
@@ -1179,7 +1227,6 @@ onMounted(() => {
 .main-grid {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0 2rem;
     display: grid;
     grid-template-columns: 1fr 340px;
     gap: 2rem;
@@ -1221,6 +1268,13 @@ onMounted(() => {
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    background: #fafafa;
+}
+
+@media (max-width: 768px) {
+  .card__header {
+    flex-wrap: wrap;
+  }
 }
 
 .card__title {
@@ -1229,10 +1283,12 @@ onMounted(() => {
     gap: 0.5rem;
     font-size: 0.95rem;
     font-weight: 700;
+    color: var(--ink);
 }
 
 .card__title i {
     color: var(--brand);
+    font-size: 1rem;
 }
 
 .card__body {
@@ -1269,13 +1325,13 @@ onMounted(() => {
    ========================================================================= */
 .form-row {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 1rem;
 }
 
 @media (max-width: 768px) {
     .form-row {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
     }
 }
 
@@ -1365,6 +1421,12 @@ onMounted(() => {
     gap: 1rem;
 }
 
+@media (max-width: 768px) {
+  .profile-types {
+    grid-template-columns: 1fr;
+  }
+}
+
 .profile-type {
     display: flex;
     align-items: center;
@@ -1429,6 +1491,7 @@ onMounted(() => {
 .profile-type__info strong {
     display: block;
     font-size: 0.9rem;
+    color: var(--ink);
 }
 
 .profile-type__info span {
@@ -1947,6 +2010,7 @@ onMounted(() => {
 
 .tip-item strong {
     display: block;
+    color: var(--ink);
 }
 
 .tip-item span {
@@ -1996,6 +2060,7 @@ onMounted(() => {
 .benefit strong {
     display: block;
     font-size: 0.82rem;
+    color: var(--ink);
 }
 
 .benefit span {
@@ -2067,7 +2132,7 @@ onMounted(() => {
 }
 
 .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
 }
 
@@ -2122,67 +2187,5 @@ onMounted(() => {
 .fade-leave-to {
     opacity: 0;
     transform: translateY(-10px);
-}
-
-/* =========================================================================
-   RESPONSIVE
-   ========================================================================= */
-@media (max-width: 768px) {
-    .page-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-        padding: 0 1rem;
-    }
-
-    .progress-wrapper {
-        align-self: flex-start;
-        flex-direction: row-reverse;
-        gap: 1rem;
-    }
-
-    .progress-info {
-        align-items: flex-start;
-    }
-
-    .main-grid {
-        padding: 0 1rem;
-        gap: 1.25rem;
-    }
-
-    .card__header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.5rem;
-    }
-
-    .profile-types {
-        grid-template-columns: 1fr;
-    }
-
-    .photo-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-
-    .tip {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .tip__icon {
-        align-self: center;
-    }
-
-    .form-row {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .visibility-toggle {
-        flex-wrap: wrap;
-    }
-
-    .radio-option {
-        min-width: 100px;
-    }
 }
 </style>

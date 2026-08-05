@@ -1,7 +1,8 @@
 <!-- resources/js/Pages/Auth/RegisterInvite.vue -->
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { usePrimeVue } from 'primevue/config';
 
 // Importaciones de PrimeVue
 import InputText from 'primevue/inputtext';
@@ -13,6 +14,40 @@ import Button from 'primevue/button';
 import Message from 'primevue/message';
 import AppIcon from '@/Components/AppIcon.vue';
 import ToastNotification from '@/Components/ToastNotification.vue';
+
+// -----------------------------------------------------------------------
+// Localización en español para el DatePicker (y demás componentes PrimeVue)
+// -----------------------------------------------------------------------
+const $primevue = usePrimeVue();
+
+onMounted(() => {
+  $primevue.config.locale = {
+    firstDayOfWeek: 1,
+    dayNames: ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'],
+    dayNamesShort: ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'],
+    dayNamesMin: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
+    monthNames: [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    ],
+    monthNamesShort: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
+    today: 'Hoy',
+    clear: 'Limpiar',
+    weekHeader: 'Sem',
+    dateFormat: 'dd/mm/yy',
+    weak: 'Débil',
+    medium: 'Media',
+    strong: 'Segura',
+    passwordPrompt: 'Ingresa una contraseña',
+    emptyFilterMessage: 'No se encontraron resultados',
+    emptyMessage: 'No hay opciones disponibles',
+    accept: 'Sí',
+    reject: 'No',
+    choose: 'Elegir',
+    upload: 'Subir',
+    cancel: 'Cancelar',
+  };
+});
 
 // -----------------------------------------------------------------------
 // Opciones
@@ -199,7 +234,6 @@ const passwordConfirmationError = computed(() => {
 // 6. Validación de teléfono - SOLO 10 DÍGITOS NUMÉRICOS
 const isPhoneValid = computed(() => {
   if (!form.phone) return true;
-  // Solo permitir números, exactamente 10 dígitos
   return /^[0-9]{10}$/.test(form.phone);
 });
 
@@ -299,9 +333,7 @@ function handleBlur(field) {
 // Watch para limpiar caracteres no permitidos en teléfono - SOLO NÚMEROS
 watch(() => form.phone, (newVal) => {
   if (newVal) {
-    // Eliminar todo excepto números
     let cleaned = newVal.replace(/\D/g, '');
-    // Limitar a 10 dígitos
     if (cleaned.length > 10) {
       cleaned = cleaned.slice(0, 10);
     }
@@ -323,7 +355,6 @@ function submit() {
     return;
   }
   
-  // Asegurar que el teléfono solo tenga números
   if (form.phone) {
     form.phone = form.phone.replace(/\D/g, '');
   }
@@ -448,21 +479,8 @@ function submit() {
             </div>
           </div>
 
-          <!-- Mensajes de error generales -->
-          <Message severity="error" :closable="false" class="rg-info" v-if="form.errors.invite_code || form.errors.email || form.errors.nickname">
-            <div class="rg-info__body">
-              <span class="rg-info__icon">
-                <AppIcon name="alert-circle" />
-              </span>
-              <div>
-                <p class="rg-info__title">Error en el registro</p>
-                <p class="rg-info__text">
-                  {{ form.errors.invite_code || form.errors.email || form.errors.nickname || 'Verifica tus datos e intenta nuevamente.' }}
-                </p>
-              </div>
-            </div>
-          </Message>
-
+          <!-- ELIMINADO: Mensaje de error general que mostraba "Error en el registro" -->
+          <!-- Solo mantenemos el mensaje informativo de invitación -->
           <Message severity="info" :closable="false" class="rg-info rg-info--invite">
             <div class="rg-info__body">
               <span class="rg-info__icon">
@@ -493,7 +511,6 @@ function submit() {
                 class="rg-input rg-input--large"
                 :class="{ 
                   'rg-input--error': inviteCodeError && touchedFields.invite_code,
-                  'rg-input--valid': isInviteCodeValid && touchedFields.invite_code,
                   'rg-input--focused': focusedField === 'invite_code' 
                 }"
                 @focus="focusedField = 'invite_code'"
@@ -505,10 +522,6 @@ function submit() {
               <small v-if="inviteCodeError && touchedFields.invite_code" class="rg-error">
                 <AppIcon name="alert-circle" />
                 {{ inviteCodeError }}
-              </small>
-              <small v-else-if="form.invite_code && isInviteCodeValid && touchedFields.invite_code" class="rg-hint rg-hint--success">
-                <AppIcon name="check-circle" />
-                Código válido
               </small>
             </div>
           </div>
@@ -560,7 +573,6 @@ function submit() {
                   class="rg-input"
                   :class="{ 
                     'rg-input--error': nicknameError && touchedFields.nickname,
-                    'rg-input--valid': isNicknameValid && touchedFields.nickname,
                     'rg-input--focused': focusedField === 'nickname' 
                   }"
                   @focus="focusedField = 'nickname'"
@@ -572,10 +584,6 @@ function submit() {
                 <small v-if="nicknameError && touchedFields.nickname" class="rg-error">
                   <AppIcon name="alert-circle" />
                   {{ nicknameError }}
-                </small>
-                <small v-else-if="form.nickname && isNicknameValid && touchedFields.nickname" class="rg-hint rg-hint--success">
-                  <AppIcon name="check-circle" />
-                  Nickname disponible
                 </small>
               </div>
             </div>
@@ -598,7 +606,6 @@ function submit() {
                   class="rg-input"
                   :class="{ 
                     'rg-input--error': emailError && touchedFields.email,
-                    'rg-input--valid': isEmailValid && touchedFields.email,
                     'rg-input--focused': focusedField === 'email' 
                   }"
                   @focus="focusedField = 'email'"
@@ -610,10 +617,6 @@ function submit() {
                 <small v-if="emailError && touchedFields.email" class="rg-error">
                   <AppIcon name="alert-circle" />
                   {{ emailError }}
-                </small>
-                <small v-else-if="form.email && isEmailValid && touchedFields.email" class="rg-hint rg-hint--success">
-                  <AppIcon name="check-circle" />
-                  Correo válido
                 </small>
               </div>
             </div>
@@ -639,8 +642,7 @@ function submit() {
                   class="rg-password"
                   input-class="rg-password__input"
                   :class="{
-                    'rg-password--error': passwordErrors.length > 0 && touchedFields.password,
-                    'rg-password--valid': isPasswordValid && touchedFields.password
+                    'rg-password--error': passwordErrors.length > 0 && touchedFields.password
                   }"
                   :feedback="false"
                   :toggle-mask="true"
@@ -672,10 +674,6 @@ function submit() {
                   {{ error }}
                 </small>
               </div>
-              <small v-else-if="form.password && isPasswordValid && touchedFields.password" class="rg-hint rg-hint--success">
-                <AppIcon name="check-circle" />
-                Contraseña segura
-              </small>
             </div>
 
             <div class="rg-field">
@@ -695,8 +693,7 @@ function submit() {
                   class="rg-password"
                   input-class="rg-password__input"
                   :class="{
-                    'rg-password--error': passwordConfirmationError && touchedFields.password_confirmation,
-                    'rg-password--valid': isPasswordConfirmationValid && touchedFields.password_confirmation
+                    'rg-password--error': passwordConfirmationError && touchedFields.password_confirmation
                   }"
                   :feedback="false"
                   :toggle-mask="true"
@@ -709,10 +706,6 @@ function submit() {
                 <small v-if="passwordConfirmationError && touchedFields.password_confirmation" class="rg-error">
                   <AppIcon name="alert-circle" />
                   {{ passwordConfirmationError }}
-                </small>
-                <small v-else-if="form.password_confirmation && isPasswordConfirmationValid && touchedFields.password_confirmation" class="rg-hint rg-hint--success">
-                  <AppIcon name="check-circle" />
-                  Las contraseñas coinciden
                 </small>
               </div>
             </div>
@@ -759,8 +752,7 @@ function submit() {
                   class="rg-input rg-input--no-icon"
                   :class="{ 
                     'rg-input--focused': focusedField === 'phone',
-                    'rg-input--error': phoneError && touchedFields.phone,
-                    'rg-input--valid': isPhoneValid && form.phone && touchedFields.phone
+                    'rg-input--error': phoneError && touchedFields.phone
                   }"
                   @focus="focusedField = 'phone'"
                   @blur="handleBlur('phone')"
@@ -771,10 +763,6 @@ function submit() {
                 <small v-if="phoneError && touchedFields.phone" class="rg-error">
                   <AppIcon name="alert-circle" />
                   {{ phoneError }}
-                </small>
-                <small v-else-if="form.phone && isPhoneValid && touchedFields.phone" class="rg-hint rg-hint--success">
-                  <AppIcon name="check-circle" />
-                  Número válido
                 </small>
               </div>
             </div>
@@ -801,8 +789,7 @@ function submit() {
                 icon-display="input"
                 class="rg-date"
                 :class="{ 
-                  'rg-input--error': birthdateError && touchedFields.birthdate,
-                  'rg-input--valid': isBirthdateValid && touchedFields.birthdate
+                  'rg-input--error': birthdateError && touchedFields.birthdate
                 }"
                 :max-date="new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate())"
                 @focus="focusedField = 'birthdate'"
@@ -815,39 +802,57 @@ function submit() {
                 <AppIcon name="alert-circle" />
                 {{ birthdateError }}
               </small>
-              <small v-else-if="form.birthdate && isBirthdateValid && touchedFields.birthdate" class="rg-hint rg-hint--success">
-                <AppIcon name="check-circle" />
-                Edad verificada, eres mayor de edad
-              </small>
             </div>
           </div>
 
-          <!-- Términos -->
-          <div class="rg-terms">
-            <Checkbox 
-              v-model="form.accepts_terms" 
-              input-id="accepts_terms" 
-              binary 
-              :class="{ 
-                'rg-terms__checkbox--error': termsError && touchedFields.accepts_terms,
-                'rg-terms__checkbox--valid': isTermsValid && touchedFields.accepts_terms
-              }"
-              @change="markTouched('accepts_terms')"
-            />
-            <label for="accepts_terms">
-              Acepto los <a href="/terminos" target="_blank">Términos y Condiciones</a> y la
-              <a href="/privacidad" target="_blank">Política de Privacidad</a>
+          <!-- ============================================================= -->
+          <!-- TÉRMINOS Y CONDICIONES                                        -->
+          <!-- ============================================================= -->
+          <div
+            class="rg-terms-card"
+            :class="{
+              'rg-terms-card--error': termsError && touchedFields.accepts_terms,
+              'rg-terms-card--valid': isTermsValid && touchedFields.accepts_terms,
+            }"
+          >
+            <label class="rg-terms" for="accepts_terms">
+              <div class="rg-terms__checkbox-wrapper">
+                <div 
+                  class="rg-terms__custom-checkbox"
+                  :class="{
+                    'rg-terms__custom-checkbox--checked': form.accepts_terms,
+                    'rg-terms__custom-checkbox--error': termsError && touchedFields.accepts_terms
+                  }"
+                  @click="form.accepts_terms = !form.accepts_terms; markTouched('accepts_terms')"
+                >
+                  <svg 
+                    v-if="form.accepts_terms"
+                    class="rg-terms__custom-checkbox-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+              </div>
+              <span class="rg-terms__text">
+                Acepto los 
+                <a href="/terminos" target="_blank" @click.stop class="rg-terms__link">Términos y Condiciones</a>
+                y la 
+                <a href="/privacidad" target="_blank" @click.stop class="rg-terms__link">Política de Privacidad</a>
+                de Club de Fantasías.
+              </span>
             </label>
-          </div>
-          <div class="rg-hint-wrapper">
-            <small v-if="termsError && touchedFields.accepts_terms" class="rg-error">
+
+            <!-- Mensaje de error simplificado -->
+            <div v-if="termsError && touchedFields.accepts_terms" class="rg-terms__error">
               <AppIcon name="alert-circle" />
               {{ termsError }}
-            </small>
-            <small v-else-if="isTermsValid && touchedFields.accepts_terms" class="rg-hint rg-hint--success">
-              <AppIcon name="check-circle" />
-              Términos aceptados
-            </small>
+            </div>
           </div>
 
           <!-- Botón de registro -->
@@ -1054,6 +1059,12 @@ function submit() {
 .rg-btn :deep(.app-icon) {
   width: 16px !important;
   height: 16px !important;
+}
+
+/* Iconos de términos */
+.rg-terms__error :deep(.app-icon) {
+  width: 14px !important;
+  height: 14px !important;
 }
 
 /* =========================================================================
@@ -1358,7 +1369,6 @@ function submit() {
    MENSAJES INFORMATIVOS
    ========================================================================= */
 .rg-info :deep(.p-message-content) {
-  background: var(--brand-soft) !important;
   border-radius: var(--radius-md) !important;
   border: none !important;
   padding: 1rem 1.2rem !important;
@@ -1500,11 +1510,6 @@ function submit() {
   box-shadow: 0 0 0 3px rgba(200, 30, 58, 0.12) !important;
 }
 
-.rg-input--valid :deep(.p-inputtext),
-.rg-input--valid :deep(input) {
-  border-color: var(--success) !important;
-  background: var(--success-bg) !important;
-}
 .rg-input--error :deep(.p-inputtext),
 .rg-input--error :deep(input) {
   border-color: var(--error) !important;
@@ -1586,6 +1591,19 @@ function submit() {
   display: none !important;
 }
 
+/* Días con 3 letras */
+.rg-date :deep(.p-datepicker th) {
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  color: var(--muted) !important;
+  padding: 0.4rem 0 !important;
+}
+
+.rg-date :deep(.p-datepicker th span) {
+  font-size: 0.75rem !important;
+  text-transform: capitalize !important;
+}
+
 /* =========================================================================
    ERRORES Y HINTS
    ========================================================================= */
@@ -1595,16 +1613,6 @@ function submit() {
   gap: 0.3rem;
   font-size: 0.72rem;
   color: var(--error);
-}
-.rg-hint {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-.rg-hint--success {
-  color: var(--success) !important;
 }
 .rg-hint-wrapper {
   display: flex;
@@ -1655,33 +1663,147 @@ function submit() {
 }
 
 /* =========================================================================
-   TÉRMINOS
+   TÉRMINOS Y CONDICIONES
    ========================================================================= */
+.rg-terms-card {
+  border: 2px solid #E5E1DE;
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  background: var(--surface);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rg-terms-card:hover {
+  border-color: #D3CDC9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.rg-terms-card--valid {
+  border-color: var(--success);
+  background: var(--success-bg);
+  border-left: 4px solid var(--success);
+}
+
+.rg-terms-card--error {
+  border-color: var(--error);
+  background: var(--error-bg);
+  border-left: 4px solid var(--error);
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
 .rg-terms {
   display: flex;
   align-items: flex-start;
-  gap: 0.6rem;
-  font-size: 0.8rem;
-  color: var(--ink-soft);
-  line-height: 1.5;
+  gap: 0.85rem;
+  cursor: pointer;
 }
-.rg-terms :deep(.p-checkbox-box) {
-  border-radius: 4px !important;
-  border: 2px solid #DDD8D5 !important;
-  width: 18px !important;
-  height: 18px !important;
+
+.rg-terms__checkbox-wrapper {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.rg-terms :deep(.p-checkbox-box.p-highlight) {
-  background: var(--brand) !important;
-  border-color: var(--brand) !important;
+
+.rg-terms__custom-checkbox {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 7px;
+  border: 2px solid #D3CDC9;
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
 }
-.rg-terms a {
+
+.rg-terms__custom-checkbox:hover {
+  border-color: var(--brand);
+}
+
+.rg-terms__custom-checkbox--checked {
+  background: var(--brand);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px rgba(200, 30, 58, 0.14);
+}
+
+.rg-terms__custom-checkbox--error {
+  border-color: var(--error);
+  background: var(--error-bg);
+}
+
+.rg-terms__custom-checkbox--checked.rg-terms__custom-checkbox--error {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.rg-terms__custom-checkbox-icon {
+  width: 16px;
+  height: 16px;
+  stroke: white;
+  animation: checkmark 0.25s ease;
+}
+
+@keyframes checkmark {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.rg-terms__text {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.6;
+  padding-top: 0.1rem;
+}
+
+.rg-terms__link {
   color: var(--brand);
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
+  border-bottom: 1.5px solid rgba(200, 30, 58, 0.3);
+  transition: border-color 0.2s ease;
 }
-.rg-terms a:hover {
-  text-decoration: underline;
+
+.rg-terms__link:hover {
+  border-bottom-color: var(--brand);
+}
+
+.rg-terms__error {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--error-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  color: var(--error);
+  font-weight: 500;
+}
+
+.rg-terms__error :deep(.app-icon) {
+  color: var(--error);
 }
 
 /* =========================================================================
@@ -1870,6 +1992,17 @@ function submit() {
   .rg-profile-btn {
     padding: 0.4rem 0.75rem;
     font-size: 0.72rem;
+  }
+
+  .rg-terms-card {
+    padding: 1rem;
+  }
+  .rg-terms {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .rg-terms__checkbox-wrapper {
+    margin-top: 0;
   }
 }
 </style>

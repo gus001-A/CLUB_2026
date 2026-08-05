@@ -2,15 +2,19 @@
 
 use App\Http\Controllers\Auth\InviteRegisterController;
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\InicioController;
+use App\Http\Controllers\Usuario\InicioController;
 use App\Http\Controllers\LandingController;
-use App\Http\Controllers\Usuarios\ProfileController;
+use App\Http\Controllers\Usuario\ProfileController;
+use App\Http\Controllers\Usuario\ComunidadController;
+use App\Http\Controllers\Usuario\EventoController;
+use App\Http\Controllers\Usuario\DescubrirController;
+use App\Http\Controllers\Usuario\ShopController;
+use App\Http\Controllers\Usuario\MensajeController;
+use App\Http\Controllers\Usuario\PerfilVerController;
+use App\Http\Controllers\Usuario\UserController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// =======================================================================
-// RUTAS PÚBLICAS
-// =======================================================================
 
 Route::get('/', [LandingController::class, 'index'])->name('home');
 
@@ -102,20 +106,43 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/perfil/completar', [ProfileController::class, 'completar'])->name('perfil.completar');
     Route::post('/perfil/guardar', [ProfileController::class, 'guardar'])->name('perfil.guardar');
     Route::post('/perfil/borrador', [ProfileController::class, 'borrador'])->name('perfil.borrador');
+    Route::post('/perfil/actualizar', [ProfileController::class, 'actualizar'])->name('perfil.actualizar');
+    
+    // ============================================
+    // PERFIL - VER Y ACTUALIZAR (CON CONTROLADOR) ✅
+    // ============================================
+    Route::get('/perfil/ver', [PerfilVerController::class, 'index'])->name('perfil.ver');
+    Route::post('/perfil/actualizar', [PerfilVerController::class, 'actualizar'])->name('perfil.actualizar');
     
     // ============================================
     // PERFIL - VISTA GENERAL
     // ============================================
     Route::get('/perfil', function () {
-        return Inertia::render('Profile/Index');
+        return redirect()->route('perfil.ver');
     })->name('perfil');
     
     // ============================================
-    // CONFIGURACIÓN
+    // CONFIGURACIÓN ✅
     // ============================================
     Route::get('/configuracion', function () {
         return Inertia::render('Settings');
     })->name('configuracion');
+    
+
+    Route::get('/profile/usuario', [UserController::class, 'edit'])
+        ->name('profile.usuario');
+    
+    Route::put('/usuario/actualizar', [UserController::class, 'actualizar'])
+        ->name('usuario.actualizar');
+    
+    Route::post('/usuario/avatar', [UserController::class, 'actualizarAvatar'])
+        ->name('usuario.avatar');
+    
+    Route::get('/usuario/verificar-apodo', [UserController::class, 'verificarApodo'])
+        ->name('usuario.verificar-apodo');
+    
+    Route::delete('/usuario/eliminar', [UserController::class, 'eliminarCuenta'])
+        ->name('usuario.eliminar');
     
     // ============================================
     // FAVORITOS
@@ -125,32 +152,53 @@ Route::middleware(['auth'])->group(function () {
     })->name('favoritos');
     
     // ============================================
-    // DESCUBRIR
+    // DESCUBRIR (CON CONTROLADOR)
     // ============================================
-    Route::get('/descubrir', function () {
-        return Inertia::render('Descubrir');
-    })->name('descubrir');
+    Route::get('/descubrir', [DescubrirController::class, 'index'])->name('descubrir');
+    Route::post('/descubrir/pasar', [DescubrirController::class, 'pasar'])->name('descubrir.pasar');
+    Route::post('/descubrir/conectar', [DescubrirController::class, 'conectar'])->name('descubrir.conectar');
+    Route::post('/descubrir/destacar', [DescubrirController::class, 'destacar'])->name('descubrir.destacar');
     
     // ============================================
-    // EVENTOS
+    // EVENTOS (CON CONTROLADOR)
     // ============================================
-    Route::get('/eventos', function () {
-        return Inertia::render('Eventos');
-    })->name('eventos');
+    Route::get('/eventos', [EventoController::class, 'index'])->name('eventos.index');
+    Route::get('/eventos/{id}', [EventoController::class, 'show'])->name('eventos.show');
     
     // ============================================
-    // MENSAJES
+    // EVENTOS - API Y FILTROS
     // ============================================
-    Route::get('/mensajes', function () {
-        return Inertia::render('Mensajes');
-    })->name('mensajes');
+    Route::get('/eventos/buscar', [EventoController::class, 'buscar'])->name('eventos.buscar');
+    Route::get('/eventos/ciudades', [EventoController::class, 'ciudades'])->name('eventos.ciudades');
     
     // ============================================
-    // COMUNIDAD
+    // TIENDA - SHOP (CON CONTROLADOR)
     // ============================================
-    Route::get('/comunidad', function () {
-        return Inertia::render('Comunidad');
-    })->name('comunidad');
+    Route::get('/tienda', [ShopController::class, 'index'])->name('tienda');
+    Route::get('/tienda/filtrar', [ShopController::class, 'filtrar'])->name('tienda.filtrar');
+    Route::get('/tienda/{id}', [ShopController::class, 'show'])->name('tienda.show');
+    
+    // ============================================
+    // MENSAJES (CON CONTROLADOR)
+    // ============================================
+    Route::get('/mensajes', [MensajeController::class, 'index'])->name('mensajes');
+    Route::post('/mensajes/enviar', [MensajeController::class, 'enviar'])->name('mensajes.enviar');
+    Route::post('/mensajes/marcar-leidos', [MensajeController::class, 'marcarLeidos'])->name('mensajes.marcar-leidos');
+    Route::get('/mensajes/{chatId}', [MensajeController::class, 'getMensajes'])->name('mensajes.obtener');
+    
+    // ============================================
+    // COMUNIDAD - CON CONTROLADOR
+    // ============================================
+    Route::get('/comunidad', [ComunidadController::class, 'index'])->name('comunidad.index');
+    
+    // ============================================
+    // RUTAS DE INTERACCIÓN DE LA COMUNIDAD
+    // ============================================
+    Route::post('/comunidad/publicar', [ComunidadController::class, 'crearPublicacion'])->name('comunidad.publicar');
+    Route::post('/comunidad/like/{publicacion}', [ComunidadController::class, 'likePublicacion'])->name('comunidad.like');
+    Route::get('/comunidad/comentarios/{publicacion}', [ComunidadController::class, 'obtenerComentarios'])->name('comunidad.comentarios');
+    Route::post('/comunidad/comentar/{publicacion}', [ComunidadController::class, 'crearComentario'])->name('comunidad.comentar');
+    Route::delete('/comunidad/publicacion/{publicacion}', [ComunidadController::class, 'eliminarPublicacion'])->name('comunidad.eliminar');
 });
 
 // =======================================================================

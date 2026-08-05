@@ -3,10 +3,8 @@ import { computed } from 'vue';
 import { Head, usePage, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
-// Obtener datos desde Inertia
 const page = usePage();
 
-// Datos del usuario desde el controlador
 const usuario = computed(() => page.props.usuario || {
     id: null,
     nombre: 'Invitado',
@@ -15,16 +13,15 @@ const usuario = computed(() => page.props.usuario || {
     avatar: '/images/shared/avatar-default.jpg',
     verificado: false,
     rol: 'invitado',
-    tiene_perfil: false, // Nuevo campo para saber si tiene perfil
+    tiene_perfil: false,
 });
 
-// Datos dinámicos desde el controlador
 const quickStats = computed(() => page.props.quickStats || []);
 const panelInteligente = computed(() => page.props.panelInteligente || []);
-const coincidencias = computed(() => page.props.coincidencias || []);
 const eventos = computed(() => page.props.eventos || []);
 const mensajesRecientes = computed(() => page.props.mensajesRecientes || []);
 const actividadReciente = computed(() => page.props.actividadReciente || []);
+const publicacionesRecientes = computed(() => page.props.publicacionesRecientes || []);
 </script>
 
 <template>
@@ -100,40 +97,71 @@ const actividadReciente = computed(() => page.props.actividadReciente || []);
             </section>
 
             <!-- ============================================================ -->
-            <!-- COINCIDENCIAS -->
+            <!-- COMUNIDAD - ÚLTIMAS 6 PUBLICACIONES -->
             <!-- ============================================================ -->
             <section class="section">
                 <div class="section__heading section__heading--row">
                     <div>
-                        <h2>Coincidencias para ti</h2>
-                        <p>Perfiles seleccionados especialmente para ti.</p>
+                        <h2>Comunidad</h2>
+                        <p>Descubre lo que comparten los miembros de Club de Fantasías.</p>
                     </div>
-                    <a href="#" class="see-all">Ver todas <i class="pi pi-chevron-right"></i></a>
+                    <Link :href="route('comunidad.index')" class="see-all">
+                        Ver más <i class="pi pi-chevron-right"></i>
+                    </Link>
                 </div>
 
-                <div class="match-grid">
-                    <div v-if="coincidencias.length === 0" class="empty-state">
-                        <p>No tienes coincidencias aún. ¡Sigue explorando!</p>
-                    </div>
-                    <div v-for="m in coincidencias" :key="m.nombre" class="match-card">
-                        <div class="match-card__image">
-                            <img :src="m.imagen" :alt="m.nombre" />
-                            <span class="match-card__verified"><i class="pi pi-check-circle"></i> Verificado</span>
+                <div class="community-grid">
+                    <div v-if="publicacionesRecientes.length === 0" class="empty-state">
+                        <div class="empty-state__content">
+                            <i class="pi pi-users empty-state__icon"></i>
+                            <p>No hay publicaciones en la comunidad aún.</p>
+                            <span class="empty-state__sub">¡Sé el primero en compartir algo!</span>
                         </div>
-                        <div class="match-card__body">
-                            <div class="match-card__title-row">
-                                <strong>{{ m.nombre }}</strong>
-                                <span class="match-card__compat">{{ m.compatibilidad }}% compatible</span>
+                    </div>
+
+                    <div v-for="publicacion in publicacionesRecientes" :key="publicacion.id" class="community-card">
+                        <!-- Cabecera del usuario -->
+                        <div class="community-card__header">
+                            <div class="community-card__user">
+                                <PvAvatar :image="publicacion.usuario.avatar" shape="circle" size="large" />
+                                <div class="community-card__user-info">
+                                    <div class="community-card__user-name">
+                                        <strong>{{ publicacion.usuario.nombre }}</strong>
+                                        <i v-if="publicacion.usuario.verificado" class="pi pi-check-circle verified-badge"></i>
+                                        <span v-if="publicacion.usuario.es_creador" class="creator-badge">Creador</span>
+                                    </div>
+                                    <span class="community-card__user-handle">@{{ publicacion.usuario.apodo }}</span>
+                                </div>
                             </div>
-                            <p class="match-card__location"><i class="pi pi-map-marker"></i> {{ m.ciudad }} &nbsp;•&nbsp; {{ m.distancia }}</p>
-                            <div class="match-card__tags">
-                                <span v-if="m.disponible" class="tag tag--online"><i class="pi pi-circle-fill"></i> Disponible ahora</span>
-                                <span v-if="m.cercano" class="tag"><i class="pi pi-map-marker"></i> Cercano</span>
+                            <span class="community-card__time">{{ publicacion.tiempo }}</span>
+                        </div>
+
+                        <!-- Contenido -->
+                        <div class="community-card__content">
+                            <p v-if="publicacion.texto" class="community-card__text">{{ publicacion.texto }}</p>
+                            
+                            <!-- Imagen -->
+                            <div v-if="publicacion.es_imagen && publicacion.imagen" class="community-card__media">
+                                <img :src="publicacion.imagen" :alt="publicacion.texto || 'Publicación'" @error="(e) => e.target.src = '/images/shared/image-default.jpg'" />
                             </div>
-                            <div class="match-card__actions">
-                                <PvButton label="Ver perfil" outlined severity="secondary" />
-                                <PvButton label="Conectar" />
+                            
+                            <!-- Video -->
+                            <div v-if="publicacion.es_video && publicacion.imagen" class="community-card__media community-card__media--video">
+                                <video controls>
+                                    <source :src="publicacion.imagen" />
+                                    Tu navegador no soporta la reproducción de videos.
+                                </video>
                             </div>
+                        </div>
+
+                        <!-- Stats -->
+                        <div class="community-card__stats">
+                            <span class="community-card__stat">
+                                <i class="pi pi-heart"></i> {{ publicacion.likes }}
+                            </span>
+                            <span class="community-card__stat">
+                                <i class="pi pi-comment"></i> {{ publicacion.comentarios_count }}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -235,7 +263,7 @@ const actividadReciente = computed(() => page.props.actividadReciente || []);
             </section>
 
             <!-- ============================================================ -->
-            <!-- CTA COMPLETAR PERFIL - SOLO SI NO TIENE PERFIL -->
+            <!-- CTA COMPLETAR PERFIL -->
             <!-- ============================================================ -->
             <section v-if="!usuario.tiene_perfil" class="cta">
                 <div class="cta__bg">
@@ -550,7 +578,7 @@ const actividadReciente = computed(() => page.props.actividadReciente || []);
 }
 
 /* =========================================================================
-   PANEL INTELIGENTE - CON IMÁGENES REDONDEADAS
+   PANEL INTELIGENTE
    ========================================================================= */
 .panel-grid { 
     margin-top: 1.25rem; 
@@ -653,158 +681,166 @@ const actividadReciente = computed(() => page.props.actividadReciente || []);
 }
 
 /* =========================================================================
-   COINCIDENCIAS
+   COMUNIDAD - CARDS EN GRID (6 PUBLICACIONES)
    ========================================================================= */
-.match-grid { 
-    margin-top: 1.25rem; 
-    display: grid; 
-    grid-template-columns: repeat(3, 1fr); 
-    gap: 1.5rem; 
+.community-grid {
+    margin-top: 1.25rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
 }
 
-.match-card {
+.community-card {
     background: #ffffff;
     border-radius: var(--radius-md);
     overflow: hidden;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-}
-
-.match-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
-}
-
-.match-card__image {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16/11;
-    overflow: hidden;
-    background: var(--surface);
-}
-
-.match-card__image img {
-    width: 100%;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
     height: 100%;
-    object-fit: cover;
-    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.match-card:hover .match-card__image img {
-    transform: scale(1.08);
+.community-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
 }
 
-.match-card__verified {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background: rgba(255,255,255,0.95);
-    color: #1c7a3c;
-    font-size: 0.68rem;
-    font-weight: 700;
-    padding: 0.25rem 0.7rem;
-    border-radius: var(--radius-full);
+.community-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 1rem 1.25rem 0.5rem 1.25rem;
+    gap: 0.5rem;
+}
+
+.community-card__user {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.community-card__user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.community-card__user-name {
     display: flex;
     align-items: center;
     gap: 0.3rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    backdrop-filter: blur(4px);
-}
-
-.match-card__body { 
-    padding: 1rem 1.25rem 1.25rem; 
-}
-
-.match-card__title-row { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: baseline; 
-    gap: 0.5rem; 
-}
-
-.match-card__title-row strong { 
-    font-size: 0.95rem; 
-    color: var(--ink);
-}
-
-.match-card__compat { 
-    color: var(--brand); 
-    font-size: 0.78rem; 
-    font-weight: 700; 
-    white-space: nowrap; 
-}
-
-.match-card__location { 
-    font-size: 0.78rem; 
-    color: var(--muted); 
-    margin: 0.3rem 0 0.6rem; 
-    display: flex; 
-    align-items: center; 
-    gap: 0.3rem; 
-}
-
-.match-card__tags { 
-    display: flex; 
     flex-wrap: wrap;
-    gap: 0.5rem; 
-    margin-bottom: 0.9rem; 
 }
 
-.tag { 
-    font-size: 0.68rem; 
-    font-weight: 700; 
-    padding: 0.2rem 0.6rem; 
-    border-radius: var(--radius-full); 
-    background: var(--surface); 
-    color: var(--ink-soft); 
-    display: flex; 
-    align-items: center; 
-    gap: 0.3rem; 
+.community-card__user-name strong {
+    font-size: 0.85rem;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
 }
 
-.tag--online { 
-    background: #eefaf1; 
-    color: #1c7a3c; 
+.verified-badge {
+    color: #48BB78;
+    font-size: 0.7rem;
+    flex-shrink: 0;
 }
 
-.tag--online i { 
-    font-size: 0.4rem; 
+.creator-badge {
+    font-size: 0.5rem;
+    font-weight: 700;
+    color: #8B5CF6;
+    background: #EDE9FE;
+    padding: 0.05rem 0.4rem;
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
 }
 
-.match-card__actions { 
-    display: flex; 
-    gap: 0.6rem; 
+.community-card__user-handle {
+    font-size: 0.7rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.match-card__actions :deep(.p-button) { 
-    flex: 1; 
-    font-size: 0.78rem; 
-    font-weight: 700; 
-    border-radius: var(--radius-sm); 
-    padding: 0.5rem 0.75rem;
+.community-card__time {
+    font-size: 0.65rem;
+    color: var(--muted-light);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
 }
 
-.match-card__actions :deep(.p-button.p-button-outlined) {
-    border-color: var(--line);
-    color: var(--ink-soft);
-    background: transparent;
+.community-card__content {
+    padding: 0 1.25rem 0.5rem 1.25rem;
+    flex: 1;
 }
 
-.match-card__actions :deep(.p-button.p-button-outlined:hover) {
-    border-color: var(--brand);
-    color: var(--brand);
-    background: var(--brand-soft);
+.community-card__text {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--ink);
+    margin: 0 0 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-wrap: break-word;
 }
 
-.match-card__actions :deep(.p-button:not(.p-button-outlined)) {
-    background: var(--brand);
-    border-color: var(--brand);
-    color: var(--white);
+.community-card__media {
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--surface);
+    margin-top: 0.25rem;
 }
 
-.match-card__actions :deep(.p-button:not(.p-button-outlined):hover) {
-    background: var(--brand-dark);
-    border-color: var(--brand-dark);
+.community-card__media img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+    background: var(--surface);
+}
+
+.community-card__media img:hover {
+    transform: scale(1.03);
+}
+
+.community-card__media--video video {
+    width: 100%;
+    height: 180px;
+    border-radius: var(--radius-sm);
+    background: #000;
+}
+
+.community-card__stats {
+    display: flex;
+    gap: 1.25rem;
+    padding: 0.5rem 1.25rem;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    margin: 0 1.25rem 0.5rem 1.25rem;
+}
+
+.community-card__stat {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+
+.community-card__stat i {
+    font-size: 0.8rem;
 }
 
 /* =========================================================================
@@ -1075,7 +1111,44 @@ const actividadReciente = computed(() => page.props.actividadReciente || []);
 }
 
 /* =========================================================================
-   CTA COMPLETAR PERFIL - CON LINK
+   EMPTY STATE
+   ========================================================================= */
+.empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 3rem 2rem;
+    background: var(--white);
+    border-radius: var(--radius-md);
+}
+
+.empty-state__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: center;
+}
+
+.empty-state__icon {
+    font-size: 2.5rem;
+    color: var(--muted-light);
+}
+
+.empty-state p {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+.empty-state__sub {
+    font-size: 0.8rem;
+    color: var(--muted-light);
+}
+
+/* =========================================================================
+   CTA COMPLETAR PERFIL
    ========================================================================= */
 .cta {
     position: relative;
@@ -1182,32 +1255,13 @@ const actividadReciente = computed(() => page.props.actividadReciente || []);
 }
 
 /* =========================================================================
-   EMPTY STATE
-   ========================================================================= */
-.empty-state {
-    grid-column: 1 / -1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 3rem 2rem;
-    background: var(--white);
-    border-radius: var(--radius-md);
-}
-
-.empty-state p {
-    color: var(--muted);
-    font-size: 0.95rem;
-    margin: 0;
-}
-
-/* =========================================================================
    RESPONSIVE
    ========================================================================= */
 @media (max-width: 1100px) {
     .panel-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    .match-grid {
+    .community-grid {
         grid-template-columns: repeat(2, 1fr);
     }
     .event-grid {
@@ -1278,11 +1332,25 @@ const actividadReciente = computed(() => page.props.actividadReciente || []);
     .panel-grid {
         grid-template-columns: 1fr;
     }
-    .match-grid {
+    .community-grid {
         grid-template-columns: 1fr;
     }
     .event-grid {
         grid-template-columns: 1fr;
+    }
+    .community-card__header {
+        padding: 0.75rem 1rem 0.25rem 1rem;
+    }
+    .community-card__content {
+        padding: 0 1rem 0.25rem 1rem;
+    }
+    .community-card__stats {
+        margin: 0 1rem 0.25rem 1rem;
+        padding: 0.35rem 0;
+    }
+    .community-card__media img,
+    .community-card__media--video video {
+        height: 200px;
     }
 }
 
@@ -1316,6 +1384,21 @@ const actividadReciente = computed(() => page.props.actividadReciente || []);
     }
     .panel-card__image {
         padding: 1rem;
+    }
+    .community-card__user-name strong {
+        max-width: 80px;
+        font-size: 0.8rem;
+    }
+    .community-card__text {
+        font-size: 0.8rem;
+        -webkit-line-clamp: 2;
+    }
+    .community-card__media img,
+    .community-card__media--video video {
+        height: 160px;
+    }
+    .community-card__stat {
+        font-size: 0.7rem;
     }
 }
 </style>

@@ -85,24 +85,19 @@ const isMobileMenuOpen = ref(false);
 function scrollToSection(event, sectionId) {
   event.preventDefault();
   
-  // Cambiar el link activo
   activeLink.value = sectionId;
   
-  // Cerrar menú móvil si está abierto
   if (isMobileMenuOpen.value) {
     isMobileMenuOpen.value = false;
   }
   
-  // Obtener el elemento destino
   const target = document.getElementById(sectionId);
   
   if (target) {
-    // Calcular offset para el navbar fijo
     const header = document.querySelector('.cf-header');
     const headerHeight = header ? header.offsetHeight : 80;
     const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - headerHeight;
     
-    // Animación de scroll suave
     window.scrollTo({
       top: targetPosition,
       behavior: 'smooth'
@@ -110,7 +105,6 @@ function scrollToSection(event, sectionId) {
   }
 }
 
-// Actualizar link activo según el scroll
 function updateActiveLink() {
   const sections = ['inicio', 'quienes-somos', 'servicios', 'eventos', 'contacto'];
   const header = document.querySelector('.cf-header');
@@ -131,18 +125,21 @@ function updateActiveLink() {
   activeLink.value = currentSection;
 }
 
-// Detectar scroll para actualizar el link activo
 onMounted(() => {
   window.addEventListener('scroll', updateActiveLink);
 });
 
-// -----------------------------------------------------------------------
-// NAVEGACIÓN DEL NAVBAR EN MÓVIL
-// -----------------------------------------------------------------------
-
 function toggleMobileMenu() {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
 }
+
+// Columnas del footer
+const footerColumnas = {
+  navegacion: ['Inicio', 'Quiénes somos', 'Servicios', 'Eventos', 'Contacto'],
+  comunidad: ['Mi perfil', 'Mis conexiones', 'Mis favoritos', 'Mis visitas', 'Configuración'],
+  soporte: ['Centro de ayuda', 'Preguntas frecuentes', 'Consejos de seguridad', 'Contacto'],
+  legal: ['Términos y condiciones', 'Política de privacidad', 'Política de cookies', 'Aviso legal'],
+};
 </script>
 
 <template>
@@ -160,7 +157,6 @@ function toggleMobileMenu() {
           />
         </Link>
 
-        <!-- Enlaces del navbar -->
         <div class="cf-nav__links" :class="{ 'cf-nav__links--open': isMobileMenuOpen }">
           <a 
             href="#inicio" 
@@ -205,7 +201,6 @@ function toggleMobileMenu() {
         </div>
 
         <div class="cf-nav__actions">
-          <!-- Botón hamburguesa para móvil -->
           <button 
             class="cf-nav__hamburger" 
             @click="toggleMobileMenu"
@@ -282,7 +277,7 @@ function toggleMobileMenu() {
       </div>
     </section>
 
-    <!-- ================= NUESTRA MISIÓN MEJORADA ================= -->
+    <!-- ================= NUESTRA MISIÓN ================= -->
     <section class="cf-mission">
       <div class="cf-mission__intro">
         <span class="cf-mission__badge">✦ Nuestra misión</span>
@@ -360,7 +355,7 @@ function toggleMobileMenu() {
       </div>
     </section>
 
-    <!-- ================= PRÓXIMOS EVENTOS MEJORADO ================= -->
+    <!-- ================= PRÓXIMOS EVENTOS ================= -->
     <section id="proximos-eventos" class="cf-section cf-upcoming">
       <div class="cf-upcoming__header">
         <p class="cf-eyebrow cf-eyebrow--center">Próximos eventos</p>
@@ -372,7 +367,6 @@ function toggleMobileMenu() {
         </p>
       </div>
       
-      <!-- Si hay eventos -->
       <div v-if="hayEventos" class="cf-upcoming__grid">
         <article v-for="(ev, index) in eventosProximos" :key="ev.id" class="cf-event-card" :style="{ animationDelay: (index * 0.15) + 's' }">
           <div class="cf-event-card__media">
@@ -411,7 +405,6 @@ function toggleMobileMenu() {
         </article>
       </div>
 
-      <!-- Si NO hay eventos -->
       <div v-else class="cf-no-events">
         <div class="cf-no-events__content">
           <div class="cf-no-events__icon-wrapper">
@@ -432,7 +425,7 @@ function toggleMobileMenu() {
       </div>
     </section>
 
-    <!-- ================= CTA COMUNIDAD MEJORADO ================= -->
+    <!-- ================= CTA COMUNIDAD ================= -->
     <section class="cf-cta">
       <div class="cf-cta__bg-wrapper">
         <img src="/images/cta-band.jpg" alt="" class="cf-cta__bg" />
@@ -539,126 +532,56 @@ function toggleMobileMenu() {
     </section>
 
     <!-- ================= FOOTER ================= -->
-    <footer class="cf-footer">
-      <!-- Grid principal del footer -->
-      <div class="cf-footer__grid">
-        <!-- Columna 1: Marca -->
-        <div class="cf-footer__brand">
-          <Link href="/" class="cf-brand">
+    <footer class="app-footer">
+      <div class="app-footer__top">
+        <div class="app-footer__brand">
+          <div class="app-footer__logo">
             <img 
               src="/images/LOGO.png" 
               alt="Club de Fantasías" 
-              class="cf-footer__logo"
+              class="app-footer__logo-img"
             />
-          </Link>
-          <p class="cf-footer__text">
-            Conexiones reales, experiencias auténticas y momentos inolvidables en un entorno seguro, discreto y confiable.
-          </p>
-          <div class="cf-footer__social">
-            <a href="#" class="cf-footer__social-link" aria-label="Instagram">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
-                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
-              </svg>
-            </a>
-            <a href="#" class="cf-footer__social-link" aria-label="Twitter">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/>
-              </svg>
-            </a>
-            <a href="#" class="cf-footer__social-link" aria-label="YouTube">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/>
-                <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/>
-              </svg>
-            </a>
-            <a href="#" class="cf-footer__social-link" aria-label="WhatsApp">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-              </svg>
-            </a>
-            <a href="#" class="cf-footer__social-link" aria-label="TikTok">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/>
-              </svg>
-            </a>
           </div>
+          <p class="app-footer__brand-desc">
+            Una comunidad exclusiva para conectar con personas auténticas,
+            de forma segura, privada y respetuosa.
+          </p>
         </div>
 
-        <!-- Columna 2: Navegación -->
-        <div class="cf-footer__col">
-          <p class="cf-footer__heading">
-            <AppIcon name="compass" class="cf-icon cf-icon--brand" />
-            Navegación
-          </p>
-          <ul class="cf-footer__list">
-            <li><a href="#inicio" @click="scrollToSection($event, 'inicio')">Inicio</a></li>
-            <li><a href="#quienes-somos" @click="scrollToSection($event, 'quienes-somos')">Quiénes somos</a></li>
-            <li><a href="#servicios" @click="scrollToSection($event, 'servicios')">Servicios</a></li>
-            <li><a href="#eventos" @click="scrollToSection($event, 'eventos')">Eventos</a></li>
-            <li><a href="#contacto" @click="scrollToSection($event, 'contacto')">Contacto</a></li>
-          </ul>
+        <div class="app-footer__col">
+          <h4>NAVEGACIÓN</h4>
+          <a v-for="l in footerColumnas.navegacion" :key="l" href="#" @click.prevent="l === 'Inicio' ? scrollToSection($event, 'inicio') : null">
+            {{ l }}
+          </a>
+        </div>
+        <div class="app-footer__col">
+          <h4>COMUNIDAD</h4>
+          <a v-for="l in footerColumnas.comunidad" :key="l" href="#">{{ l }}</a>
+        </div>
+        <div class="app-footer__col">
+          <h4>SOPORTE</h4>
+          <a v-for="l in footerColumnas.soporte" :key="l" href="#">{{ l }}</a>
+        </div>
+        <div class="app-footer__col">
+          <h4>LEGAL</h4>
+          <a v-for="l in footerColumnas.legal" :key="l" href="#">{{ l }}</a>
         </div>
 
-        <!-- Columna 3: Legal -->
-        <div class="cf-footer__col">
-          <p class="cf-footer__heading">
-            <AppIcon name="shield" class="cf-icon cf-icon--brand" />
-            Legal
-          </p>
-          <ul class="cf-footer__list">
-            <li><a href="#">Términos y condiciones</a></li>
-            <li><a href="#">Política de privacidad</a></li>
-            <li><a href="#">Aviso legal</a></li>
-            <li><a href="#">Política de cookies</a></li>
-            <li><a href="#">Condiciones de uso</a></li>
-          </ul>
-        </div>
-
-        <!-- Columna 4: Comunidad + Contacto -->
-        <div class="cf-footer__col cf-footer__col--contact">
-          <p class="cf-footer__heading">
-            <AppIcon name="users" class="cf-icon cf-icon--brand" />
-            Comunidad
-          </p>
-          <p class="cf-footer__text cf-footer__text--small">
-            Acceso exclusivo por invitación. Únete a una comunidad de personas reales buscando experiencias auténticas.
-          </p>
-          <Link :href="route('register.invite')" class="cf-btn cf-btn--primary cf-btn--sm cf-footer__cta">
-            Registrarme <span aria-hidden="true">→</span>
-          </Link>
-          
-          <div class="cf-footer__contact-info">
-            <div class="cf-footer__contact-item">
-              <AppIcon name="envelope" class="cf-icon cf-icon--brand" />
-              <a href="mailto:info@clubfantasias.com">info@clubfantasias.com</a>
-            </div>
-            <div class="cf-footer__contact-item">
-              <AppIcon name="phone" class="cf-icon cf-icon--brand" />
-              <a href="tel:+521234567890">+52 123 456 7890</a>
-            </div>
-            <div class="cf-footer__contact-item">
-              <AppIcon name="clock" class="cf-icon cf-icon--brand" />
-              <span>Lun - Vie: 10:00 - 20:00</span>
-            </div>
+        <div class="app-footer__security">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #c81e3a; flex-shrink: 0; margin-top: 2px;">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
+          <div>
+            <strong>Tu seguridad es nuestra prioridad</strong>
+            <span>Plataforma verificada y monitoreada 24/7 para tu tranquilidad.</span>
           </div>
         </div>
       </div>
 
-      <!-- Bottom bar -->
-      <div class="cf-footer__bottom">
-        <div class="cf-footer__bottom-content">
-          <span>
-            © {{ new Date().getFullYear() }} Club de Fantasías. 
-            <span class="cf-footer__bottom-separator">|</span>
-            Todos los derechos reservados.
-          </span>
-          <span class="cf-footer__bottom-badge">
-            <AppIcon name="shield" class="cf-icon cf-icon--brand" />
-            Comunidad verificada
-          </span>
-        </div>
+      <div class="app-footer__bottom">
+        <span>© {{ new Date().getFullYear() }} Club de Fantasías. Todos los derechos reservados.</span>
+        <span class="app-footer__age">+18 · Comunidad exclusiva para adultos</span>
       </div>
     </footer>
   </div>
@@ -1122,7 +1045,7 @@ function toggleMobileMenu() {
 }
 
 /* =========================================================================
-   NUESTRA MISIÓN MEJORADA
+   NUESTRA MISIÓN
    ========================================================================= */
 .cf-mission {
   background: linear-gradient(180deg, var(--surface) 0%, var(--white) 100%);
@@ -1417,7 +1340,7 @@ function toggleMobileMenu() {
 }
 
 /* =========================================================================
-   PRÓXIMOS EVENTOS MEJORADO
+   PRÓXIMOS EVENTOS
    ========================================================================= */
 .cf-upcoming__header {
   text-align: center;
@@ -1609,7 +1532,7 @@ function toggleMobileMenu() {
 }
 
 /* =========================================================================
-   NO EVENTS MEJORADO
+   NO EVENTS
    ========================================================================= */
 .cf-no-events {
   display: flex;
@@ -1670,7 +1593,7 @@ function toggleMobileMenu() {
 }
 
 /* =========================================================================
-   CTA COMUNIDAD MEJORADO
+   CTA COMUNIDAD
    ========================================================================= */
 .cf-cta {
   position: relative;
@@ -1998,212 +1921,143 @@ function toggleMobileMenu() {
 }
 
 /* =========================================================================
-   FOOTER
+   FOOTER (NUEVO ESTILO)
    ========================================================================= */
-.cf-footer {
-  background: var(--ink);
-  color: var(--white);
-  border-top: none;
+.app-footer {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  max-width: 1400px;
+  margin: 2.5rem auto 0;
+  padding: 2.5rem 2rem 1.5rem;
+  color: #1f2024;
 }
 
-.cf-footer__grid {
-  max-width: var(--container);
-  margin: 0 auto;
-  padding: 4rem 2.5rem;
+.app-footer__top {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1.2fr;
-  gap: 2.5rem;
+  grid-template-columns: 1.4fr 0.8fr 0.8fr 0.8fr 0.8fr 1.2fr;
+  gap: 1.75rem;
+  border-bottom: 1px solid #e6e6e8;
+  padding-bottom: 2rem;
 }
 
-.cf-footer__brand {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+@media (max-width: 1024px) {
+  .app-footer__top { 
+    grid-template-columns: 1fr 1fr; 
+  }
 }
 
-.cf-footer__logo {
+@media (max-width: 600px) {
+  .app-footer__top { 
+    grid-template-columns: 1fr; 
+  }
+}
+
+.app-footer__brand { 
+  grid-column: span 1; 
+}
+
+.app-footer__logo { 
+  display: flex; 
+  align-items: center; 
+  margin-bottom: 0.9rem; 
+}
+
+.app-footer__logo-img {
   height: 45px;
   width: auto;
   object-fit: contain;
-  transition: transform 0.3s ease;
 }
 
-.cf-footer__logo:hover {
-  transform: scale(1.05);
+.app-footer__brand-desc { 
+  font-size: 0.8rem; 
+  color: #8a8a90; 
+  line-height: 1.6; 
+  margin: 0; 
+  max-width: 280px; 
 }
 
-.cf-footer__text {
-  font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.6);
-  line-height: 1.7;
-  max-width: 320px;
-  margin: 0;
+.app-footer__col { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 0.6rem; 
 }
 
-.cf-footer__text--small {
-  font-size: 0.75rem;
-}
-
-.cf-footer__social {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.cf-footer__social-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.6);
-  transition: all 0.3s ease;
-  text-decoration: none;
-}
-
-.cf-footer__social-link:hover {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: var(--white);
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(200, 30, 58, 0.3);
-}
-
-.cf-footer__col {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.cf-footer__col--contact {
-  gap: 0.75rem;
-}
-
-.cf-footer__heading {
-  font-size: 0.75rem;
-  font-weight: 600;
+.app-footer__col h4 { 
+  font-size: 0.72rem; 
+  color: #a5a5aa; 
+  letter-spacing: 0.05em; 
+  margin: 0 0 0.3rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.4);
-  margin: 0 0 0.25rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
-.cf-footer__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.cf-footer__list a {
-  color: rgba(255, 255, 255, 0.6);
+.app-footer__col a { 
+  font-size: 0.82rem; 
+  color: #55555a; 
   text-decoration: none;
-  font-size: 0.82rem;
-  transition: all 0.3s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
+  transition: color 0.2s ease;
 }
 
-.cf-footer__list a::before {
-  content: '›';
-  opacity: 0;
-  transform: translateX(-8px);
-  transition: all 0.3s ease;
-  color: var(--brand);
+.app-footer__col a:hover { 
+  color: var(--brand); 
 }
 
-.cf-footer__list a:hover {
-  color: var(--white);
-  transform: translateX(4px);
-}
-
-.cf-footer__list a:hover::before {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.cf-footer__cta {
-  background: var(--brand);
-  border-color: var(--brand);
-  align-self: flex-start;
-  margin-top: 0.5rem;
-}
-
-.cf-footer__cta:hover {
-  background: var(--brand-dark);
-  border-color: var(--brand-dark);
-}
-
-.cf-footer__contact-info {
+.app-footer__security {
+  background: #fafafa;
+  border: 1px solid #ececee;
+  border-radius: 10px;
+  padding: 1rem;
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 0.75rem;
+  align-items: flex-start;
+  font-size: 0.78rem;
+  height: fit-content;
 }
 
-.cf-footer__contact-item {
+.app-footer__security svg { 
+  color: var(--brand); 
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.app-footer__security strong { 
+  display: block; 
+  font-size: 0.82rem; 
+  margin-bottom: 0.2rem; 
+}
+
+.app-footer__security span { 
+  color: #8a8a90; 
+}
+
+.app-footer__bottom {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.cf-footer__contact-item a {
-  color: rgba(255, 255, 255, 0.6);
-  text-decoration: none;
-  transition: color 0.3s ease;
-}
-
-.cf-footer__contact-item a:hover {
-  color: var(--white);
-}
-
-.cf-footer__bottom {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 1.25rem 2.5rem;
-}
-
-.cf-footer__bottom-content {
-  max-width: var(--container);
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.35);
+  padding-top: 1.25rem;
+  font-size: 0.78rem;
+  color: #a5a5aa;
 }
 
-.cf-footer__bottom-separator {
-  margin: 0 0.5rem;
-  opacity: 0.3;
+.app-footer__age { 
+  font-weight: 600; 
+  color: #8a8a90;
 }
 
-.cf-footer__bottom-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.8rem;
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.05);
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.5);
+@media (max-width: 768px) {
+  .app-footer {
+    padding: 2rem 1rem 1.5rem;
+  }
+  
+  .app-footer__bottom {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
 }
 
 /* =========================================================================
-   RESPONSIVE
+   RESPONSIVE (para el resto de la página)
    ========================================================================= */
 @media (max-width: 1024px) {
   .cf-services__grid {
@@ -2217,9 +2071,6 @@ function toggleMobileMenu() {
   }
   .cf-contact {
     grid-template-columns: 1fr;
-  }
-  .cf-footer__grid {
-    grid-template-columns: repeat(2, 1fr);
   }
   .cf-upcoming__grid {
     grid-template-columns: repeat(2, 1fr);
@@ -2268,8 +2119,7 @@ function toggleMobileMenu() {
   .cf-hero__title {
     font-size: 2.5rem;
   }
-  .cf-features__grid,
-  .cf-cta__grid {
+  .cf-features__grid {
     grid-template-columns: repeat(2, 1fr);
   }
   .cf-features__item {
@@ -2331,66 +2181,15 @@ function toggleMobileMenu() {
   .cf-brand__logo {
     height: 40px;
   }
-  .cf-footer__logo {
-    height: 38px;
-  }
   .cf-h2 {
     font-size: 1.9rem;
   }
   .cf-form__row {
     grid-template-columns: 1fr;
   }
-  .cf-footer__grid {
-    grid-template-columns: 1fr;
-    padding: 3rem 1.25rem;
-    gap: 2rem;
-  }
   
   .cf-nav__links {
     top: 70px;
-  }
-
-  .cf-footer__bottom {
-    padding: 1rem 1.25rem;
-  }
-
-  .cf-footer__bottom-content {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .cf-footer__bottom-separator {
-    display: none;
-  }
-
-  .cf-footer__social {
-    justify-content: center;
-  }
-
-  .cf-footer__cta {
-    align-self: center;
-  }
-
-  .cf-footer__text {
-    max-width: none;
-    text-align: center;
-  }
-
-  .cf-footer__brand {
-    align-items: center;
-  }
-
-  .cf-footer__col {
-    align-items: center;
-    text-align: center;
-  }
-
-  .cf-footer__list a {
-    justify-content: center;
-  }
-
-  .cf-footer__contact-info {
-    align-items: center;
   }
 
   .cf-mission__grid {
@@ -2413,10 +2212,6 @@ function toggleMobileMenu() {
 
   .cf-no-events__title {
     font-size: 1.3rem;
-  }
-
-  .cf-cta__grid {
-    grid-template-columns: repeat(2, 1fr);
   }
 
   .cf-upcoming__title {

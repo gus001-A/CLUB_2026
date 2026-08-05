@@ -16,9 +16,9 @@ import ToastNotification from '@/Components/ToastNotification.vue';
 // Formulario
 // -----------------------------------------------------------------------
 const form = useForm({
-  nickname: '',
-  password: '',
-  remember: false,
+    nickname: '',
+    password: '',
+    remember: false,
 });
 
 const focusedField = ref(null);
@@ -30,421 +30,398 @@ const touchedFields = ref({});
 
 // 1. Validación de nickname
 const isNicknameValid = computed(() => {
-  if (!form.nickname) return false;
-  return /^[A-Za-z0-9_]{3,20}$/.test(form.nickname);
+    if (!form.nickname) return false;
+    return /^[A-Za-z0-9_]{3,20}$/.test(form.nickname);
 });
 
 const nicknameError = computed(() => {
-  if (!form.nickname || !touchedFields.value.nickname) return '';
-  if (form.nickname.length < 3) {
-    return 'El nickname debe tener al menos 3 caracteres';
-  }
-  if (form.nickname.length > 20) {
-    return 'El nickname no puede tener más de 20 caracteres';
-  }
-  if (!/^[A-Za-z0-9_]+$/.test(form.nickname)) {
-    return 'Solo letras, números y guiones bajos';
-  }
-  return '';
+    if (!form.nickname || !touchedFields.value.nickname) return '';
+    if (form.nickname.length < 3) {
+        return 'El nickname debe tener al menos 3 caracteres';
+    }
+    if (form.nickname.length > 20) {
+        return 'El nickname no puede tener más de 20 caracteres';
+    }
+    if (!/^[A-Za-z0-9_]+$/.test(form.nickname)) {
+        return 'Solo letras, números y guiones bajos';
+    }
+    return '';
 });
 
 // 2. Validación de contraseña
 const isPasswordValid = computed(() => {
-  if (!form.password) return false;
-  return form.password.length >= 6;
+    if (!form.password) return false;
+    return form.password.length >= 6;
 });
 
 const passwordError = computed(() => {
-  if (!form.password || !touchedFields.value.password) return '';
-  if (form.password.length < 6) {
-    return 'La contraseña debe tener al menos 6 caracteres';
-  }
-  return '';
+    if (!form.password || !touchedFields.value.password) return '';
+    if (form.password.length < 6) {
+        return 'La contraseña debe tener al menos 6 caracteres';
+    }
+    return '';
 });
 
 // =======================================================================
 // VALIDACIÓN GENERAL DEL FORMULARIO
 // =======================================================================
 const isFormValid = computed(() => {
-  return isNicknameValid.value && isPasswordValid.value;
+    return isNicknameValid.value && isPasswordValid.value;
 });
 
 // =======================================================================
 // FUNCIONES DE UTILIDAD
 // =======================================================================
 function markTouched(field) {
-  touchedFields.value[field] = true;
+    touchedFields.value[field] = true;
 }
 
 function handleBlur(field) {
-  markTouched(field);
-  focusedField.value = null;
-}
-
-// Función para mostrar toast - solo para eventos no relacionados con login
-function showToast(type, title, message) {
-  const toastData = { type, title, message, duration: 5000 };
-  window.dispatchEvent(new CustomEvent('show-toast', { detail: toastData }));
+    markTouched(field);
+    focusedField.value = null;
 }
 
 // =======================================================================
-// COMPUTED PARA ERRORES DEL SERVIDOR - SOLO UNO
+// COMPUTED PARA ERRORES DEL SERVIDOR
 // =======================================================================
 const serverError = computed(() => {
-  // SOLO mostrar el error de login si existe
-  if (form.errors.login) {
-    return form.errors.login;
-  }
-  return null;
+    if (form.errors.login) {
+        return form.errors.login;
+    }
+    return null;
 });
 
 // =======================================================================
-// SUBMIT - CORREGIDO
+// SUBMIT
 // =======================================================================
 function submit() {
-  markTouched('nickname');
-  markTouched('password');
-  
-  // Validación del lado del cliente
-  if (!isFormValid.value) {
-    const firstError = document.querySelector('.rg-error');
-    if (firstError) {
-      firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    showToast('error', 'Error en el formulario', 'Por favor corrige los campos marcados en rojo.');
-    return;
-  }
-  
-  // Enviar formulario
-  form.post(route('login'), {
-    onSuccess: () => {
-      form.reset('password');
-    },
-    onError: (errors) => {
-      // NO mostrar toast para errores de login, ya se muestran en el formulario
-      console.log('Errores del servidor:', errors);
-      
-      // Si hay error de login, no hacer nada (se muestra en el formulario)
-      if (errors.login) {
-        console.log('Error de login mostrado en el formulario');
+    markTouched('nickname');
+    markTouched('password');
+    
+    // Validación del lado del cliente
+    if (!isFormValid.value) {
+        const firstError = document.querySelector('.rg-error');
+        if (firstError) {
+            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
         return;
-      }
-      
-      // Para otros errores, mostrar toast
-      const firstError = Object.values(errors)[0];
-      if (firstError) {
-        showToast('error', 'Error', firstError);
-      }
-    },
-  });
+    }
+    
+    // Enviar formulario
+    form.post(route('login'), {
+        onSuccess: () => {
+            form.reset('password');
+        },
+        onError: (errors) => {
+            console.log('Errores del servidor:', errors);
+        },
+    });
 }
 </script>
 
 <template>
-  <Head title="Iniciar sesión" />
+    <Head title="Iniciar sesión" />
 
-  <div class="rg-page">
-    <!-- Toast Notification -->
-    <ToastNotification :duration="5000" />
+    <div class="rg-page">
+        <!-- Toast Notification -->
+        <ToastNotification :duration="5000" />
 
-    <!-- ================= NAVBAR ================= -->
-    <header class="rg-header">
-      <nav class="rg-nav">
-        <Link href="/" class="rg-brand">
-          <img 
-            src="/images/LOGO.png" 
-            alt="Club de Fantasías" 
-            class="rg-brand__logo"
-          />
-        </Link>
+        <!-- ================= NAVBAR ================= -->
+        <header class="rg-header">
+            <nav class="rg-nav">
+                <Link href="/" class="rg-brand">
+                    <img 
+                        src="/images/LOGO.png" 
+                        alt="Club de Fantasías" 
+                        class="rg-brand__logo"
+                    />
+                </Link>
 
-        <div class="rg-nav__links">
-          <Link href="/" class="rg-nav__link">Inicio</Link>
-          <a href="/#quienes-somos">Quiénes somos</a>
-          <a href="/#servicios">Servicios</a>
-          <a href="/#eventos">Eventos</a>
-          <a href="/#contacto">Contacto</a>
-        </div>
+                <div class="rg-nav__links">
+                    <Link href="/" class="rg-nav__link">Inicio</Link>
+                    <a href="/#quienes-somos">Quiénes somos</a>
+                    <a href="/#servicios">Servicios</a>
+                    <a href="/#eventos">Eventos</a>
+                    <a href="/#contacto">Contacto</a>
+                </div>
 
-        <div class="rg-nav__actions">
-          <Link :href="route('login')" class="rg-btn rg-btn--primary">
-            Iniciar sesión
-          </Link>
-          <Link :href="route('register.invite')" class="rg-btn rg-btn--ghost">
-            Registro
-          </Link>
-        </div>
-      </nav>
-    </header>
+                <div class="rg-nav__actions">
+                    <Link :href="route('login')" class="rg-btn rg-btn--primary">
+                        Iniciar sesión
+                    </Link>
+                    <Link :href="route('register.invite')" class="rg-btn rg-btn--ghost">
+                        Registro
+                    </Link>
+                </div>
+            </nav>
+        </header>
 
-    <!-- ================= SPLIT SECTION ================= -->
-    <section class="rg-split">
-      <!-- Panel izquierdo -->
-      <div class="rg-media">
-        <img src="/images/login.png" alt="Ambiente exclusivo" class="rg-media__img" />
-        <div class="rg-media__overlay"></div>
+        <!-- ================= SPLIT SECTION ================= -->
+        <section class="rg-split">
+            <!-- Panel izquierdo -->
+            <div class="rg-media">
+                <img src="/images/login.png" alt="Ambiente exclusivo" class="rg-media__img" />
+                <div class="rg-media__overlay"></div>
 
-        <div class="rg-media__content">
-          <div class="rg-media__badge">
-            <span class="rg-media__badge-dot"></span>
-            <AppIcon name="shield-check" />
-            <span>Bienvenido de vuelta</span>
-          </div>
-          
-          <h1 class="rg-media__title">
-            Conecta con <span class="rg-accent">experiencias</span><br />
-            auténticas.
-          </h1>
+                <div class="rg-media__content">
+                    <div class="rg-media__badge">
+                        <span class="rg-media__badge-dot"></span>
+                        <AppIcon name="shield-check" />
+                        <span>Bienvenido de vuelta</span>
+                    </div>
+                    
+                    <h1 class="rg-media__title">
+                        Conecta con <span class="rg-accent">experiencias</span><br />
+                        auténticas.
+                    </h1>
 
-          <ul class="rg-media__list">
-            <li>
-              <span class="rg-media__list-icon">
-                <AppIcon name="shield-check" />
-              </span>
-              Accede a tu cuenta
-            </li>
-            <li>
-              <span class="rg-media__list-icon">
-                <AppIcon name="users" />
-              </span>
-              Conecta con la comunidad
-            </li>
-            <li>
-              <span class="rg-media__list-icon">
-                <AppIcon name="calendar" />
-              </span>
-              Descubre eventos exclusivos
-            </li>
-          </ul>
+                    <ul class="rg-media__list">
+                        <li>
+                            <span class="rg-media__list-icon">
+                                <AppIcon name="shield-check" />
+                            </span>
+                            Accede a tu cuenta
+                        </li>
+                        <li>
+                            <span class="rg-media__list-icon">
+                                <AppIcon name="users" />
+                            </span>
+                            Conecta con la comunidad
+                        </li>
+                        <li>
+                            <span class="rg-media__list-icon">
+                                <AppIcon name="calendar" />
+                            </span>
+                            Descubre eventos exclusivos
+                        </li>
+                    </ul>
 
-          <div class="rg-media__footnote">
-            <span class="rg-media__footnote-icon">
-              <AppIcon name="shield-check" />
-            </span>
-            <p>Ambiente seguro y discreto para adultos.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Panel derecho: formulario -->
-      <div class="rg-form-panel">
-        <form class="rg-card" @submit.prevent="submit">
-          <!-- Header -->
-          <div class="rg-card__head">
-            <div class="rg-card__head-decoration">
-              <span class="rg-card__head-line"></span>
-              <span class="rg-card__head-dot"></span>
+                    <div class="rg-media__footnote">
+                        <span class="rg-media__footnote-icon">
+                            <AppIcon name="shield-check" />
+                        </span>
+                        <p>Ambiente seguro y discreto para adultos.</p>
+                    </div>
+                </div>
             </div>
-            <div>
-              <h2 class="rg-card__title">
-                <AppIcon name="log-in" />
-                Iniciar <span class="rg-accent">sesión</span>
-              </h2>
-              <p class="rg-card__subtitle">
-                Ingresa tus credenciales para acceder a tu cuenta.
-              </p>
+
+            <!-- Panel derecho: formulario -->
+            <div class="rg-form-panel">
+                <form class="rg-card" @submit.prevent="submit">
+                    <!-- Header -->
+                    <div class="rg-card__head">
+                        <div class="rg-card__head-decoration">
+                            <span class="rg-card__head-line"></span>
+                            <span class="rg-card__head-dot"></span>
+                        </div>
+                        <div>
+                            <h2 class="rg-card__title">
+                                <AppIcon name="log-in" />
+                                Iniciar <span class="rg-accent">sesión</span>
+                            </h2>
+                            <p class="rg-card__subtitle">
+                                Ingresa tu nickname y contraseña para acceder a tu cuenta.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- ============================================================= -->
+                    <!-- MENSAJE DE ERROR DEL SERVIDOR                                -->
+                    <!-- ============================================================= -->
+                    <Message severity="error" :closable="false" class="rg-info" v-if="serverError">
+                        <div class="rg-info__body">
+                            <span class="rg-info__icon">
+                                <AppIcon name="alert-circle" />
+                            </span>
+                            <div>
+                                <p class="rg-info__title">Error al iniciar sesión</p>
+                                <p class="rg-info__text">{{ serverError }}</p>
+                            </div>
+                        </div>
+                    </Message>
+
+                    <!-- Mensaje de bienvenida -->
+                    <Message severity="info" :closable="false" class="rg-info rg-info--welcome">
+                        <div class="rg-info__body">
+                            <span class="rg-info__icon">
+                                <AppIcon name="heart" />
+                            </span>
+                            <div>
+                                <p class="rg-info__title">¡Bienvenido de vuelta!</p>
+                                <p class="rg-info__text">Ingresa con tu nickname y contraseña para continuar disfrutando de la comunidad.</p>
+                            </div>
+                        </div>
+                    </Message>
+
+                    <!-- ============================================================= -->
+                    <!-- NICKNAME                                                      -->
+                    <!-- ============================================================= -->
+                    <div class="rg-field">
+                        <label class="rg-label" for="nickname">
+                            <AppIcon name="user" />
+                            Nickname
+                            <span class="rg-label__badge">Obligatorio</span>
+                            <span class="rg-label__badge rg-label__badge--format">3-20 caracteres</span>
+                        </label>
+                        <div class="rg-input-wrapper">
+                            <InputText
+                                id="nickname"
+                                v-model="form.nickname"
+                                placeholder="Ej: Juan_86, Maria_123"
+                                class="rg-input"
+                                :class="{ 
+                                    'rg-input--error': nicknameError && touchedFields.nickname && !serverError,
+                                    'rg-input--valid': isNicknameValid && touchedFields.nickname,
+                                    'rg-input--focused': focusedField === 'nickname' 
+                                }"
+                                @focus="focusedField = 'nickname'"
+                                @blur="handleBlur('nickname')"
+                                @input="markTouched('nickname')"
+                            />
+                        </div>
+                        <div class="rg-hint-wrapper">
+                            <small v-if="nicknameError && touchedFields.nickname && !serverError" class="rg-error">
+                                <AppIcon name="alert-circle" />
+                                {{ nicknameError }}
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- ============================================================= -->
+                    <!-- CONTRASEÑA                                                     -->
+                    <!-- ============================================================= -->
+                    <div class="rg-field">
+                        <label class="rg-label" for="password">
+                            <AppIcon name="lock" />
+                            Contraseña
+                            <span class="rg-label__badge">Obligatorio</span>
+                            <span class="rg-label__badge rg-label__badge--format">Mín 6 caracteres</span>
+                        </label>
+                        <div class="rg-input-wrapper">
+                            <span class="rg-input-icon">
+                                <AppIcon name="lock" />
+                            </span>
+                            <Password
+                                id="password"
+                                v-model="form.password"
+                                placeholder="Ingresa tu contraseña"
+                                class="rg-password"
+                                input-class="rg-password__input"
+                                :class="{
+                                    'rg-password--error': passwordError && touchedFields.password && !serverError,
+                                    'rg-password--valid': isPasswordValid && touchedFields.password
+                                }"
+                                :feedback="false"
+                                :toggle-mask="true"
+                                @focus="focusedField = 'password'"
+                                @blur="handleBlur('password')"
+                                @input="markTouched('password')"
+                            />
+                        </div>
+                        <div class="rg-hint-wrapper">
+                            <small v-if="passwordError && touchedFields.password && !serverError" class="rg-error">
+                                <AppIcon name="alert-circle" />
+                                {{ passwordError }}
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- ============================================================= -->
+                    <!-- RECORDAR / OLVIDÉ CONTRASEÑA                                  -->
+                    <!-- ============================================================= -->
+                    <div class="rg-options">
+                        <div class="rg-remember">
+                            <Checkbox 
+                                v-model="form.remember" 
+                                input-id="remember" 
+                                binary 
+                            />
+                            <label for="remember">Recordarme</label>
+                        </div>
+                        <a href="#" class="rg-forgot" @click.prevent="alert('Próximamente disponible')">
+                            ¿Olvidaste tu contraseña?
+                        </a>
+                    </div>
+
+                    <!-- Botón de inicio -->
+                    <Button
+                        type="submit"
+                        class="rg-submit"
+                        :loading="form.processing"
+                        :disabled="!isFormValid"
+                    >
+                        <AppIcon v-if="!form.processing" name="log-in" />
+                        <span v-if="form.processing" class="rg-submit__spinner"></span>
+                        <span>{{ form.processing ? 'Ingresando...' : 'INICIAR SESIÓN' }}</span>
+                    </Button>
+
+                    <div class="rg-divider"><span>o</span></div>
+
+                    <Link :href="route('register.invite')" class="rg-btn rg-btn--outline rg-btn--block">
+                        <AppIcon name="user-plus" />
+                        ¿No tienes cuenta? <span class="rg-accent">Regístrate</span>
+                    </Link>
+
+                    <p class="rg-card__footnote">
+                        <AppIcon name="shield-check" />
+                        Comunidad exclusiva, privacidad garantizada.
+                    </p>
+                </form>
             </div>
-          </div>
+        </section>
 
-          <!-- ============================================================= -->
-          <!-- MENSAJE DE ERROR DEL SERVIDOR - SOLO UNO                     -->
-          <!-- ============================================================= -->
-          <Message severity="error" :closable="false" class="rg-info" v-if="serverError">
-            <div class="rg-info__body">
-              <span class="rg-info__icon">
-                <AppIcon name="alert-circle" />
-              </span>
-              <div>
-                <p class="rg-info__title">Error al iniciar sesión</p>
-                <p class="rg-info__text">{{ serverError }}</p>
-              </div>
+        <!-- ================= TRUST BANNER ================= -->
+        <section class="rg-trust">
+            <div class="rg-trust__item">
+                <div class="rg-trust__icon-wrapper">
+                    <AppIcon name="verified" />
+                </div>
+                <div>
+                    <p class="rg-trust__title">
+                        <AppIcon name="verified" />
+                        Validación de perfiles
+                    </p>
+                    <p class="rg-trust__text">Revisamos cada perfil para asegurar una comunidad auténtica.</p>
+                </div>
             </div>
-          </Message>
-
-          <!-- Mensaje de bienvenida -->
-          <Message severity="info" :closable="false" class="rg-info rg-info--welcome">
-            <div class="rg-info__body">
-              <span class="rg-info__icon">
-                <AppIcon name="heart" />
-              </span>
-              <div>
-                <p class="rg-info__title">¡Bienvenido de vuelta!</p>
-                <p class="rg-info__text">Ingresa con tu nickname y contraseña para continuar disfrutando de la comunidad.</p>
-              </div>
+            <div class="rg-trust__item">
+                <div class="rg-trust__icon-wrapper">
+                    <AppIcon name="lock" />
+                </div>
+                <div>
+                    <p class="rg-trust__title">
+                        <AppIcon name="lock" />
+                        Mayor seguridad
+                    </p>
+                    <p class="rg-trust__text">Protegemos tu información con los más altos estándares de seguridad.</p>
+                </div>
             </div>
-          </Message>
-
-          <!-- ============================================================= -->
-          <!-- NICKNAME                                                      -->
-          <!-- ============================================================= -->
-          <div class="rg-field">
-            <label class="rg-label" for="nickname">
-              <AppIcon name="user" />
-              Nickname
-              <span class="rg-label__badge">Obligatorio</span>
-              <span class="rg-label__badge rg-label__badge--format">3-20 caracteres</span>
-            </label>
-            <div class="rg-input-wrapper">
-              <InputText
-                id="nickname"
-                v-model="form.nickname"
-                placeholder="Ej: Juan_86, Maria_123"
-                class="rg-input"
-                :class="{ 
-                  'rg-input--error': nicknameError && touchedFields.nickname && !serverError,
-                  'rg-input--valid': isNicknameValid && touchedFields.nickname,
-                  'rg-input--focused': focusedField === 'nickname' 
-                }"
-                @focus="focusedField = 'nickname'"
-                @blur="handleBlur('nickname')"
-                @input="markTouched('nickname')"
-              />
+            <div class="rg-trust__item">
+                <div class="rg-trust__icon-wrapper">
+                    <AppIcon name="users" />
+                </div>
+                <div>
+                    <p class="rg-trust__title">
+                        <AppIcon name="users" />
+                        Comunidad exclusiva
+                    </p>
+                    <p class="rg-trust__text">Conecta con personas reales que buscan experiencias genuinas.</p>
+                </div>
             </div>
-            <div class="rg-hint-wrapper">
-              <!-- Mostrar error de formato SOLO si no hay error del servidor -->
-              <small v-if="nicknameError && touchedFields.nickname && !serverError" class="rg-error">
-                <AppIcon name="alert-circle" />
-                {{ nicknameError }}
-              </small>
+            <div class="rg-trust__item">
+                <div class="rg-trust__icon-wrapper">
+                    <AppIcon name="eye-slash" />
+                </div>
+                <div>
+                    <p class="rg-trust__title">
+                        <AppIcon name="eye-slash" />
+                        Privacidad garantizada
+                    </p>
+                    <p class="rg-trust__text">Tu privacidad es nuestra prioridad. Cero tolerancia a la exposición.</p>
+                </div>
             </div>
-          </div>
-
-          <!-- ============================================================= -->
-          <!-- CONTRASEÑA                                                     -->
-          <!-- ============================================================= -->
-          <div class="rg-field">
-            <label class="rg-label" for="password">
-              <AppIcon name="lock" />
-              Contraseña
-              <span class="rg-label__badge">Obligatorio</span>
-              <span class="rg-label__badge rg-label__badge--format">Mín 6 caracteres</span>
-            </label>
-            <div class="rg-input-wrapper">
-              <span class="rg-input-icon">
-                <AppIcon name="lock" />
-              </span>
-              <Password
-                id="password"
-                v-model="form.password"
-                placeholder="Ingresa tu contraseña"
-                class="rg-password"
-                input-class="rg-password__input"
-                :class="{
-                  'rg-password--error': passwordError && touchedFields.password && !serverError,
-                  'rg-password--valid': isPasswordValid && touchedFields.password
-                }"
-                :feedback="false"
-                :toggle-mask="true"
-                @focus="focusedField = 'password'"
-                @blur="handleBlur('password')"
-                @input="markTouched('password')"
-              />
-            </div>
-            <div class="rg-hint-wrapper">
-              <!-- Mostrar error de formato SOLO si no hay error del servidor -->
-              <small v-if="passwordError && touchedFields.password && !serverError" class="rg-error">
-                <AppIcon name="alert-circle" />
-                {{ passwordError }}
-              </small>
-            </div>
-          </div>
-
-          <!-- ============================================================= -->
-          <!-- RECORDAR / OLVIDÉ CONTRASEÑA                                  -->
-          <!-- ============================================================= -->
-          <div class="rg-options">
-            <div class="rg-remember">
-              <Checkbox 
-                v-model="form.remember" 
-                input-id="remember" 
-                binary 
-              />
-              <label for="remember">Recordarme</label>
-            </div>
-            <a href="#" class="rg-forgot" @click.prevent="alert('Próximamente disponible')">
-              ¿Olvidaste tu contraseña?
-            </a>
-          </div>
-
-          <!-- Botón de inicio -->
-          <Button
-            type="submit"
-            class="rg-submit"
-            :loading="form.processing"
-            :disabled="!isFormValid"
-          >
-            <AppIcon v-if="!form.processing" name="log-in" />
-            <span v-if="form.processing" class="rg-submit__spinner"></span>
-            <span>{{ form.processing ? 'Ingresando...' : 'INICIAR SESIÓN' }}</span>
-          </Button>
-
-          <div class="rg-divider"><span>o</span></div>
-
-          <Link :href="route('register.invite')" class="rg-btn rg-btn--outline rg-btn--block">
-            <AppIcon name="user-plus" />
-            ¿No tienes cuenta? <span class="rg-accent">Regístrate</span>
-          </Link>
-
-          <p class="rg-card__footnote">
-            <AppIcon name="shield-check" />
-            Comunidad exclusiva, privacidad garantizada.
-          </p>
-        </form>
-      </div>
-    </section>
-
-    <!-- ================= TRUST BANNER ================= -->
-    <section class="rg-trust">
-      <div class="rg-trust__item">
-        <div class="rg-trust__icon-wrapper">
-          <AppIcon name="verified" />
-        </div>
-        <div>
-          <p class="rg-trust__title">
-            <AppIcon name="verified" />
-            Validación de perfiles
-          </p>
-          <p class="rg-trust__text">Revisamos cada perfil para asegurar una comunidad auténtica.</p>
-        </div>
-      </div>
-      <div class="rg-trust__item">
-        <div class="rg-trust__icon-wrapper">
-          <AppIcon name="lock" />
-        </div>
-        <div>
-          <p class="rg-trust__title">
-            <AppIcon name="lock" />
-            Mayor seguridad
-          </p>
-          <p class="rg-trust__text">Protegemos tu información con los más altos estándares de seguridad.</p>
-        </div>
-      </div>
-      <div class="rg-trust__item">
-        <div class="rg-trust__icon-wrapper">
-          <AppIcon name="users" />
-        </div>
-        <div>
-          <p class="rg-trust__title">
-            <AppIcon name="users" />
-            Comunidad exclusiva
-          </p>
-          <p class="rg-trust__text">Conecta con personas reales que buscan experiencias genuinas.</p>
-        </div>
-      </div>
-      <div class="rg-trust__item">
-        <div class="rg-trust__icon-wrapper">
-          <AppIcon name="eye-slash" />
-        </div>
-        <div>
-          <p class="rg-trust__title">
-            <AppIcon name="eye-slash" />
-            Privacidad garantizada
-          </p>
-          <p class="rg-trust__text">Tu privacidad es nuestra prioridad. Cero tolerancia a la exposición.</p>
-        </div>
-      </div>
-    </section>
-  </div>
+        </section>
+    </div>
 </template>
 
 <style scoped>
