@@ -36,14 +36,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/usuarios/{usuario}', [UsuarioController::class, 'show'])->name('usuarios.show');
         Route::get('/usuarios/{usuario}/editar', [UsuarioController::class, 'edit'])->name('usuarios.edit');
         Route::patch('/usuarios/{usuario}', [UsuarioController::class, 'update'])->name('usuarios.update');
-        Route::post('/usuarios/{usuario}/bloquear', [UsuarioController::class, 'toggleBloqueo'])->name('usuarios.bloquear');
+        Route::post('/usuarios/{usuario}/bloquear', [UsuarioController::class, 'toggleBloqueo'])->name('usuarios.toggle-bloqueo');
         Route::delete('/usuarios/{usuario}', [UsuarioController::class, 'destroy'])->name('usuarios.destroy');
 
         // --- Cobros y Pagos ---
         Route::get('/cobros-y-pagos', [CobroController::class, 'index'])->name('cobros.index');
         Route::get('/cobros-y-pagos/exportar', [CobroController::class, 'exportar'])->name('cobros.exportar');
+        Route::get('/cobros-y-pagos/todas', [CobroController::class, 'transacciones'])->name('cobros.transacciones');
         Route::post('/cobros-y-pagos/{cobro}/aprobar', [CobroController::class, 'aprobar'])->name('cobros.aprobar');
         Route::post('/cobros-y-pagos/{cobro}/reembolsar', [CobroController::class, 'reembolsar'])->name('cobros.reembolsar');
+        Route::get('/cobros-y-pagos/{cobro}', [CobroController::class, 'show'])->name('cobros.show');
 
         // --- Invitaciones ---
         Route::get('/invitaciones', [InvitacionController::class, 'index'])->name('invitaciones.index');
@@ -56,6 +58,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/eventos', [EventoController::class, 'index'])->name('eventos.index');
         Route::get('/eventos/crear', [EventoController::class, 'create'])->name('eventos.create');
         Route::post('/eventos', [EventoController::class, 'store'])->name('eventos.store');
+        Route::get('/eventos/todos', [EventoController::class, 'todos'])->name('eventos.todos');
         Route::get('/eventos/{evento}', [EventoController::class, 'show'])->name('eventos.show');
         Route::get('/eventos/{evento}/editar', [EventoController::class, 'edit'])->name('eventos.edit');
         Route::patch('/eventos/{evento}', [EventoController::class, 'update'])->name('eventos.update');
@@ -66,6 +69,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/contenido/crear', [ContenidoController::class, 'create'])->name('contenido.create');
         Route::post('/contenido', [ContenidoController::class, 'store'])->name('contenido.store');
         Route::get('/contenido/{contenido}', [ContenidoController::class, 'show'])->name('contenido.show');
+        Route::get('/contenido/{contenido}/editar', [ContenidoController::class, 'edit'])->name('contenido.edit');
+        Route::patch('/contenido/{contenido}', [ContenidoController::class, 'update'])->name('contenido.update');
+        Route::delete('/contenido/{contenido}', [ContenidoController::class, 'destroy'])->name('contenido.destroy');
 
         // --- Shop ---
         Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');

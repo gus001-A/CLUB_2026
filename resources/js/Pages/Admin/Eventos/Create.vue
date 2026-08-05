@@ -1,10 +1,12 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import { useToast } from '@/composables/useToast';
 import { ref, watch } from 'vue';
 
 const toast = useToast();
+const imagenValida = ref(null);
 
 // Estado para la previsualización de imágenes
 const imagenPrincipalPreview = ref(null);
@@ -19,12 +21,15 @@ const form = useForm({
     hora: '',
     ciudad: '',
     zona_ubicacion: '',
+    ubicacion_lat: '',
+    ubicacion_lng: '',
     precio: 0,
     capacidad: '',
     tipo: 'general',
     categoria: '',
     codigo_vestimenta: '',
     estado: 'borrador',
+<<<<<<< HEAD
     imagen: null, // Archivo de imagen principal
     fotos: [], // Array de fotos adicionales
 });
@@ -153,10 +158,21 @@ function hayCamposFaltantes() {
 function submit() {
     // Validar campos obligatorios
     if (hayCamposFaltantes()) {
+=======
+    imagen: '',
+    destacado: false,
+});
+
+function submit() {
+    const obligatorios = ['nombre', 'fecha', 'hora', 'ciudad', 'tipo', 'estado'];
+    const faltantes = obligatorios.filter((c) => !form[c]);
+    if (faltantes.length) {
+>>>>>>> Gabriel
         toast.error('Debes llenar todos los campos obligatorios.');
         return;
     }
 
+<<<<<<< HEAD
     // Verificar que el precio sea válido
     if (form.precio < 0) {
         toast.error('El precio no puede ser negativo');
@@ -206,6 +222,9 @@ function submit() {
             toast.error(primerError || 'Ocurrió un error al crear el evento.');
         }
     });
+=======
+    form.post(route('admin.eventos.store'));
+>>>>>>> Gabriel
 }
 
 // Resetear formulario si es necesario
@@ -226,15 +245,23 @@ function resetForm() {
         <template #title>Nuevo evento</template>
         <template #breadcrumb>Dashboard &gt; Eventos &gt; Nuevo evento</template>
 
-        <Link :href="route('admin.eventos.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
-            <i class="pi pi-arrow-left text-xs"></i> Volver a Eventos
-        </Link>
+        <div class="max-w-3xl mx-auto">
+            <Link :href="route('admin.eventos.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
+                <i class="pi pi-arrow-left text-xs"></i> Volver a Eventos
+            </Link>
 
+<<<<<<< HEAD
         <form @submit.prevent="submit" class="max-w-4xl bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <!-- Datos del evento -->
+=======
+            <form @submit.prevent="submit" class="admin-card overflow-hidden">
+                <div style="height:6px;background:linear-gradient(90deg,#ef4444,#f97316)"></div>
+
+            <!-- Sección 1: Datos del evento -->
+>>>>>>> Gabriel
             <div class="p-6">
                 <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
-                    <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:48px;height:48px">
+                    <div class="admin-icon-gradient" style="width:48px;height:48px">
                         <i class="pi pi-calendar text-lg"></i>
                     </div>
                     <div>
@@ -246,46 +273,73 @@ function resetForm() {
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Nombre del evento *</label>
-                        <input v-model="form.nombre" type="text" placeholder="Ej. Noche de Fantasías" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                        <input v-model="form.nombre" type="text" placeholder="Ej. Noche de Fantasías" class="admin-input px-3 py-2.5" />
                         <p v-if="form.errors.nombre" class="text-red-600 text-xs mt-1">{{ form.errors.nombre }}</p>
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Descripción</label>
-                        <textarea v-model="form.descripcion" rows="3" placeholder="Describe el evento..." class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none resize-none"></textarea>
+                        <textarea v-model="form.descripcion" rows="3" placeholder="Describe el evento..." class="admin-input px-3 py-2.5 resize-none"></textarea>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Fecha *</label>
-                            <input v-model="form.fecha" type="date" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                            <input v-model="form.fecha" type="date" class="admin-input px-3 py-2.5" />
                             <p v-if="form.errors.fecha" class="text-red-600 text-xs mt-1">{{ form.errors.fecha }}</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Hora *</label>
-                            <input v-model="form.hora" type="time" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                            <input v-model="form.hora" type="time" class="admin-input px-3 py-2.5" />
                             <p v-if="form.errors.hora" class="text-red-600 text-xs mt-1">{{ form.errors.hora }}</p>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Ciudad *</label>
-                            <input v-model="form.ciudad" type="text" placeholder="Ej. Ciudad de México" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
-                            <p v-if="form.errors.ciudad" class="text-red-600 text-xs mt-1">{{ form.errors.ciudad }}</p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Zona / lugar exacto</label>
-                            <input v-model="form.zona_ubicacion" type="text" placeholder="Ej. Polanco" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Precio, cupo y tipo -->
+            <!-- Sección 2: Ubicación -->
             <div class="p-6 bg-gray-50/50 border-t border-gray-100">
                 <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
-                    <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:48px;height:48px">
+                    <div class="admin-icon-gradient" style="width:48px;height:48px">
+                        <i class="pi pi-map-marker text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-semibold text-gray-800">Ubicación</h2>
+                        <p class="text-xs text-gray-400">Dónde se llevará a cabo</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Ciudad *</label>
+                            <input v-model="form.ciudad" type="text" placeholder="Ej. Ciudad de México" class="admin-input px-3 py-2.5" />
+                            <p v-if="form.errors.ciudad" class="text-red-600 text-xs mt-1">{{ form.errors.ciudad }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Zona / lugar exacto</label>
+                            <input v-model="form.zona_ubicacion" type="text" placeholder="Ej. Polanco" class="admin-input px-3 py-2.5" />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Latitud (opcional)</label>
+                            <input v-model="form.ubicacion_lat" type="number" step="0.00000001" placeholder="Ej. 19.4326" class="admin-input px-3 py-2.5" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Longitud (opcional)</label>
+                            <input v-model="form.ubicacion_lng" type="number" step="0.00000001" placeholder="Ej. -99.1332" class="admin-input px-3 py-2.5" />
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400">Para ubicar el evento en un mapa. Puedes dejarlo en blanco por ahora.</p>
+                </div>
+            </div>
+
+            <!-- Sección 3: Precio y capacidad -->
+            <div class="p-6 border-t border-gray-100">
+                <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
+                    <div class="admin-icon-gradient" style="width:48px;height:48px">
                         <i class="pi pi-ticket text-lg"></i>
                     </div>
                     <div>
@@ -297,16 +351,20 @@ function resetForm() {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Precio (MXN) *</label>
+<<<<<<< HEAD
                         <input v-model.number="form.precio" type="number" min="0" step="0.01" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
                         <p v-if="form.errors.precio" class="text-red-600 text-xs mt-1">{{ form.errors.precio }}</p>
+=======
+                        <input v-model.number="form.precio" type="number" min="0" step="0.01" class="admin-input px-3 py-2.5" />
+>>>>>>> Gabriel
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Capacidad (opcional)</label>
-                        <input v-model.number="form.capacidad" type="number" min="1" placeholder="Ilimitado" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                        <input v-model.number="form.capacidad" type="number" min="1" placeholder="Ilimitado" class="admin-input px-3 py-2.5" />
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Tipo *</label>
-                        <select v-model="form.tipo" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none">
+                        <select v-model="form.tipo" class="admin-input px-3 py-2.5">
                             <option value="general">General</option>
                             <option value="vip">VIP</option>
                         </select>
@@ -314,25 +372,30 @@ function resetForm() {
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Estado *</label>
-                        <select v-model="form.estado" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none">
+                        <select v-model="form.estado" class="admin-input px-3 py-2.5">
                             <option value="borrador">Borrador</option>
                             <option value="publicado">Publicado</option>
                             <option value="cancelado">Cancelado</option>
                             <option value="completo">Completado</option>
                         </select>
+<<<<<<< HEAD
                         <p v-if="form.errors.estado" class="text-red-600 text-xs mt-1">{{ form.errors.estado }}</p>
+=======
+                        <p class="text-xs text-gray-400 mt-1">Cambia a "Completado" manualmente cuando el evento termine.</p>
+>>>>>>> Gabriel
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Categoría</label>
-                        <input v-model="form.categoria" type="text" placeholder="Ej. Fiesta temática" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                        <input v-model="form.categoria" type="text" placeholder="Ej. Fiesta temática" class="admin-input px-3 py-2.5" />
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Código de vestimenta</label>
-                        <input v-model="form.codigo_vestimenta" type="text" placeholder="Ej. Elegante / Antifaz" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                        <input v-model="form.codigo_vestimenta" type="text" placeholder="Ej. Elegante / Antifaz" class="admin-input px-3 py-2.5" />
                     </div>
                 </div>
             </div>
 
+<<<<<<< HEAD
             <!-- Imagen Principal -->
             <div class="p-6 border-t border-gray-100">
                 <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
@@ -436,23 +499,67 @@ function resetForm() {
                     </button>
                 </div>
                 <p v-if="form.errors.fotos" class="text-red-600 text-xs mt-2">{{ form.errors.fotos }}</p>
+=======
+            <!-- Sección 4: Presentación -->
+            <div class="p-6 bg-gray-50/50 border-t border-gray-100">
+                <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
+                    <div class="admin-icon-gradient" style="width:48px;height:48px">
+                        <i class="pi pi-image text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-semibold text-gray-800">Presentación</h2>
+                        <p class="text-xs text-gray-400">Cómo se verá en la plataforma</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Imagen (URL)</label>
+                        <input v-model="form.imagen" type="text" placeholder="https://..." class="admin-input px-3 py-2.5" />
+                        <p class="text-xs text-gray-400 mt-1">
+                            Debe ser el link directo al archivo (termina en .jpg, .png, .webp...), no a una página de producto.
+                        </p>
+
+                        <!-- Vista previa en vivo -->
+                        <div v-if="form.imagen" class="mt-3">
+                            <div class="w-full rounded-xl overflow-hidden border border-gray-200 bg-gray-50" style="height:160px">
+                                <img
+                                    :src="form.imagen"
+                                    class="w-full h-full object-cover"
+                                    @load="imagenValida = true"
+                                    @error="imagenValida = false"
+                                />
+                            </div>
+                            <p v-if="imagenValida === false" class="text-red-600 text-xs mt-1.5 flex items-center gap-1">
+                                <i class="pi pi-exclamation-triangle"></i>
+                                Esta URL no cargó una imagen. Revisa que sea el link directo al archivo.
+                            </p>
+                            <p v-else-if="imagenValida === true" class="text-green-600 text-xs mt-1.5 flex items-center gap-1">
+                                <i class="pi pi-check-circle"></i> Se ve bien.
+                            </p>
+                        </div>
+                    </div>
+
+                    <label class="flex items-center gap-2.5 cursor-pointer">
+                        <input v-model="form.destacado" type="checkbox" class="rounded border-gray-300 text-brand focus:ring-brand w-4 h-4" />
+                        <span class="text-sm text-gray-700">Marcar como evento destacado</span>
+                    </label>
+                </div>
+>>>>>>> Gabriel
             </div>
 
             <!-- Acciones -->
             <div class="p-6 border-t border-gray-100 flex items-center gap-3">
-                <button
-                    type="submit"
-                    :disabled="form.processing"
-                    class="bg-brand hover:bg-brand-dark text-white font-medium px-6 py-2.5 rounded-lg text-sm disabled:opacity-50 flex items-center gap-2"
-                >
+                <button type="submit" :disabled="form.processing" class="admin-btn-primary disabled:opacity-50">
                     <i class="pi" :class="form.processing ? 'pi-spin pi-spinner' : 'pi-check'"></i>
                     {{ form.processing ? 'Guardando...' : 'Crear evento' }}
                 </button>
-                <Link :href="route('admin.eventos.index')" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2.5">
+                <Link :href="route('admin.eventos.index')" class="admin-btn-secondary">
                     Cancelar
                 </Link>
             </div>
         </form>
+        </div>
     </AdminLayout>
 </template>
 

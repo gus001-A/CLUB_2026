@@ -88,7 +88,7 @@ class Transaccion extends Model
             'pendiente' => 'Pendiente',
             'aprobada' => 'Completado',
             'rechazada' => 'Rechazado',
-            'reembolsada' => 'Procesado',
+            'reembolsada' => 'Reembolsado',
             'retirada' => 'Retirado',
         ];
         return $estados[$this->estado] ?? $this->estado;

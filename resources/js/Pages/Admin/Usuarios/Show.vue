@@ -1,12 +1,18 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
+<<<<<<< HEAD
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
+=======
+import { computed } from 'vue';
+import { useFormatters } from '@/composables/useFormatters';
+>>>>>>> Gabriel
 
 const props = defineProps({
     usuario: Object,
 });
 
+<<<<<<< HEAD
 // Variable para saber si estamos en desarrollo
 const isDev = import.meta.env.DEV;
 
@@ -33,11 +39,12 @@ function manejarErrorImagen(index) {
 function esImagenValida(index) {
     return !erroresImagenes.value[index];
 }
+=======
+const { formatDate: formatDateBase } = useFormatters();
+const formatDate = (v) => formatDateBase(v, { month: 'long' });
+>>>>>>> Gabriel
 
-function formatDate(v) {
-    if (!v) return '—';
-    return new Date(v).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
-}
+const perfil = computed(() => props.usuario.perfil || null);
 
 function formatDateTime(v) {
     if (!v) return '—';
@@ -196,8 +203,13 @@ onBeforeUnmount(() => {
 
             <div class="flex flex-col lg:flex-row gap-6 items-start w-full">
 
+<<<<<<< HEAD
                 <!-- Columna izquierda -->
                 <div class="w-full lg:w-2/3 flex flex-col gap-6">
+=======
+                <!-- Columna izquierda: datos + perfil -->
+                <div class="w-full lg:w-2/3 min-w-0 flex flex-col gap-6">
+>>>>>>> Gabriel
 
                     <!-- Descripción -->
                     <div v-if="perfil?.descripcion" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -272,10 +284,63 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
                     </div>
+<<<<<<< HEAD
                 </div>
 
                 <!-- Columna derecha -->
                 <div class="w-full lg:w-1/3 flex flex-col gap-6">
+=======
+
+                    <!-- Galería -->
+                    <div v-if="fotos.length" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                        <h2 class="text-sm font-bold text-gray-900 mb-4">Fotos ({{ fotos.length }})</h2>
+                        <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                            <div v-for="(foto, idx) in fotos" :key="idx" class="aspect-square rounded-xl overflow-hidden bg-gray-100">
+                                <img :src="foto" class="w-full h-full object-cover" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Perfil de Creador (solo si rol = creador) -->
+                    <div v-if="usuario.rol === 'creador'" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                        <h2 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <i class="pi pi-star text-brand text-xs"></i> Perfil de Creador
+                        </h2>
+                        <template v-if="usuario.creador">
+                            <div class="flex items-center gap-2 mb-4 flex-wrap">
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold capitalize"
+                                    :class="{
+                                        'bg-green-100 text-green-700': usuario.creador.estado_verificacion === 'aprobado',
+                                        'bg-amber-100 text-amber-700': usuario.creador.estado_verificacion === 'pendiente',
+                                        'bg-red-100 text-red-700': usuario.creador.estado_verificacion === 'rechazado',
+                                    }">
+                                    {{ usuario.creador.estado_verificacion }}
+                                </span>
+                                <span v-if="usuario.creador.es_premium" class="px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 flex items-center gap-1">
+                                    <i class="pi pi-crown text-[10px]"></i> Premium
+                                </span>
+                            </div>
+                            <p v-if="usuario.creador.biografia" class="text-sm text-gray-600 mb-4">{{ usuario.creador.biografia }}</p>
+                            <p v-else class="text-sm text-gray-400 mb-4 italic">Aún no ha completado su biografía.</p>
+
+                            <div v-if="usuario.creador.categorias?.length" class="mb-3">
+                                <p class="text-[11px] text-gray-400 uppercase font-medium mb-2">Categorías</p>
+                                <div class="flex flex-wrap gap-2">
+                                    <span v-for="(c, idx) in usuario.creador.categorias" :key="idx" class="px-3 py-1 rounded-full text-xs font-medium bg-brand/10 text-brand">{{ c }}</span>
+                                </div>
+                            </div>
+                            <p v-if="usuario.creador.metodo_pago" class="text-sm text-gray-600">
+                                <span class="text-gray-400">Método de pago:</span>
+                                <span class="font-medium capitalize">{{ usuario.creador.metodo_pago }}</span>
+                            </p>
+                        </template>
+                        <p v-else class="text-sm text-gray-400">Sin perfil de creador registrado.</p>
+                    </div>
+                </div>
+
+                <!-- Columna derecha: estado de verificación + perfil resumen -->
+                <div class="w-full lg:w-1/3 min-w-0 flex flex-col gap-6">
+>>>>>>> Gabriel
 
                     <!-- Verificación -->
                     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-center">

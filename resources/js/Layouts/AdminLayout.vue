@@ -1,6 +1,6 @@
 <script setup>
 import { Link, usePage, router } from '@inertiajs/vue3';
-import { computed, reactive, ref, onMounted, onUnmounted } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useToast } from '@/composables/useToast';
 import ToastNotification from '@/Components/ToastNotification.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
@@ -10,72 +10,12 @@ const admin = computed(() => page.props.auth?.admin);
 const badges = computed(() => page.props.badges || { invitacionesPendientes: 0, notificaciones: 0 });
 const toast = useToast();
 
-// Estado del sidebar móvil / tablet (< xl)
-const sidebarOpen = ref(false);
+const sidebarAbierto = ref(false);
+const notificacionesAbiertas = ref(false);
 
-// Estado y control del Dropdown de Notificaciones
-const showNotifications = ref(false);
-const notificationDropdownRef = ref(null);
-
-// Estado y control del Dropdown de Perfil
-const showProfileMenu = ref(false);
-const profileDropdownRef = ref(null);
-
-const handleClickOutside = (event) => {
-    if (notificationDropdownRef.value && !notificationDropdownRef.value.contains(event.target)) {
-        showNotifications.value = false;
-    }
-    if (profileDropdownRef.value && !profileDropdownRef.value.contains(event.target)) {
-        showProfileMenu.value = false;
-    }
-};
-
-onMounted(() => document.addEventListener('click', handleClickOutside));
-onUnmounted(() => document.removeEventListener('click', handleClickOutside));
-
-// Filtramos únicamente las notificaciones que están activas según los badges
-const notificacionesActivas = computed(() => {
-    const lista = [];
-
-    // Notificaciones relevantes para el Admin:
-    // 1. Invitaciones ACEPTADAS recientemente por el usuario
-    if (badges.value.invitacionesAceptadas > 0) {
-        lista.push({
-            id: 'inv_aceptada',
-            title: 'Invitación aceptada',
-            message: `Un invitado ha aceptado tu invitación.`,
-            time: 'Reciente',
-            icon: 'pi-check-circle',
-            route: 'admin.invitaciones.index'
-        });
-    }
-
-    // 2. Invitaciones EXPIRADAS
-    if (badges.value.invitacionesExpiradas > 0) {
-        lista.push({
-            id: 'inv_expirada',
-            title: 'Invitación expirada',
-            message: `Una invitación ha superado el límite de tiempo.`,
-            time: 'Expiró',
-            icon: 'pi-clock',
-            route: 'admin.invitaciones.index'
-        });
-    }
-
-    // 3. Mensajes de usuarios
-    if (badges.value.mensajesNuevos > 0) {
-        lista.push({
-            id: 'mensajes',
-            title: 'Nuevos mensajes',
-            message: `Tienes mensajes sin leer en tu bandeja.`,
-            time: 'Reciente',
-            icon: 'pi-comments',
-            route: 'admin.mensajes.index'
-        });
-    }
-
-    return lista;
-});
+// Vendrán de un prop compartido por Inertia (igual que "badges").
+// Ajusta el nombre según cómo lo envíes desde el controlador/middleware.
+const notificaciones = computed(() => page.props.notificaciones || []);
 
 const links = computed(() => [
     { name: 'Dashboard', route: 'admin.dashboard', icon: 'pi-home' },
@@ -137,8 +77,9 @@ function grupoActivo(link) {
     return link.children?.some((c) => c.url || isActive(c.route)) ?? false;
 }
 
-// abiertos guarda SOLO los clics manuales del usuario.
-// Si el grupo está activo por la ruta actual, se muestra abierto SIEMPRE.
+// abiertos guarda SOLO los clics manuales del usuario (abrir/cerrar a mano).
+// Si el grupo está activo por la ruta actual, se muestra abierto SIEMPRE,
+// sin importar el estado guardado — así no depende de cuándo se calculó.
 const abiertos = reactive({});
 
 function estaAbierto(link) {
@@ -150,25 +91,41 @@ function toggleGrupo(link) {
     abiertos[link.name] = !estaAbierto(link);
 }
 
+function cerrarSidebarMovil() {
+    sidebarAbierto.value = false;
+}
+
+function toggleNotificaciones() {
+    notificacionesAbiertas.value = !notificacionesAbiertas.value;
+}
+
+function cerrarNotificaciones() {
+    notificacionesAbiertas.value = false;
+}
+
 function logout() {
     router.post(route('admin.logout'));
 }
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-50 flex relative overflow-x-hidden">
+    <div class="min-h-screen bg-gray-50 flex">
         <ToastNotification />
         <ConfirmModal />
 
-        <!-- Overlay de fondo para pantallas pequeñas/medianas -->
-        <div v-if="sidebarOpen" @click="sidebarOpen = false"
-            class="fixed inset-0 bg-gray-900/50 z-40 xl:hidden transition-opacity"></div>
+        <!-- Overlay oscuro (solo en móvil, cuando el menú está abierto) -->
+        <div
+            v-if="sidebarAbierto"
+            @click="sidebarAbierto = false"
+            class="fixed inset-0 bg-black/40 z-40 lg:hidden"
+        ></div>
 
-        <!-- Sidebar Adaptativo -->
+        <!-- Sidebar -->
         <aside
-            class="fixed xl:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out"
-            :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'">
-            <div class="px-6 py-5 flex items-center justify-between border-b border-gray-100">
+            class="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:translate-x-0"
+            :class="sidebarAbierto ? 'translate-x-0' : '-translate-x-full'"
+        >
+            <div class="px-6 py-5 flex items-center justify-between gap-2 border-b border-gray-100">
                 <div class="flex items-center gap-2">
                     <span class="text-brand text-3xl leading-none">♥</span>
                     <div class="leading-tight">
@@ -176,8 +133,7 @@ function logout() {
                         <p class="font-serif font-semibold text-brand text-lg italic -mt-1">Fantasías</p>
                     </div>
                 </div>
-                <!-- Botón para cerrar en pantallas pequeñas -->
-                <button @click="sidebarOpen = false" class="xl:hidden text-gray-400 hover:text-gray-600">
+                <button @click="sidebarAbierto = false" class="lg:hidden text-gray-400 hover:text-gray-600">
                     <i class="pi pi-times text-lg"></i>
                 </button>
             </div>
@@ -185,46 +141,59 @@ function logout() {
             <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 <template v-for="link in links" :key="link.name">
                     <!-- Link simple -->
-                    <Link v-if="!link.children" :href="route(link.route)" @click="sidebarOpen = false"
+                    <Link
+                        v-if="!link.children"
+                        :href="route(link.route)"
+                        @click="cerrarSidebarMovil"
                         class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
                         :class="isActive(link.route)
                             ? 'bg-brand text-white'
-                            : 'text-gray-600 hover:bg-gray-100'">
+                            : 'text-gray-600 hover:bg-gray-100'"
+                    >
                         <i class="pi text-base" :class="link.icon"></i>
                         <span class="flex-1">{{ link.name }}</span>
-                        <span v-if="link.name === 'Invitaciones' ? badges.invitacionesPendientes > 0 : link.badge"
+                        <span
+                            v-if="link.name === 'Invitaciones' ? badges.invitacionesPendientes > 0 : link.badge"
                             class="bg-brand text-white text-[11px] font-semibold rounded-full w-5 h-5 flex items-center justify-center"
-                            :class="isActive(link.route) ? 'bg-white/25' : ''">
+                            :class="isActive(link.route) ? 'bg-white/25' : ''"
+                        >
                             {{ link.name === 'Invitaciones' ? badges.invitacionesPendientes : link.badge }}
                         </span>
-                        <i v-else-if="link.chevron" class="pi pi-chevron-right text-xs opacity-50"></i>
                     </Link>
 
                     <!-- Link con submenú -->
                     <div v-else>
-                        <button type="button" @click="toggleGrupo(link)"
+                        <button
+                            type="button"
+                            @click="toggleGrupo(link)"
                             class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
                             :class="grupoActivo(link) && !estaAbierto(link)
                                 ? 'bg-brand text-white'
-                                : 'text-gray-600 hover:bg-gray-100'">
+                                : 'text-gray-600 hover:bg-gray-100'"
+                        >
                             <i class="pi text-base" :class="link.icon"></i>
                             <span class="flex-1 text-left">{{ link.name }}</span>
-                            <span v-if="link.name === 'Invitaciones' && badges.invitacionesPendientes > 0"
+                            <span
+                                v-if="link.name === 'Invitaciones' && badges.invitacionesPendientes > 0"
                                 class="bg-brand text-white text-[11px] font-semibold rounded-full w-5 h-5 flex items-center justify-center"
-                                :class="grupoActivo(link) && !estaAbierto(link) ? 'bg-white/25' : ''">
+                                :class="grupoActivo(link) && !estaAbierto(link) ? 'bg-white/25' : ''"
+                            >
                                 {{ badges.invitacionesPendientes }}
                             </span>
-                            <i class="pi text-xs transition-transform"
-                                :class="estaAbierto(link) ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
+                            <i class="pi text-xs transition-transform" :class="estaAbierto(link) ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
                         </button>
 
                         <div v-show="estaAbierto(link)" class="mt-1 ml-4 pl-4 border-l border-gray-100 space-y-0.5">
-                            <Link v-for="child in link.children" :key="child.name" :href="child.url || route(child.route)"
-                                @click="sidebarOpen = false"
+                            <Link
+                                v-for="child in link.children"
+                                :key="child.name"
+                                :href="child.url || route(child.route)"
+                                @click="cerrarSidebarMovil"
                                 class="block px-3 py-2 rounded-lg text-sm transition-colors"
                                 :class="(child.url || isActive(child.route))
                                     ? 'text-brand font-semibold bg-brand/5'
-                                    : 'text-gray-500 hover:bg-gray-100'">
+                                    : 'text-gray-500 hover:bg-gray-100'"
+                            >
                                 {{ child.name }}
                             </Link>
                         </div>
@@ -233,8 +202,10 @@ function logout() {
             </nav>
 
             <div class="p-3 border-t border-gray-100">
-                <button @click="logout"
-                    class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-brand border border-brand/40 hover:bg-brand/5">
+                <button
+                    @click="logout"
+                    class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-brand border border-brand/40 hover:bg-brand/5"
+                >
                     <i class="pi pi-sign-out"></i>
                     Cerrar sesión
                 </button>
@@ -245,141 +216,99 @@ function logout() {
         <div class="flex-1 flex flex-col min-w-0">
             <!-- Topbar -->
             <header class="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <!-- Botón Menú Hamburguesa -->
-                    <button @click="sidebarOpen = !sidebarOpen"
-                        class="xl:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button @click="sidebarAbierto = true" class="lg:hidden text-gray-500 hover:text-gray-700 shrink-0">
                         <i class="pi pi-bars text-xl"></i>
                     </button>
-
-                    <div>
-                        <h1 class="text-lg sm:text-xl font-serif font-semibold text-gray-800">
+                    <div class="min-w-0">
+                        <h1 class="text-lg sm:text-xl font-serif font-semibold text-gray-800 truncate">
                             <slot name="title">Panel de Administrador</slot>
                         </h1>
-                        <p class="text-xs sm:text-sm text-gray-400">
+                        <p class="text-xs sm:text-sm text-gray-400 truncate">
                             <slot name="breadcrumb">Dashboard</slot>
                         </p>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-4 sm:gap-6">
-                    <!-- CONTENEDOR CAMPANITA CON DROPDOWN -->
-                    <div class="relative" ref="notificationDropdownRef">
-                        <button @click="showNotifications = !showNotifications"
-                            class="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition-colors focus:outline-none">
+                <div class="flex items-center gap-3 sm:gap-6 shrink-0">
+                    <!-- Notificaciones -->
+                    <div class="relative">
+                        <button
+                            @click="toggleNotificaciones"
+                            class="relative text-gray-400 hover:text-gray-600"
+                        >
                             <i class="pi pi-bell text-xl"></i>
-                            <span v-if="badges.notificaciones > 0"
-                                class="absolute top-1 right-1 bg-brand text-white text-[10px] font-semibold rounded-full w-4.5 h-4.5 min-w-[18px] min-h-[18px] flex items-center justify-center">
+                            <span
+                                v-if="badges.notificaciones > 0"
+                                class="absolute -top-1.5 -right-1.5 bg-brand text-white text-[10px] font-semibold rounded-full w-4.5 h-4.5 min-w-[18px] min-h-[18px] flex items-center justify-center"
+                            >
                                 {{ badges.notificaciones }}
                             </span>
                         </button>
 
-                        <!-- DROPDOWN DESPLEGABLE DE NOTIFICACIONES -->
-                        <div v-if="showNotifications"
-                            class="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 overflow-hidden">
-                            <!-- Cabecera -->
-                            <div class="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
-                                <h3 class="font-semibold text-sm text-gray-800">Notificaciones</h3>
-                                <span class="text-[11px] bg-brand/10 text-brand px-2.5 py-0.5 rounded-full font-medium">
-                                    {{ notificacionesActivas.length }} nuevas
+                        <!-- Overlay para cerrar al hacer click fuera -->
+                        <div
+                            v-if="notificacionesAbiertas"
+                            @click="cerrarNotificaciones"
+                            class="fixed inset-0 z-40"
+                        ></div>
+
+                        <!-- Panel de notificaciones -->
+                        <div
+                            v-if="notificacionesAbiertas"
+                            class="absolute right-0 top-full mt-3 w-80 bg-white rounded-2xl border border-gray-100 shadow-lg z-50 overflow-hidden"
+                        >
+                            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                                <h3 class="font-serif font-semibold text-gray-800">Notificaciones</h3>
+                                <span
+                                    class="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                                    :class="badges.notificaciones > 0 ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-400'"
+                                >
+                                    {{ badges.notificaciones }} nuevas
                                 </span>
                             </div>
 
-                            <!-- Lista de Notificaciones Activas -->
-                            <div class="max-h-72 overflow-y-auto divide-y divide-gray-50">
-                                <template v-if="notificacionesActivas.length > 0">
-                                    <Link v-for="item in notificacionesActivas" :key="item.id" :href="route(item.route)"
-                                        @click="showNotifications = false"
-                                        class="flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors">
-                                        <!-- Cápsula / Círculo del Ícono -->
-                                        <div
-                                            class="!w-10 !h-10 !min-w-[40px] !min-h-[40px] rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0">
-                                            <i class="pi text-sm" :class="item.icon"></i>
-                                        </div>
+                            <!-- Estado vacío -->
+                            <div
+                                v-if="!notificaciones.length"
+                                class="flex flex-col items-center justify-center py-12 px-6 text-center"
+                            >
+                                <i class="pi pi-bell-slash text-gray-300" style="font-size: 2.25rem"></i>
+                                <p class="text-gray-400 text-sm mt-3">No tienes notificaciones pendientes</p>
+                            </div>
 
-                                        <!-- Detalles de la Notificación -->
-                                        <div class="flex-1 min-w-0">
-                                            <p class="text-xs font-semibold text-gray-800 truncate">{{ item.title }}</p>
-                                            <p class="text-[11px] text-gray-500 line-clamp-2 mt-0.5">{{ item.message }}</p>
-                                            <span class="text-[10px] text-gray-400 mt-1 block">{{ item.time }}</span>
-                                        </div>
-                                    </Link>
-                                </template>
-
-                                <!-- Estado Vacío -->
-                                <div v-else class="py-8 px-4 text-center">
-                                    <i class="pi pi-bell-slash text-2xl text-gray-300 mb-2 block"></i>
-                                    <p class="text-xs text-gray-400 font-medium">No tienes notificaciones pendientes</p>
-                                </div>
+                            <!-- Lista de notificaciones -->
+                            <div v-else class="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                                <Link
+                                    v-for="n in notificaciones"
+                                    :key="n.id"
+                                    :href="n.route ? route(n.route) : '#'"
+                                    @click="cerrarNotificaciones"
+                                    class="block px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                                >
+                                    <p class="text-sm text-gray-700 font-medium">{{ n.titulo }}</p>
+                                    <p class="text-xs text-gray-400 mt-0.5">{{ n.mensaje }}</p>
+                                    <p class="text-[11px] text-gray-300 mt-1">{{ n.fecha }}</p>
+                                </Link>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Perfil de usuario con Dropdown -->
-                    <div class="relative" ref="profileDropdownRef">
-                        <button @click="showProfileMenu = !showProfileMenu"
-                            class="flex items-center gap-2.5 focus:outline-none">
-                            <div class="rounded-full bg-brand/10 flex items-center justify-center text-brand shrink-0"
-                                style="width:40px;height:40px;min-width:40px;min-height:40px">
-                                <i class="pi pi-user text-lg"></i>
-                            </div>
-                            <div class="text-sm leading-tight hidden sm:block text-left">
-                                <p class="font-semibold text-gray-800">{{ admin?.nombre || 'Administrador' }}</p>
-                                <p class="text-brand text-xs font-medium">{{ admin?.rol === 'super_admin' ? 'Super Admin' : 'Admin' }}</p>
-                            </div>
-                            <i class="pi pi-chevron-down text-gray-300 text-xs ml-1 hidden sm:block transition-transform"
-                                :class="showProfileMenu ? 'rotate-180' : ''"></i>
-                        </button>
-
-                        <!-- DROPDOWN DESPLEGABLE DE PERFIL -->
-                        <div v-if="showProfileMenu"
-                            class="absolute right-0 mt-3 w-64 max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 overflow-hidden">
-
-                            <!-- Cabecera con avatar y nombre -->
-                            <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-                                <div class="rounded-full bg-brand/10 flex items-center justify-center text-brand shrink-0"
-                                    style="width:44px;height:44px;min-width:44px;min-height:44px">
-                                    <i class="pi pi-user text-lg"></i>
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <p class="font-semibold text-gray-800 text-sm truncate">{{ admin?.nombre || 'Administrador' }}</p>
-                                    <p class="text-xs text-brand font-medium flex items-center gap-1 truncate">
-                                        <i class="pi pi-verified text-[10px] shrink-0"></i>
-                                        <span class="truncate">{{ admin?.rol === 'super_admin' ? 'Super Admin' : 'Admin' }}</span>
-                                    </p>
-                                </div>
-                            </div>
-
-                            <!-- Opciones -->
-                            <div class="py-1.5">
-                                <a href="#" @click.prevent="showProfileMenu = false"
-                                    class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed">
-                                    <i class="pi pi-user text-sm"></i>
-                                    Mi perfil
-                                </a>
-                                <Link :href="route('admin.configuracion.index')" @click="showProfileMenu = false"
-                                    class="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
-                                    :class="isActive('admin.configuracion.index') ? 'bg-brand/5 text-brand font-semibold' : 'text-gray-600 hover:bg-gray-50'">
-                                    <i class="pi pi-cog text-sm"></i>
-                                    Configuración
-                                </Link>
-                            </div>
-
-                            <!-- Cerrar sesión -->
-                            <div class="border-t border-gray-100 pt-1.5">
-                                <button @click="logout"
-                                    class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                                    <i class="pi pi-sign-out text-sm"></i>
-                                    Cerrar sesión
-                                </button>
-                            </div>
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-10 h-10 rounded-full bg-brand/10 flex items-center justify-center text-brand shrink-0">
+                            <i class="pi pi-user text-lg"></i>
                         </div>
+                        <div class="text-sm leading-tight hidden sm:block">
+                            <p class="font-semibold text-gray-800">{{ admin?.nombre || 'Administrador' }}</p>
+                            <p class="text-brand text-xs font-medium">{{ admin?.rol === 'super_admin' ? 'Super Admin' : 'Admin' }}</p>
+                        </div>
+                        <i class="pi pi-chevron-down text-gray-300 text-xs ml-1 hidden sm:inline"></i>
                     </div>
                 </div>
             </header>
 
             <!-- Slot principal -->
-            <main class="flex-1 p-4 sm:p-6 lg:p-8">
+            <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
                 <slot />
             </main>
         </div>

@@ -69,7 +69,7 @@ class EventoController extends Controller
             $query->where('tipo', $tipo);
         }
 
-        $eventos = $query->orderBy('fecha')->paginate(7)->withQueryString();
+        $eventos = $query->orderBy('fecha')->paginate(3)->withQueryString();
         $eventos->through(fn ($e) => [
             'id' => $e->id,
             'nombre' => $e->nombre,
@@ -122,7 +122,7 @@ class EventoController extends Controller
                     'id' => $e->id,
                     'nombre' => $e->nombre,
                     'imagen' => $e->imagen,
-                    'fecha' => $e->fecha,
+                    'fecha' => $e->fecha->format('d-m-Y'),
                     'hora_formateada' => $e->hora_formateada,
                     'ciudad' => $e->ciudad,
                     'estado_display' => $this->estadoDisplay($e, $hoy),
@@ -136,6 +136,74 @@ class EventoController extends Controller
                 'asistentesTotales' => Reserva::aprobadas()->sum('asistentes'),
                 'reservasTotales' => Reserva::aprobadas()->count(),
             ],
+        ]);
+    }
+
+    /**
+     * Vista "Ver todos los eventos": listado completo con más filtros
+     * y desglose por estado/tipo — separado del dashboard de Eventos.
+     */
+    public function todos(Request $request): Response
+    {
+        $hoy = now()->toDateString();
+
+        $query = Evento::query();
+
+        if ($search = $request->string('q')->trim()->value()) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre', 'like', "%{$search}%")
+                    ->orWhere('ciudad', 'like', "%{$search}%");
+            });
+        }
+        if ($estado = $request->string('estado')->value()) {
+            $query->where('estado', $estado);
+        }
+        if ($tipo = $request->string('tipo')->value()) {
+            $query->where('tipo', $tipo);
+        }
+        if ($desde = $request->date('desde')) {
+            $query->where('fecha', '>=', $desde->toDateString());
+        }
+        if ($hasta = $request->date('hasta')) {
+            $query->where('fecha', '<=', $hasta->toDateString());
+        }
+
+        $eventos = $query->orderBy('fecha', 'desc')->paginate(10)->withQueryString();
+        $eventos->through(fn ($e) => [
+            'id' => $e->id,
+            'nombre' => $e->nombre,
+            'imagen' => $e->imagen,
+            'tipo' => $e->tipo,
+            'fecha' => $e->fecha,
+            'hora_formateada' => $e->hora_formateada,
+            'ciudad' => $e->ciudad,
+            'precio' => (float) $e->precio,
+            'capacidad' => $e->capacidad,
+            'categoria' => $e->categoria,
+            'estado' => $e->estado,
+            'estado_display' => $this->estadoDisplay($e, $hoy),
+        ]);
+
+        // --- Desglose por estado (columna real, misma que usa el filtro) ---
+        $estadoLabel = ['borrador' => 'Borrador', 'publicado' => 'Publicado', 'cancelado' => 'Cancelado', 'completo' => 'Completado'];
+        $porEstado = Evento::selectRaw('estado, COUNT(*) as cantidad')
+            ->groupBy('estado')
+            ->get()
+            ->map(fn ($r) => ['estado' => $r->estado, 'label' => $estadoLabel[$r->estado] ?? $r->estado, 'cantidad' => (int) $r->cantidad]);
+
+        // --- Desglose por tipo ---
+        $porTipoLabel = ['vip' => 'VIP', 'general' => 'General'];
+        $porTipo = Evento::selectRaw('tipo, COUNT(*) as cantidad')
+            ->groupBy('tipo')
+            ->get()
+            ->map(fn ($r) => ['tipo' => $r->tipo, 'label' => $porTipoLabel[$r->tipo] ?? $r->tipo, 'cantidad' => (int) $r->cantidad]);
+
+        return Inertia::render('Admin/Eventos/Eventos', [
+            'eventos' => $eventos,
+            'filtros' => $request->only(['q', 'estado', 'tipo', 'desde', 'hasta']),
+            'porEstado' => $porEstado,
+            'porTipo' => $porTipo,
+            'totalGeneral' => Evento::count(),
         ]);
     }
 
@@ -170,8 +238,8 @@ class EventoController extends Controller
 
             Log::info('Datos validados', ['user_id' => auth()->id()]);
 
-            // Crear el evento
-            $evento = Evento::create($data + ['organizador_id' => null]);
+            // Crear el evento - Combinamos ambas versiones
+            $evento = Evento::create($data + ['organizador_id' => auth()->guard('admin')->id()]);
 
             Log::info('Evento creado', ['evento_id' => $evento->id, 'nombre' => $evento->nombre]);
 
@@ -268,6 +336,9 @@ class EventoController extends Controller
         $hoy = now()->toDateString();
         $evento->estado_display = $this->estadoDisplay($evento, $hoy);
 
+        // Cargar el organizador (combinando ambas versiones)
+        $evento->load('organizador:id,nombre');
+
         // Cargar las fotos del evento
         $fotos = $evento->fotos()->orderBy('created_at', 'asc')->get()->map(function($foto) {
             return [
@@ -321,6 +392,7 @@ class EventoController extends Controller
         Log::info('=== INICIO update evento ===', ['evento_id' => $evento->id]);
 
         try {
+            // Combinamos ambas validaciones
             $data = $request->validate([
                 'nombre' => ['required', 'string', 'max:255'],
                 'descripcion' => ['nullable', 'string'],
@@ -328,6 +400,8 @@ class EventoController extends Controller
                 'hora' => ['required'],
                 'ciudad' => ['required', 'string', 'max:255'],
                 'zona_ubicacion' => ['nullable', 'string', 'max:255'],
+                'ubicacion_lat' => ['nullable', 'numeric', 'between:-90,90'],
+                'ubicacion_lng' => ['nullable', 'numeric', 'between:-180,180'],
                 'precio' => ['required', 'numeric', 'min:0'],
                 'capacidad' => ['nullable', 'integer', 'min:1'],
                 'tipo' => ['required', 'in:vip,general'],
@@ -335,6 +409,7 @@ class EventoController extends Controller
                 'codigo_vestimenta' => ['nullable', 'string', 'max:255'],
                 'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
                 'imagen' => ['nullable', 'image', 'max:2048'],
+                'destacado' => ['boolean'],
                 'fotos' => ['nullable', 'array'],
                 'fotos.*.file' => ['nullable', 'image', 'max:2048'],
                 'fotos.*.nombre' => ['nullable', 'string', 'max:255'],

@@ -58,16 +58,18 @@ function submit() {
         <template #title>Editar usuario</template>
         <template #breadcrumb>Usuarios &gt; Editar</template>
 
-        <div class="max-w-3xl">
+        <div class="max-w-3xl mx-auto">
             <Link :href="route('admin.usuarios.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
                 <i class="pi pi-arrow-left text-xs"></i> Volver a Usuarios
             </Link>
 
             <form @submit.prevent="submit" class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div style="height:6px;background:linear-gradient(90deg,#C81E3A,#E85C74)"></div>
+
                 <!-- Sección: Datos personales -->
                 <div class="p-6">
                     <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
-                        <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:48px;height:48px">
+                        <div class="admin-icon-gradient shrink-0" style="width:48px;height:48px">
                             <i class="pi pi-user text-lg"></i>
                         </div>
                         <div>
@@ -168,7 +170,7 @@ function submit() {
                 <div class="p-6 bg-gray-50/50 border-t border-gray-100">
                     <div class="flex items-center justify-between gap-3 pb-4 mb-5 border-b border-gray-100">
                         <div class="flex items-center gap-3">
-                            <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:48px;height:48px">
+                        <div class="admin-icon-gradient shrink-0" style="width:48px;height:48px">
                                 <i class="pi pi-lock text-lg"></i>
                             </div>
                             <div>

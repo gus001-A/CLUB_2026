@@ -1,5 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import KpiCard from '@/Components/KpiCard.vue';
+import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import { Line, Doughnut } from 'vue-chartjs';
@@ -13,28 +15,32 @@ import {
     Tooltip,
     Filler,
 } from 'chart.js';
-import { useToast } from '@/composables/useToast';
-import { useConfirm } from '@/composables/useConfirm';
+import { useFormatters } from '@/composables/useFormatters';
+import { useCobroAcciones } from '@/composables/useCobroAcciones';
 
 ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, ArcElement, Tooltip, Filler);
 
 const props = defineProps({
     stats: Object,
+    resumen: Object,
     transacciones: Object,
     filtros: Object,
     ingresosPorDia: Array,
-    tiposTotales: Array,
+    categoriasResumen: Array,
     metodosPago: Array,
     pagosPendientes: Array,
 });
 
-const toast = useToast();
-const { confirm } = useConfirm();
+const { money, formatDateTime } = useFormatters();
+const { aprobar, reembolsar } = useCobroAcciones();
 
 const q = ref(props.filtros.q || '');
 const tipo = ref(props.filtros.tipo || '');
 const desde = ref(props.filtros.desde || '');
 const hasta = ref(props.filtros.hasta || '');
+const periodoResumen = ref('mes');
+const periodoIngresos = ref('mes');
+const periodoTipos = ref('mes');
 
 let timeout = null;
 function aplicarFiltros() {
@@ -45,26 +51,28 @@ function aplicarFiltros() {
             tipo: tipo.value || undefined,
             desde: desde.value || undefined,
             hasta: hasta.value || undefined,
+            periodo_resumen: periodoResumen.value,
+            periodo_ingresos: periodoIngresos.value,
+            periodo_tipos: periodoTipos.value,
         }, { preserveState: true, replace: true });
     }, 350);
 }
 watch([q, tipo, desde, hasta], aplicarFiltros);
 
-function money(v) {
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v ?? 0);
+// Los 3 selectores de periodo disparan la misma recarga (con preserveState,
+// así no se pierde el estado de los otros filtros ni el scroll).
+function cambiarPeriodo() {
+    router.get(route('admin.cobros.index'), {
+        q: q.value || undefined,
+        tipo: tipo.value || undefined,
+        desde: desde.value || undefined,
+        hasta: hasta.value || undefined,
+        periodo_resumen: periodoResumen.value,
+        periodo_ingresos: periodoIngresos.value,
+        periodo_tipos: periodoTipos.value,
+    }, { preserveState: true, preserveScroll: true, replace: true });
 }
-
-function formatDate(v) {
-    if (!v) return '—';
-    return new Date(v).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
-
-const tipoNombres = {
-    suscripcion: 'Suscripción',
-    compra_contenido: 'Compra de contenido',
-    propina: 'Propina',
-    retiro: 'Retiro',
-};
+watch([periodoResumen, periodoIngresos, periodoTipos], cambiarPeriodo);
 
 const estadoColores = {
     aprobada: 'bg-green-100 text-green-700',
@@ -75,6 +83,67 @@ const estadoColores = {
 };
 
 // --- Gráfica de línea: ingresos por día ---
+function formatCorto(v) {
+    if (v >= 1000) {
+        const k = v / 1000;
+        return '$' + (Number.isInteger(k) ? k : k.toFixed(1)) + 'k';
+    }
+    return '$' + v;
+}
+
+const lineChartRef = ref(null);
+const puntoDestacado = ref(null);
+
+const picoIndex = computed(() => {
+    if (!props.ingresosPorDia?.length) return -1;
+    let maxI = 0;
+    props.ingresosPorDia.forEach((d, i) => {
+        if (d.total > props.ingresosPorDia[maxI].total) maxI = i;
+    });
+    return maxI;
+});
+
+function actualizarPuntoDestacado(chart) {
+    if (picoIndex.value < 0) { puntoDestacado.value = null; return; }
+    const point = chart.getDatasetMeta(0).data[picoIndex.value];
+    if (!point) { puntoDestacado.value = null; return; }
+    const d = props.ingresosPorDia[picoIndex.value];
+    const fecha = new Date(d.fecha).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' });
+    puntoDestacado.value = {
+        x: point.x,
+        y: point.y,
+        label: fecha.charAt(0).toUpperCase() + fecha.slice(1),
+        valor: money(d.total),
+    };
+}
+
+const dashedLinePlugin = {
+    id: 'puntoDestacadoPlugin',
+    afterDatasetsDraw(chart) {
+        if (picoIndex.value < 0) return;
+        const { ctx, chartArea } = chart;
+        const point = chart.getDatasetMeta(0).data[picoIndex.value];
+        if (!point) return;
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = '#C81E3A';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
+        ctx.lineTo(point.x, chartArea.bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#C81E3A';
+        ctx.fill();
+        ctx.restore();
+    },
+    afterRender(chart) {
+        actualizarPuntoDestacado(chart);
+    },
+};
+
 const lineData = computed(() => ({
     labels: props.ingresosPorDia.map((d) => new Date(d.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })),
     datasets: [
@@ -82,53 +151,71 @@ const lineData = computed(() => ({
             label: 'Ingresos',
             data: props.ingresosPorDia.map((d) => d.total),
             borderColor: '#C81E3A',
-            backgroundColor: 'rgba(200, 30, 58, 0.08)',
+            backgroundColor: (context) => {
+                const { ctx, chartArea } = context.chart;
+                if (!chartArea) return 'rgba(200, 30, 58, 0.08)';
+                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                gradient.addColorStop(0, 'rgba(200, 30, 58, 0.28)');
+                gradient.addColorStop(1, 'rgba(200, 30, 58, 0)');
+                return gradient;
+            },
             fill: true,
             tension: 0.35,
-            pointRadius: 2,
+            pointRadius: 3,
+            pointBackgroundColor: '#fff',
+            pointBorderColor: '#C81E3A',
+            pointBorderWidth: 2,
+            pointHoverRadius: 5,
         },
     ],
 }));
 const lineOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true } },
+    plugins: {
+        legend: { display: false },
+        tooltip: {
+            callbacks: {
+                label: (ctx) => money(ctx.parsed.y),
+            },
+        },
+    },
+    scales: {
+        x: {
+            ticks: {
+                autoSkip: false,
+                maxRotation: 0,
+                callback: function (value, index) {
+                    const label = this.getLabelForValue(value);
+                    const total = props.ingresosPorDia.length;
+                    if (total <= 10) return label;
+                    const d = props.ingresosPorDia[index];
+                    if (!d) return label;
+                    const dia = new Date(d.fecha).getDate();
+                    return (dia === 1 || (dia % 5 === 0 && dia < 30)) ? label : '';
+                },
+            },
+        },
+        y: {
+            beginAtZero: true,
+            ticks: { callback: (v) => formatCorto(v) },
+        },
+    },
 };
 
-// --- Dona: tipos de transacción ---
-const doughnutColors = ['#C81E3A', '#E85C74', '#F4A9B5', '#FBD3D9'];
+// --- Dona: Cobros / Reembolsos / Otros (colores fijos por categoría) ---
+const categoriaColores = { cobros: '#10B981', reembolsos: '#C81E3A', otros: '#F5A623' };
 const doughnutData = computed(() => ({
-    labels: props.tiposTotales.map((t) => tipoNombres[t.tipo] ?? t.tipo),
+    labels: props.categoriasResumen.map((c) => c.label),
     datasets: [
         {
-            data: props.tiposTotales.map((t) => t.total),
-            backgroundColor: doughnutColors,
+            data: props.categoriasResumen.map((c) => c.total),
+            backgroundColor: props.categoriasResumen.map((c) => categoriaColores[c.id] || '#9CA3AF'),
             borderWidth: 0,
         },
     ],
 }));
-const totalTipos = computed(() => props.tiposTotales.reduce((sum, t) => sum + t.total, 0));
-
-async function aprobar(t) {
-    const ok = await confirm(`Se marcará la transacción #${t.id} como aprobada.`, {
-        title: 'Aprobar transacción',
-        confirmLabel: 'Sí, aprobar',
-        danger: false,
-    });
-    if (!ok) return;
-    router.post(route('admin.cobros.aprobar', t.id), {}, { preserveScroll: true });
-}
-
-async function reembolsar(t) {
-    const ok = await confirm(`Se reembolsará ${money(t.monto)} a @${t.usuario?.apodo ?? 'usuario'}.`, {
-        title: 'Reembolsar transacción',
-        confirmLabel: 'Sí, reembolsar',
-        danger: true,
-    });
-    if (!ok) return;
-    router.post(route('admin.cobros.reembolsar', t.id), {}, { preserveScroll: true });
-}
+const totalCategorias = computed(() => props.categoriasResumen.reduce((sum, c) => sum + c.total, 0));
 </script>
 
 <template>
@@ -142,87 +229,29 @@ async function reembolsar(t) {
 
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
-            <!-- Fila 1: KPIs con layout de 4 columnas idéntico a las filas inferiores para mantener la alineación exacta -->
+            <!-- Fila 1: KPIs -->
             <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full">
-                <!-- KPI 1 (25%) -->
-                <div
-                    class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">
-                            Ingresos Totales
-                        </p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">
-                            {{ money(stats.ingresosTotales) }}
-                        </p>
-                    </div>
-
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0"
-                        style="width:44px;height:44px">
-                        <i class="pi pi-dollar text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Ingresos Totales" :value="money(stats.ingresosTotales)" icon="pi-dollar" />
                 </div>
-                <!-- KPI 2 (25%) -->
-                <div
-                    class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">
-                            Cobros del Mes
-                        </p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">
-                            {{ money(stats.cobrosDelMes) }}
-                        </p>
-                        <p v-if="stats.cobrosVariacion !== null" class="text-xs mt-1"
-                            :class="stats.cobrosVariacion >= 0 ? 'text-green-600' : 'text-red-500'">
-                            {{ stats.cobrosVariacion >= 0 ? '+' : '' }}{{ stats.cobrosVariacion }}% vs mes anterior
-                        </p>
-                    </div>
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0"
-                        style="width:44px;height:44px">
-                        <i class="pi pi-calendar text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Cobros del Mes" :value="money(stats.cobrosDelMes)" icon="pi-calendar"
+                        :hint="stats.cobrosVariacion !== null ? `${stats.cobrosVariacion >= 0 ? '+' : ''}${stats.cobrosVariacion}% vs mes anterior` : ''"
+                        :hint-color="stats.cobrosVariacion >= 0 ? 'text-green-600' : 'text-red-500'" />
                 </div>
-                <!-- KPI 3 (25%) -->
-                <div
-                    class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">
-                            Reembolsos del Mes
-                        </p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">
-                            {{ money(stats.reembolsosDelMes) }}
-                        </p>
-                    </div>
-
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0"
-                        style="width:44px;height:44px">
-                        <i class="pi pi-replay text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Reembolsos del Mes" :value="money(stats.reembolsosDelMes)" icon="pi-replay" />
                 </div>
-                <!-- KPI 4 (25%) -->
-                <div
-                    class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">
-                            Pagos Pendientes
-                        </p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">
-                            {{ money(stats.pagosPendientesMonto) }}
-                        </p>
-                        <p class="text-xs text-gray-400 mt-1">
-                            {{ stats.pagosPendientesCount }} transacciones
-                        </p>
-                    </div>
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0"
-                        style="width:44px;height:44px">
-                        <i class="pi pi-clock text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Pagos Pendientes" :value="money(stats.pagosPendientesMonto)" icon="pi-clock"
+                        :hint="`${stats.pagosPendientesCount} transacciones`" hint-color="text-gray-400" />
                 </div>
             </div>
             <!-- Fila 2: Tabla de Transacciones + Resumen y Métodos de Pago -->
             <div class="flex flex-col lg:flex-row items-stretch gap-6 mb-6 w-full">
                 <!-- Columna Izquierda: Tabla Transacciones (75%) -->
                 <div
-                    class="w-full lg:w-3/4 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between self-stretch">
+                    class="w-full lg:flex-[3] min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between self-stretch">
                     <div class="flex flex-col flex-1">
                         <!-- Encabezado -->
                         <div class="px-6 pt-6">
@@ -230,7 +259,7 @@ async function reembolsar(t) {
                             <p class="text-sm text-gray-500 mt-1">Administra los cobros y pagos registrados.</p>
                         </div>
                         <!-- Filtros -->
-                        <div class="flex flex-wrap lg:flex-nowrap items-center gap-3 px-6 py-5">
+                        <div class="flex flex-wrap items-center gap-3 px-6 py-5">
                             <!-- Buscador -->
                             <div class="relative flex-1 min-w-[180px]">
                                 <i
@@ -298,9 +327,7 @@ async function reembolsar(t) {
                                             :class="t.es_reembolso ? 'text-red-500' : 'text-gray-800'">
                                             {{ t.es_reembolso ? '-' : '' }}{{ money(t.monto) }}
                                         </td>
-                                        <td class="px-4 py-4 whitespace-nowrap text-gray-500">{{
-                                            formatDate(t.created_at) }}
-                                        </td>
+                                        <td class="px-4 py-4 whitespace-nowrap text-gray-500">{{ formatDateTime(t.created_at) }}</td>
                                         <td class="px-4 py-4">
                                             <span class="px-3 py-1 rounded-full text-xs font-semibold"
                                                 :class="estadoColores[t.estado]">
@@ -309,22 +336,22 @@ async function reembolsar(t) {
                                         </td>
                                         <td class="px-6 py-4">
                                             <div class="flex justify-center gap-2">
-                                                <button
-                                                    class="w-9 h-9 rounded-lg border border-gray-200 hover:bg-gray-100 flex items-center justify-center">
+                                                <Link :href="route('admin.cobros.show', t.id)" title="Ver detalle"
+                                                    class="admin-table-action text-gray-600">
                                                     <i class="pi pi-eye"></i>
-                                                </button>
+                                                </Link>
                                                 <template v-if="t.estado === 'pendiente'">
-                                                    <button @click="aprobar(t)"
-                                                        class="w-9 h-9 rounded-lg border border-gray-200 hover:bg-green-50 text-green-600 flex items-center justify-center">
+                                                    <button @click="aprobar(t)" title="Aprobar"
+                                                        class="admin-table-action hover:bg-green-50 text-green-600">
                                                         <i class="pi pi-check"></i>
                                                     </button>
-                                                    <button @click="reembolsar(t)"
-                                                        class="w-9 h-9 rounded-lg border border-gray-200 hover:bg-red-50 text-red-600 flex items-center justify-center">
+                                                    <button @click="reembolsar(t)" title="Reembolsar"
+                                                        class="admin-table-action hover:bg-red-50 text-red-600">
                                                         <i class="pi pi-replay"></i>
                                                     </button>
                                                 </template>
-                                                <button v-else-if="t.estado === 'aprobada'" @click="reembolsar(t)"
-                                                    class="w-9 h-9 rounded-lg border border-gray-200 hover:bg-red-50 text-red-600 flex items-center justify-center">
+                                                <button v-else-if="t.estado === 'aprobada'" @click="reembolsar(t)" title="Reembolsar"
+                                                    class="admin-table-action hover:bg-red-50 text-red-600">
                                                     <i class="pi pi-replay"></i>
                                                 </button>
                                             </div>
@@ -340,53 +367,43 @@ async function reembolsar(t) {
                         </div>
                     </div>
                     <!-- Footer -->
-                    <div v-if="transacciones.last_page > 1"
-                        class="border-t border-gray-200 px-6 py-4 flex items-center justify-between">
-                        <p class="text-sm text-gray-500">Mostrando {{ transacciones.from }}–{{ transacciones.to }} de {{
-                            transacciones.total }}</p>
-                        <div class="flex gap-1">
-                            <template v-for="(link, i) in transacciones.links" :key="i">
-                                <Link v-if="link.url" :href="link.url" preserve-scroll preserve-state
-                                    v-html="link.label" class="px-3 py-2 rounded-lg text-sm"
-                                    :class="link.active ? 'bg-brand text-white' : 'hover:bg-gray-100 text-gray-600'" />
-                                <span v-else class="px-3 py-2 text-gray-300" v-html="link.label" />
-                            </template>
-                        </div>
+                    <div v-if="transacciones.last_page > 1" class="border-t border-gray-200 px-6 py-4">
+                        <Pagination :data="transacciones" />
                     </div>
-                    <div class="text-center mt-6 pt-4 border-t border-gray-100">
-                        <Link :href="route('admin.cobros.index')" class="text-brand text-sm font-medium hover:underline">
+                    <div class="border-t border-gray-100 py-3.5 text-center">
+                        <Link :href="route('admin.cobros.transacciones')" class="text-brand text-sm font-medium hover:underline">
                             Ver todas las transacciones
                         </Link>
                     </div>
                 </div>
                 <!-- Columna Derecha: Resumen + Métodos de Pago (25%) -->
-                <div class="w-full lg:w-1/4 flex flex-col gap-6 self-stretch">
+                <div class="w-full lg:flex-1 min-w-0 flex flex-col gap-6 self-stretch">
                     <!-- Resumen -->
                     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                         <div class="flex items-center justify-between mb-5">
                             <h2 class="text-lg font-semibold text-gray-900">Resumen de Cobros</h2>
-                            <select class="text-xs rounded-lg border-gray-300 focus:border-brand focus:ring-brand">
-                                <option>Este mes</option>
+                            <select v-model="periodoResumen" class="text-xs rounded-lg border-gray-300 focus:border-brand focus:ring-brand">
+                                <option value="semana">Esta semana</option>
+                                <option value="mes">Este mes</option>
+                                <option value="anio">Este año</option>
                             </select>
                         </div>
                         <div class="space-y-3 text-sm">
                             <div class="flex justify-between">
                                 <span class="text-gray-500">Total Cobros</span>
-                                <span class="font-semibold text-gray-800">{{ money(stats.cobrosDelMes) }}</span>
+                                <span class="font-semibold text-gray-800">{{ money(resumen.cobrosDelMes) }}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-500">Comisiones</span>
-                                <span class="font-semibold text-red-500">-{{ money(stats.comisionesDelMes) }}</span>
+                                <span class="font-semibold text-red-500">-{{ money(resumen.comisionesDelMes) }}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-500">Reembolsos</span>
-                                <span class="font-semibold text-red-500">-{{ money(stats.reembolsosDelMes) }}</span>
+                                <span class="font-semibold text-red-500">-{{ money(resumen.reembolsosDelMes) }}</span>
                             </div>
                             <div class="border-t border-gray-100 pt-3 flex justify-between">
                                 <span class="font-semibold text-gray-700">Total Neto</span>
-                                <span class="font-bold text-brand">{{ money(stats.cobrosDelMes - stats.comisionesDelMes
-                                    -
-                                    stats.reembolsosDelMes) }}</span>
+                                <span class="font-bold text-brand">{{ money(resumen.cobrosDelMes - resumen.comisionesDelMes - resumen.reembolsosDelMes) }}</span>
                             </div>
                         </div>
                     </div>
@@ -398,7 +415,7 @@ async function reembolsar(t) {
                             <div class="space-y-5">
                                 <div v-for="m in metodosPago" :key="m.metodo">
                                     <div class="flex items-center justify-between text-sm mb-2">
-                                        <span class="text-gray-600 capitalize">{{ m.metodo.replace('_', ' ') }}</span>
+                                        <span class="text-gray-600">{{ m.metodo_nombre }}</span>
                                         <span class="font-semibold text-gray-800">{{ m.porcentaje }}%</span>
                                     </div>
                                     <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -415,63 +432,72 @@ async function reembolsar(t) {
                 </div>
             </div>
             <!-- Fila 3: Gráficas y Pagos Pendientes (Flexbox con ancho exacto) -->
-            <div class="flex flex-col lg:flex-row gap-6 mt-6 w-full">
+            <div class="flex flex-col lg:flex-row items-stretch gap-6 mt-6 w-full">
                 <!-- 1. Ingresos (50% de ancho) -->
                 <div
-                    class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                    class="w-full lg:flex-[1.5] min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-semibold text-gray-800 text-lg">Ingresos</h2>
-                            <select
+                            <select v-model="periodoIngresos"
                                 class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-500 focus:outline-none focus:border-brand">
-                                <option>Este mes</option>
+                                <option value="semana">Esta semana</option>
+                                <option value="mes">Este mes</option>
+                                <option value="anio">Este año</option>
                             </select>
                         </div>
-                        <div style="height:240px">
-                            <Line v-if="ingresosPorDia?.length" :data="lineData" :options="lineOptions" />
+                        <div style="height:240px" class="relative">
+                            <template v-if="ingresosPorDia?.length">
+                                <Line ref="lineChartRef" :data="lineData" :options="lineOptions" :plugins="[dashedLinePlugin]" />
+                                <div v-if="puntoDestacado" class="absolute pointer-events-none -translate-x-1/2 z-10"
+                                    :style="{ left: puntoDestacado.x + 'px', top: (puntoDestacado.y - 62) + 'px' }">
+                                    <div class="bg-white border border-gray-100 shadow-lg rounded-xl px-3 py-1.5 text-center whitespace-nowrap">
+                                        <p class="text-[10px] text-gray-400">{{ puntoDestacado.label }}</p>
+                                        <p class="text-sm font-bold text-gray-800">{{ puntoDestacado.valor }}</p>
+                                    </div>
+                                </div>
+                            </template>
                             <div v-else class="h-full flex items-center justify-center">
                                 <p class="text-gray-400 text-sm">Aún no hay ingresos registrados.</p>
                             </div>
                         </div>
                     </div>
                 </div>
-                <!-- 2. Tipos de Transacción (25% de ancho) -->
+                <!-- 2. Cobros y Reembolsos (25% de ancho) -->
                 <div
-                    class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                    class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-4">
-                            <h2 class="font-semibold text-gray-800 text-lg">Tipos de Transacción</h2>
-                            <select
+                            <h2 class="font-semibold text-gray-800 text-lg">Cobros y Reembolsos</h2>
+                            <select v-model="periodoTipos"
                                 class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 focus:outline-none focus:border-brand">
-                                <option>Este mes</option>
+                                <option value="semana">Esta semana</option>
+                                <option value="mes">Este mes</option>
+                                <option value="anio">Este año</option>
                             </select>
                         </div>
                         <!-- Gráfica Dona -->
-                        <div v-if="tiposTotales?.length" class="relative my-2" style="height:160px">
+                        <div v-if="totalCategorias > 0" class="relative my-2" style="height:160px">
                             <Doughnut :data="doughnutData"
-                                :options="{ maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '75%' }" />
+                                :options="{ maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => money(ctx.parsed) } } }, cutout: '65%' }" />
                             <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                 <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wider">Total</p>
-                                <p class="font-bold text-gray-800 text-base">{{ money(totalTipos) }}</p>
+                                <p class="font-bold text-gray-800 text-base">{{ money(totalCategorias) }}</p>
                             </div>
                         </div>
                         <div v-else class="py-12 text-center">
                             <p class="text-gray-400 text-sm">Sin datos aún.</p>
                         </div>
                         <!-- Leyenda / Desglose -->
-                        <ul v-if="tiposTotales?.length" class="mt-4 space-y-2">
-                            <li v-for="(t, i) in tiposTotales" :key="t.tipo"
-                                class="flex items-center justify-between text-xs">
+                        <ul v-if="totalCategorias > 0" class="mt-4 space-y-2">
+                            <li v-for="c in categoriasResumen" :key="c.id" class="flex items-center justify-between text-xs">
                                 <span class="flex items-center gap-2 text-gray-600">
-                                    <span class="w-2.5 h-2.5 rounded-full shrink-0"
-                                        :style="{ backgroundColor: doughnutColors[i % doughnutColors.length] }"></span>
-                                    {{ tipoNombres[t.tipo] ?? t.tipo }}
+                                    <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: categoriaColores[c.id] }"></span>
+                                    {{ c.label }}
                                 </span>
                                 <div class="flex items-center gap-3">
-                                    <span class="text-gray-400">{{ totalTipos ? Math.round((t.total / totalTipos) * 100)
-                                        : 0
-                                    }}%</span>
-                                    <span class="text-gray-800 font-semibold">{{ money(t.total) }}</span>
+                                    <span class="text-gray-400">{{ totalCategorias ? Math.round((c.total / totalCategorias) * 100) : 0 }}%</span>
+                                    <span class="text-gray-800 font-semibold">{{ money(c.total) }}</span>
                                 </div>
                             </li>
                         </ul>
@@ -479,13 +505,14 @@ async function reembolsar(t) {
                 </div>
                 <!-- 3. Pagos Pendientes (25% de ancho) -->
                 <div
-                    class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                    class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <!-- Header con Badge estilo diseño -->
                         <div class="flex items-center justify-between mb-5">
                             <h2 class="font-semibold text-gray-800 text-lg">Pagos Pendientes</h2>
                             <span v-if="pagosPendientes?.length"
-                                class="bg-red-50 text-red-500 text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                                class="bg-red-50 text-red-500 text-xs font-bold rounded-full flex items-center justify-center shrink-0"
+                                style="width:24px;height:24px">
                                 {{ pagosPendientes.length }}
                             </span>
                         </div>

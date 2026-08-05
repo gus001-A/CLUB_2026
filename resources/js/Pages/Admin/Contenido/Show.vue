@@ -1,33 +1,30 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { useFormatters } from '@/composables/useFormatters';
+import { useContenidoMeta } from '@/composables/useContenidoMeta';
+import { useConfirm } from '@/composables/useConfirm';
 
 const props = defineProps({
     contenido: Object,
 });
 
-function money(v) {
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v ?? 0);
+const { confirm } = useConfirm();
+
+const { money, formatDate: formatDateBase } = useFormatters();
+const formatFecha = (v) => formatDateBase(v, { month: 'long', hour: '2-digit', minute: '2-digit' });
+
+const { tipoLabel, tipoIcono, estadoColores, estadoLabel, visibilidadLabel, visibilidadIcono } = useContenidoMeta();
+
+async function eliminar() {
+    const ok = await confirm(`Esto eliminará "${props.contenido.titulo}" permanentemente.`, {
+        title: 'Eliminar contenido',
+        confirmLabel: 'Sí, eliminar',
+        danger: true,
+    });
+    if (!ok) return;
+    router.delete(route('admin.contenido.destroy', props.contenido.id));
 }
-
-function formatFecha(v) {
-    if (!v) return '—';
-    return new Date(v).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-const tipoLabel = { foto: 'Foto', video: 'Video', galeria: 'Galería', audio: 'Audio', articulo: 'Artículo', documento: 'Documento', exclusivo: 'Exclusivo' };
-const tipoIcono = { foto: 'pi-image', video: 'pi-video', galeria: 'pi-images', audio: 'pi-volume-up', articulo: 'pi-file-edit', documento: 'pi-file', exclusivo: 'pi-star' };
-
-const estadoColores = {
-    publicado: 'bg-green-100 text-green-700',
-    borrador: 'bg-amber-100 text-amber-700',
-    programado: 'bg-blue-100 text-blue-700',
-    archivado: 'bg-gray-200 text-gray-600',
-};
-const estadoLabel = { publicado: 'Publicado', borrador: 'Borrador', programado: 'Programado', archivado: 'Archivado' };
-
-const visibilidadLabel = { publico: 'Público', suscriptores: 'Solo suscriptores', individual: 'Compra individual' };
-const visibilidadIcono = { publico: 'pi-globe', suscriptores: 'pi-users', individual: 'pi-ticket' };
 </script>
 
 <template>
@@ -69,7 +66,7 @@ const visibilidadIcono = { publico: 'pi-globe', suscriptores: 'pi-users', indivi
             <div class="flex flex-col lg:flex-row gap-6 items-start w-full">
 
                 <!-- Columna izquierda -->
-                <div class="w-full lg:w-2/3 flex flex-col gap-6">
+                <div class="w-full lg:w-2/3 min-w-0 flex flex-col gap-6">
 
                     <!-- Descripción -->
                     <div v-if="contenido.descripcion" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -136,7 +133,7 @@ const visibilidadIcono = { publico: 'pi-globe', suscriptores: 'pi-users', indivi
                 </div>
 
                 <!-- Columna derecha -->
-                <div class="w-full lg:w-1/3 flex flex-col gap-6">
+                <div class="w-full lg:w-1/3 min-w-0 flex flex-col gap-6">
 
                     <!-- Estado destacado -->
                     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-center">
@@ -174,6 +171,16 @@ const visibilidadIcono = { publico: 'pi-globe', suscriptores: 'pi-users', indivi
                             </div>
                         </div>
                     </div>
+
+                    <!-- Editar -->
+                    <Link :href="route('admin.contenido.edit', contenido.id)" class="admin-btn-primary">
+                        <i class="pi pi-pencil text-xs"></i> Editar contenido
+                    </Link>
+
+                    <!-- Eliminar -->
+                    <button @click="eliminar" class="border border-red-200 text-red-600 hover:bg-red-50 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2">
+                        <i class="pi pi-trash text-xs"></i> Eliminar contenido
+                    </button>
 
                     <!-- Volver -->
                     <Link :href="route('admin.contenido.index')"

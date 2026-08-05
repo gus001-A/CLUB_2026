@@ -35,7 +35,7 @@ class ContenidoController extends Controller
             $query->where('estado', $estado);
         }
 
-        $contenidos = $query->latest()->paginate(7)->withQueryString();
+        $contenidos = $query->latest()->paginate(5)->withQueryString();
         $contenidos->through(fn ($c) => [
             'id' => $c->id,
             'titulo' => $c->titulo ?: 'Sin título',
@@ -49,6 +49,24 @@ class ContenidoController extends Controller
 
         $tiposContenido = Contenido::selectRaw('tipo, COUNT(*) as cantidad')->groupBy('tipo')->pluck('cantidad', 'tipo');
 
+        // --- Estadísticas de Contenido (obedece el selector de periodo) ---
+        $periodoStats = $request->string('periodo_stats', 'mes')->value();
+        [$inicioStats, $finStats, $granularidad] = $this->rangoPeriodo($periodoStats);
+
+        $datosReales = Interaccion::where('tipo', 'vista')
+            ->whereBetween('created_at', [$inicioStats, $finStats])
+            ->selectRaw($granularidad === 'mes' ? "DATE_FORMAT(created_at, '%Y-%m-01') as fecha, COUNT(*) as total" : 'DATE(created_at) as fecha, COUNT(*) as total')
+            ->groupBy('fecha')
+            ->pluck('total', 'fecha');
+
+        $vistasPorDia = collect();
+        $cursor = $granularidad === 'mes' ? $inicioStats->copy()->startOfMonth() : $inicioStats->copy();
+        while ($cursor->lte($finStats)) {
+            $clave = $granularidad === 'mes' ? $cursor->format('Y-m-01') : $cursor->format('Y-m-d');
+            $vistasPorDia->push(['fecha' => $clave, 'total' => (int) ($datosReales[$clave] ?? 0)]);
+            $granularidad === 'mes' ? $cursor->addMonth() : $cursor->addDay();
+        }
+
         return Inertia::render('Admin/Contenido/Index', [
             'stats' => [
                 'total' => $total,
@@ -58,7 +76,7 @@ class ContenidoController extends Controller
                 'archivados' => $archivados,
             ],
             'contenidos' => $contenidos,
-            'filtros' => $request->only(['q', 'tipo', 'estado']),
+            'filtros' => $request->only(['q', 'tipo', 'estado', 'periodo_stats']),
             'tiposContenido' => [
                 'video' => $tiposContenido['video'] ?? 0,
                 'articulo' => $tiposContenido['articulo'] ?? 0,
@@ -75,16 +93,25 @@ class ContenidoController extends Controller
                 'imagen' => $c->archivos[0] ?? null,
             ]),
             'estadisticas' => [
-                'vistasPorDia' => Interaccion::where('tipo', 'vista')
-                    ->where('created_at', '>=', now()->subDays(30))
-                    ->selectRaw('DATE(created_at) as fecha, COUNT(*) as total')
-                    ->groupBy('fecha')->orderBy('fecha')->get()
-                    ->map(fn ($r) => ['fecha' => $r->fecha, 'total' => (int) $r->total]),
-                'vistasTotales' => Interaccion::where('tipo', 'vista')->count(),
-                'usuariosUnicos' => Interaccion::where('tipo', 'vista')->distinct('usuario_id')->count('usuario_id'),
-                'interaccionesTotales' => Interaccion::whereIn('tipo', ['like', 'comentario', 'compartir'])->count(),
+                'vistasPorDia' => $vistasPorDia,
+                'vistasTotales' => Interaccion::where('tipo', 'vista')->whereBetween('created_at', [$inicioStats, $finStats])->count(),
+                'usuariosUnicos' => Interaccion::where('tipo', 'vista')->whereBetween('created_at', [$inicioStats, $finStats])->distinct('usuario_id')->count('usuario_id'),
+                'interaccionesTotales' => Interaccion::whereIn('tipo', ['like', 'comentario', 'compartir'])->whereBetween('created_at', [$inicioStats, $finStats])->count(),
             ],
         ]);
+    }
+
+    /**
+     * Devuelve [inicio, fin, granularidad] según el periodo elegido en el
+     * selector de "Estadísticas de Contenido" (mismo patrón que en Cobros).
+     */
+    private function rangoPeriodo(string $periodo): array
+    {
+        return match ($periodo) {
+            'semana' => [now()->subDays(6)->startOfDay(), now()->endOfDay(), 'dia'],
+            'anio' => [now()->subMonths(11)->startOfMonth(), now()->endOfDay(), 'mes'],
+            default => [now()->subDays(29)->startOfDay(), now()->endOfDay(), 'dia'], // 'mes'
+        };
     }
 
     public function create(Request $request): Response
@@ -105,15 +132,23 @@ class ContenidoController extends Controller
             'estado' => ['required', 'in:borrador,publicado,programado,archivado'],
             'precio' => ['required', 'numeric', 'min:0'],
             'es_premium' => ['boolean'],
-            'url_archivo' => ['nullable', 'string', 'max:2048'],
+            'archivos' => [
+                'required', 'array',
+                function ($attribute, $value, $fail) use ($request) {
+                    $minimo = $request->input('tipo') === 'galeria' ? 3 : 1;
+                    if (count($value) < $minimo) {
+                        $fail($minimo === 3 ? 'Una galería debe tener al menos 3 fotos.' : 'Agrega al menos un archivo.');
+                    }
+                },
+            ],
+            'archivos.*' => ['string', 'max:2048'],
+            'etiquetas' => ['nullable', 'array'],
+            'etiquetas.*' => ['string', 'max:50'],
+            'programado_en' => ['nullable', 'required_if:estado,programado', 'date'],
         ]);
 
-        $archivos = $data['url_archivo'] ? [$data['url_archivo']] : [];
-        unset($data['url_archivo']);
-
         $contenido = Contenido::create($data + [
-            'creador_id' => null,
-            'archivos' => $archivos,
+            'creador_id' => auth('admin')->id(),
         ]);
 
         return redirect()->route('admin.contenido.index')->with('success', "Contenido \"{$contenido->titulo}\" creado correctamente.");
@@ -128,5 +163,51 @@ class ContenidoController extends Controller
         return Inertia::render('Admin/Contenido/Show', [
             'contenido' => $contenido,
         ]);
+    }
+
+    public function edit(Contenido $contenido): Response
+    {
+        return Inertia::render('Admin/Contenido/Edit', [
+            'contenido' => $contenido,
+        ]);
+    }
+
+    public function update(Request $request, Contenido $contenido)
+    {
+        $data = $request->validate([
+            'titulo' => ['required', 'string', 'max:255'],
+            'categoria' => ['nullable', 'string', 'max:255'],
+            'descripcion' => ['nullable', 'string'],
+            'tipo' => ['required', 'in:foto,video,galeria,audio,articulo,documento,exclusivo'],
+            'visibilidad' => ['required', 'in:publico,suscriptores,individual'],
+            'estado' => ['required', 'in:borrador,publicado,programado,archivado'],
+            'precio' => ['required', 'numeric', 'min:0'],
+            'es_premium' => ['boolean'],
+            'archivos' => [
+                'required', 'array',
+                function ($attribute, $value, $fail) use ($request) {
+                    $minimo = $request->input('tipo') === 'galeria' ? 3 : 1;
+                    if (count($value) < $minimo) {
+                        $fail($minimo === 3 ? 'Una galería debe tener al menos 3 fotos.' : 'Agrega al menos un archivo.');
+                    }
+                },
+            ],
+            'archivos.*' => ['string', 'max:2048'],
+            'etiquetas' => ['nullable', 'array'],
+            'etiquetas.*' => ['string', 'max:50'],
+            'programado_en' => ['nullable', 'required_if:estado,programado', 'date'],
+        ]);
+
+        $contenido->update($data);
+
+        return redirect()->route('admin.contenido.index')->with('success', "Contenido \"{$contenido->titulo}\" actualizado correctamente.");
+    }
+
+    public function destroy(Contenido $contenido)
+    {
+        $titulo = $contenido->titulo ?: 'Sin título';
+        $contenido->delete();
+
+        return back()->with('success', "Contenido \"{$titulo}\" eliminado correctamente.");
     }
 }

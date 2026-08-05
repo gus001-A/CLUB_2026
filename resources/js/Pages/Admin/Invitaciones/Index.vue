@@ -1,11 +1,14 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import KpiCard from '@/Components/KpiCard.vue';
+import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
 import { Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, ArcElement, Tooltip } from 'chart.js';
 import { useToast } from '@/composables/useToast';
 import { useConfirm } from '@/composables/useConfirm';
+import { useFormatters } from '@/composables/useFormatters';
 
 ChartJS.register(ArcElement, Tooltip);
 
@@ -18,6 +21,7 @@ const props = defineProps({
 
 const toast = useToast();
 const { confirm } = useConfirm();
+const { formatDate } = useFormatters();
 
 const q = ref(props.filtros.q || '');
 const estado = ref(props.filtros.estado || '');
@@ -38,11 +42,6 @@ watch([q, estado, tipo, desde, hasta], () => {
         }, { preserveState: true, replace: true });
     }, 350);
 });
-
-function formatDate(v) {
-    if (!v) return '—';
-    return new Date(v).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
-}
 
 const tipoNombres = { registro: 'Registro', premium: 'Premium', evento: 'Evento' };
 const tipoIconos = { registro: 'pi-user', premium: 'pi-star', evento: 'pi-calendar' };
@@ -86,10 +85,16 @@ const doughnutData = computed(() => ({
 const accionesRapidas = [
     { label: 'Nueva Invitación', desc: 'Invita usuarios a la plataforma', icon: 'pi-envelope', route: 'admin.invitaciones.create' },
     { label: 'Invitar a Evento', desc: 'Invita usuarios a un evento específico', icon: 'pi-calendar-plus', route: 'admin.eventos.index' },
+    { label: 'Invitación Masiva', desc: 'Envía invitaciones a varios usuarios', icon: 'pi-users', proximamente: true },
+    { label: 'Plantillas de Invitación', desc: 'Gestiona tus plantillas personalizadas', icon: 'pi-file', proximamente: true },
     { label: 'Enlaces de Invitación', desc: 'Crea y comparte enlaces de invitación', icon: 'pi-link', anchor: '#enlaces' },
 ];
 
 function irA(a) {
+    if (a.proximamente) {
+        toast.success('Próximamente disponible.');
+        return;
+    }
     if (a.anchor) {
         document.querySelector(a.anchor)?.scrollIntoView({ behavior: 'smooth' });
         return;
@@ -109,45 +114,18 @@ function irA(a) {
 
             <!-- Fila 1: KPIs (4 columnas) -->
             <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full">
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">Invitaciones Enviadas</p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.enviadas }}</p>
-                    </div>
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                        <i class="pi pi-envelope text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Invitaciones Enviadas" :value="stats.enviadas" icon="pi-envelope" />
                 </div>
-
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">Invitaciones Aceptadas</p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.aceptadas }}</p>
-                        <p class="text-xs text-brand mt-1 font-medium">{{ stats.tasaAceptacion }}% del total</p>
-                    </div>
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                        <i class="pi pi-check-circle text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Invitaciones Aceptadas" :value="stats.aceptadas" icon="pi-check-circle"
+                        :hint="`${stats.tasaAceptacion}% del total`" />
                 </div>
-
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">Invitaciones Pendientes</p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.pendientes }}</p>
-                    </div>
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                        <i class="pi pi-clock text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Invitaciones Pendientes" :value="stats.pendientes" icon="pi-clock" />
                 </div>
-
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-400">Invitaciones Expiradas</p>
-                        <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.expiradas }}</p>
-                    </div>
-                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                        <i class="pi pi-envelope text-lg"></i>
-                    </div>
+                <div class="w-full lg:flex-1 min-w-0">
+                    <KpiCard label="Invitaciones Expiradas" :value="stats.expiradas" icon="pi-envelope" />
                 </div>
             </div>
 
@@ -155,7 +133,7 @@ function irA(a) {
             <div class="flex flex-col lg:flex-row gap-6 w-full items-stretch">
 
                 <!-- Columna izquierda -->
-                <div class="w-full lg:w-2/3 flex flex-col gap-6">
+                <div class="w-full lg:flex-[2] min-w-0 flex flex-col gap-6">
 
                     <!-- Gestión de Invitaciones -->
                     <div class="bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col">
@@ -257,20 +235,10 @@ function irA(a) {
                         </div>
 
                         <!-- Paginación o Enlace Ver todas las invitaciones -->
-                        <div class="border-t border-gray-100 px-6 py-4 flex items-center justify-between">
-                            <template v-if="invitaciones.last_page > 1">
-                                <p class="text-xs text-gray-500">Mostrando {{ invitaciones.from }}–{{ invitaciones.to }} de {{ invitaciones.total }}</p>
-                                <div class="flex gap-1">
-                                    <template v-for="(link, i) in invitaciones.links" :key="i">
-                                        <Link v-if="link.url" :href="link.url" preserve-scroll preserve-state v-html="link.label"
-                                            class="px-3 py-1.5 rounded-lg text-xs"
-                                            :class="link.active ? 'bg-brand text-white' : 'hover:bg-gray-100 text-gray-600'" />
-                                        <span v-else class="px-3 py-1.5 text-gray-300 text-xs" v-html="link.label" />
-                                    </template>
-                                </div>
-                            </template>
+                        <div class="border-t border-gray-100 px-6 py-4">
+                            <Pagination v-if="invitaciones.last_page > 1" :data="invitaciones" />
                             <div v-else class="w-full text-center py-1">
-                                <Link :href="route('admin.invitaciones.index')" class="text-xs font-semibold text-brand hover:underline">
+                                <Link :href="route('admin.invitaciones.codigos')" class="text-xs font-semibold text-brand hover:underline">
                                     Ver todas las invitaciones
                                 </Link>
                             </div>
@@ -333,7 +301,7 @@ function irA(a) {
                 </div>
 
                 <!-- Columna derecha -->
-                <div class="w-full lg:w-1/3 flex flex-col gap-6">
+                <div class="w-full lg:flex-1 min-w-0 flex flex-col gap-6">
 
                     <!-- Acciones Rápidas -->
                     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
@@ -368,15 +336,15 @@ function irA(a) {
 
                             <ul class="mt-5 space-y-2 text-xs">
                                 <li class="flex items-center justify-between">
-                                    <span class="flex items-center gap-1.5 text-gray-600"><span class="w-2 h-2 rounded-full bg-green-500"></span> Aceptadas</span>
+                                    <span class="flex items-center gap-1.5 text-gray-600"><span class="rounded-full bg-green-500" style="width:8px;height:8px"></span> Aceptadas</span>
                                     <span class="text-gray-800 font-semibold">{{ stats.aceptadas }}</span>
                                 </li>
                                 <li class="flex items-center justify-between">
-                                    <span class="flex items-center gap-1.5 text-gray-600"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Pendientes</span>
+                                    <span class="flex items-center gap-1.5 text-gray-600"><span class="rounded-full bg-amber-500" style="width:8px;height:8px"></span> Pendientes</span>
                                     <span class="text-gray-800 font-semibold">{{ stats.pendientes }}</span>
                                 </li>
                                 <li class="flex items-center justify-between">
-                                    <span class="flex items-center gap-1.5 text-gray-600"><span class="w-2 h-2 rounded-full bg-red-500"></span> Expiradas</span>
+                                    <span class="flex items-center gap-1.5 text-gray-600"><span class="rounded-full bg-red-500" style="width:8px;height:8px"></span> Expiradas</span>
                                     <span class="text-gray-800 font-semibold">{{ stats.expiradas }}</span>
                                 </li>
                             </ul>

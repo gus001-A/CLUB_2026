@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class Evento extends Model
 {
@@ -47,7 +49,7 @@ class Evento extends Model
     // Relaciones
     public function organizador()
     {
-        return $this->belongsTo(User::class, 'organizador_id');
+        return $this->belongsTo(Administrador::class, 'organizador_id');
     }
 
     public function reservas()
@@ -123,7 +125,7 @@ class Evento extends Model
     public function getCuposDisponiblesAttribute()
     {
         if (!$this->capacidad) return 'Ilimitado';
-        
+
         $reservados = $this->reservas()->where('estado', 'aprobada')->sum('asistentes');
         return $this->capacidad - $reservados;
     }
@@ -185,7 +187,38 @@ class Evento extends Model
     }
     // ========== FIN NUEVOS ACCESORS ==========
 
-    // ========== MUTATORS (opcionales) ==========
+    /**
+     * Estado de transmisión calculado con fecha + hora (no confundir con
+     * la columna 'estado', que es de publicación: borrador/publicado/etc).
+     *
+     * NOTA: asumo una duración de evento de 3 horas porque no hay columna
+     * de duración/fin en la tabla. Si tus eventos duran distinto, ajusta
+     * $duracionHoras o agrega una columna 'duracion_horas' / 'fecha_fin'.
+     */
+    public function getEstadoActualAttribute(): string
+    {
+        if (!$this->fecha || !$this->hora) {
+            return 'programado';
+        }
+
+        $duracionHoras = 3;
+
+        $inicio = Carbon::parse($this->fecha->format('Y-m-d') . ' ' . $this->hora->format('H:i'));
+        $fin = $inicio->copy()->addHours($duracionHoras);
+
+        return now()->between($inicio, $fin) ? 'en_vivo' : 'programado';
+    }
+
+    /**
+     * URL pública de la imagen del evento (asume disco 'public' con
+     * php artisan storage:link ya ejecutado). Ajusta si usas otro disco.
+     */
+    public function getImagenUrlAttribute(): ?string
+    {
+        return $this->imagen ? Storage::url($this->imagen) : null;
+    }
+
+    // ========== MUTATORS ==========
     public function setMetadatosAttribute($value)
     {
         $this->attributes['metadatos'] = is_array($value) ? json_encode($value) : $value;
@@ -194,6 +227,14 @@ class Evento extends Model
     public function setPrecioAttribute($value)
     {
         $this->attributes['precio'] = str_replace(',', '.', str_replace('.', '', $value));
+    }
+
+    /**
+     * Mutator: guarda la ciudad siempre en mayúsculas, sin importar cómo la escriban
+     */
+    public function setCiudadAttribute($value)
+    {
+        $this->attributes['ciudad'] = $value ? mb_strtoupper($value, 'UTF-8') : $value;
     }
     // ========== FIN MUTATORS ==========
 

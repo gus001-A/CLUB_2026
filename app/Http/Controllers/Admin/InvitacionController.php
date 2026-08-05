@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CodigoInvitacion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -54,7 +55,7 @@ class InvitacionController extends Controller
             $query->where('created_at', '<=', $hasta->endOfDay());
         }
 
-        $invitaciones = $query->latest()->paginate(7)->withQueryString();
+        $invitaciones = $query->latest()->paginate(3)->withQueryString();
         $invitaciones->through(fn ($c) => [
             'id' => $c->id,
             'codigo' => $c->codigo,
@@ -170,9 +171,14 @@ class InvitacionController extends Controller
             'vigencia_dias' => ['required', 'integer', 'min:1', 'max:365'],
             'usos_maximos' => ['required', 'integer', 'min:1', 'max:100'],
             'mensaje' => ['nullable', 'string', 'max:250'],
+            // El código lo genera el formulario (lo que el admin ve/copia/comparte
+            // antes de enviar) — lo validamos único para no chocar con otro ya
+            // generado, y si por lo que sea no llega, el modelo genera uno propio.
+            'codigo' => ['nullable', 'string', 'max:20', Rule::unique(CodigoInvitacion::class, 'codigo')],
         ]);
 
         $codigo = CodigoInvitacion::create([
+            'codigo' => $data['codigo'] ?? null,
             'nombre_destinatario' => $data['nombre_destinatario'],
             'email' => $data['email'],
             'expira_en' => now()->addDays($data['vigencia_dias']),

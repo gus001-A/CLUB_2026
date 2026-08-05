@@ -1,8 +1,10 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import { useToast } from '@/composables/useToast';
+import { useFormatters } from '@/composables/useFormatters';
 
 const props = defineProps({
     codigos: Object,
@@ -10,6 +12,7 @@ const props = defineProps({
 });
 
 const toast = useToast();
+const { formatDate } = useFormatters();
 
 const q = ref(props.filtros.q || '');
 const tipo = ref(props.filtros.tipo || '');
@@ -26,11 +29,6 @@ watch([q, tipo, estado], () => {
         }, { preserveState: true, replace: true });
     }, 350);
 });
-
-function formatDate(v) {
-    if (!v) return '—';
-    return new Date(v).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
-}
 
 function copiar(codigo) {
     navigator.clipboard.writeText(codigo);
@@ -51,90 +49,98 @@ const estadoLabel = { aceptada: 'Aceptado', pendiente: 'Pendiente', expirada: 'E
     <Head title="Códigos generados" />
 
     <AdminLayout>
-        <template #title>Códigos generados</template>
-        <template #breadcrumb>Dashboard &gt; Invitaciones &gt; Códigos generados</template>
+        <template #title>Panel de Administrador</template>
+        <template #breadcrumb>Invitaciones &gt; Códigos generados</template>
 
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="font-semibold text-gray-800">Todos los códigos generados</h2>
-                <span class="text-sm text-gray-400">{{ codigos.total }} en total</span>
+        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
+
+            <!-- Volver -->
+            <div class="mb-6">
+                <Link :href="route('admin.invitaciones.index')" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-brand transition">
+                    <i class="pi pi-arrow-left text-xs"></i>
+                    Volver a Invitaciones
+                </Link>
             </div>
 
-            <div class="flex flex-col sm:flex-row gap-3 mb-4">
-                <div class="relative flex-1 min-w-[180px]">
-                    <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300 text-sm pointer-events-none"></i>
-                    <input v-model="q" type="text" placeholder="Buscar por código, nombre o correo..." class="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 text-sm focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+            <div class="admin-card flex flex-col justify-between">
+                <div class="flex flex-col flex-1">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
+                        <div>
+                            <h1 class="text-xl font-semibold text-gray-900">Todos los códigos generados</h1>
+                            <p class="text-sm text-gray-500 mt-0.5">{{ codigos.total }} códigos en total</p>
+                        </div>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="flex flex-wrap items-center gap-3 px-6 py-5">
+                        <div class="relative flex-1 min-w-[180px]">
+                            <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                            <input v-model="q" type="text" placeholder="Buscar por código, nombre o correo..." class="admin-input pl-10 py-2.5">
+                        </div>
+                        <select v-model="tipo" class="admin-input w-auto py-2.5">
+                            <option value="">Todos los tipos</option>
+                            <option value="registro">Registro</option>
+                            <option value="premium">Premium</option>
+                            <option value="evento">Evento</option>
+                        </select>
+                        <select v-model="estado" class="admin-input w-auto py-2.5">
+                            <option value="">Todos los estados</option>
+                            <option value="aceptada">Aceptado</option>
+                            <option value="pendiente">Pendiente</option>
+                            <option value="expirada">Expirado</option>
+                            <option value="utilizada">Utilizado</option>
+                        </select>
+                    </div>
+
+                    <!-- Tabla -->
+                    <div class="overflow-x-auto flex-1 flex flex-col">
+                        <table class="min-w-full text-sm flex-1">
+                            <thead class="bg-gray-50 border-y border-gray-200">
+                                <tr class="text-gray-600 uppercase tracking-wide text-xs">
+                                    <th class="px-6 py-4 text-left">Código</th>
+                                    <th class="px-4 py-4 text-left">Destinatario</th>
+                                    <th class="px-4 py-4 text-left">Tipo</th>
+                                    <th class="px-4 py-4 text-left">Usos</th>
+                                    <th class="px-4 py-4 text-left">Creado</th>
+                                    <th class="px-4 py-4 text-left">Expira</th>
+                                    <th class="px-4 py-4 text-left">Estado</th>
+                                    <th class="px-6 py-4 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <tr v-for="c in codigos.data" :key="c.id" class="hover:bg-gray-50 transition">
+                                    <td class="px-6 py-4 font-mono text-gray-700 whitespace-nowrap">{{ c.codigo }}</td>
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        <p class="font-semibold text-gray-800">{{ c.nombre_destinatario ?? '—' }}</p>
+                                        <p class="text-xs text-gray-400">{{ c.email ?? '—' }}</p>
+                                    </td>
+                                    <td class="px-4 py-4 text-gray-600 text-xs whitespace-nowrap">{{ tipoNombres[c.tipo] ?? c.tipo }}</td>
+                                    <td class="px-4 py-4 text-gray-600 text-xs whitespace-nowrap">{{ c.usos }} / {{ c.usos_maximos }}</td>
+                                    <td class="px-4 py-4 text-gray-500 text-xs whitespace-nowrap">{{ formatDate(c.created_at) }}</td>
+                                    <td class="px-4 py-4 text-gray-500 text-xs whitespace-nowrap">{{ formatDate(c.expira_en) }}</td>
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold" :class="estadoColores[c.estado]">
+                                            {{ estadoLabel[c.estado] }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex justify-center">
+                                            <button @click="copiar(c.codigo)" title="Copiar código" class="admin-table-action text-gray-600">
+                                                <i class="pi pi-copy"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr v-if="!codigos.data.length">
+                                    <td colspan="8" class="text-center text-gray-400 py-12">No se encontraron códigos.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <select v-model="tipo" class="rounded-lg border border-gray-300 text-sm px-3 py-2 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none">
-                    <option value="">Todos los tipos</option>
-                    <option value="registro">Registro</option>
-                    <option value="premium">Premium</option>
-                    <option value="evento">Evento</option>
-                </select>
-                <select v-model="estado" class="rounded-lg border border-gray-300 text-sm px-3 py-2 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none">
-                    <option value="">Todos los estados</option>
-                    <option value="aceptada">Aceptado</option>
-                    <option value="pendiente">Pendiente</option>
-                    <option value="expirada">Expirado</option>
-                    <option value="utilizada">Utilizado</option>
-                </select>
-            </div>
 
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-gray-400 border-b border-gray-100">
-                        <th class="pb-2 font-medium">Código</th>
-                        <th class="pb-2 font-medium">Destinatario</th>
-                        <th class="pb-2 font-medium">Tipo</th>
-                        <th class="pb-2 font-medium">Usos</th>
-                        <th class="pb-2 font-medium">Creado</th>
-                        <th class="pb-2 font-medium">Expira</th>
-                        <th class="pb-2 font-medium">Estado</th>
-                        <th class="pb-2 font-medium">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="c in codigos.data" :key="c.id" class="border-b border-gray-50 last:border-0 hover:bg-gray-50/70">
-                        <td class="py-2.5 font-mono text-gray-700">{{ c.codigo }}</td>
-                        <td class="py-2.5">
-                            <p class="font-medium text-gray-800">{{ c.nombre_destinatario ?? '—' }}</p>
-                            <p class="text-gray-400 text-xs">{{ c.email ?? '—' }}</p>
-                        </td>
-                        <td class="py-2.5 text-gray-500">{{ tipoNombres[c.tipo] ?? c.tipo }}</td>
-                        <td class="py-2.5 text-gray-500">{{ c.usos }} / {{ c.usos_maximos }}</td>
-                        <td class="py-2.5 text-gray-400">{{ formatDate(c.created_at) }}</td>
-                        <td class="py-2.5 text-gray-400">{{ formatDate(c.expira_en) }}</td>
-                        <td class="py-2.5">
-                            <span class="px-2 py-0.5 rounded-full text-xs font-medium" :class="estadoColores[c.estado]">
-                                {{ estadoLabel[c.estado] }}
-                            </span>
-                        </td>
-                        <td class="py-2.5">
-                            <i class="pi pi-copy cursor-pointer text-gray-400 hover:text-gray-700" title="Copiar código" @click="copiar(c.codigo)"></i>
-                        </td>
-                    </tr>
-                    <tr v-if="!codigos.data.length">
-                        <td colspan="8" class="py-8 text-center text-gray-400">No se encontraron códigos.</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <!-- Paginación -->
-            <div v-if="codigos.last_page > 1" class="flex items-center justify-between mt-5 text-sm">
-                <p class="text-gray-400">Mostrando {{ codigos.from }}–{{ codigos.to }} de {{ codigos.total }}</p>
-                <div class="flex items-center gap-1">
-                    <template v-for="(link, i) in codigos.links" :key="i">
-                        <Link
-                            v-if="link.url"
-                            :href="link.url"
-                            preserve-scroll
-                            preserve-state
-                            class="px-3 py-1.5 rounded-lg"
-                            :class="link.active ? 'bg-brand text-white' : 'text-gray-500 hover:bg-gray-100'"
-                            v-html="link.label"
-                        />
-                        <span v-else class="px-3 py-1.5 text-gray-300" v-html="link.label"></span>
-                    </template>
+                <div v-if="codigos.last_page > 1" class="border-t border-gray-200 px-6 py-4">
+                    <Pagination :data="codigos" />
                 </div>
             </div>
         </div>
