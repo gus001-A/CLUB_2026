@@ -64,7 +64,7 @@ const estadoColores = {
 const estadoLabel = { pagado: 'Procesando', enviado: 'Enviado', entregado: 'Completado', cancelado: 'Cancelado' };
 const metodoLabel = { tarjeta_credito: 'Tarjeta de Crédito', tarjeta_debito: 'Tarjeta de Débito', paypal: 'PayPal', transferencia: 'Transferencia', otro: 'Otro' };
 
-const doughnutColors = ['#C81E3A', '#E85C74', '#F4A9B5', '#FBD3D9', '#FDE8EA'];
+const doughnutColors = ['#C81E3A', '#F5A623', '#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#0EA5E9', '#84CC16'];
 const doughnutData = computed(() => ({
     labels: props.ventasPorCategoria.map((c) => c.categoria),
     datasets: [{
@@ -101,11 +101,11 @@ function irA(a) {
 
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
-            <!-- Columna izquierda: KPIs + Pedidos | Columna derecha: Resumen de Ventas + Acciones Rápidas -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
+            <!-- Fila 1: KPIs + Pedidos | Resumen de Ventas + Acciones Rápidas -->
+            <div class="admin-shop-main-grid gap-6 mb-6 w-full">
 
                 <!-- Columna izquierda -->
-                <div class="w-full lg:flex-[3] min-w-0 flex flex-col gap-6">
+                <div class="min-w-0 flex flex-col gap-6" style="grid-area:izquierda">
 
                     <!-- KPIs -->
                     <div class="flex flex-col sm:flex-row gap-4">
@@ -253,58 +253,54 @@ function irA(a) {
                     </div>
                 </div>
 
-                <!-- Columna derecha -->
-                <div class="w-full lg:flex-1 min-w-0 flex flex-col gap-6">
-
-                    <!-- Resumen de Ventas -->
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <h2 class="font-semibold text-gray-900 text-base">Resumen de Ventas</h2>
-                            <select v-model="periodo" class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 focus:outline-none focus:border-brand">
-                                <option value="dia">Hoy</option>
-                                <option value="semana">Esta semana</option>
-                                <option value="mes">Este mes</option>
-                            </select>
+                <!-- Resumen de Ventas -->
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-5" style="grid-area:resumen">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="font-semibold text-gray-900 text-base">Resumen de Ventas</h2>
+                        <select v-model="periodo" class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 focus:outline-none focus:border-brand">
+                            <option value="dia">Hoy</option>
+                            <option value="semana">Esta semana</option>
+                            <option value="mes">Este mes</option>
+                        </select>
+                    </div>
+                    <div class="space-y-2.5 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Subtotal</span>
+                            <span class="font-semibold text-gray-800">{{ money(resumen.subtotal) }}</span>
                         </div>
-                        <div class="space-y-2.5 text-xs">
-                            <div class="flex justify-between">
-                                <span class="text-gray-500">Subtotal</span>
-                                <span class="font-semibold text-gray-800">{{ money(resumen.subtotal) }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-500">Envíos</span>
-                                <span class="font-semibold text-gray-800">{{ money(resumen.envios) }}</span>
-                            </div>
-                            <div class="border-t border-gray-100 pt-2.5 flex justify-between">
-                                <span class="font-semibold text-gray-700 text-sm">Ventas Totales</span>
-                                <span class="font-bold text-brand text-sm">{{ money(resumen.ventasTotales) }}</span>
-                            </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Envíos</span>
+                            <span class="font-semibold text-gray-800">{{ money(resumen.envios) }}</span>
+                        </div>
+                        <div class="border-t border-gray-100 pt-2.5 flex justify-between">
+                            <span class="font-semibold text-gray-700 text-sm">Ventas Totales</span>
+                            <span class="font-bold text-brand text-sm">{{ money(resumen.ventasTotales) }}</span>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Acciones Rápidas -->
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4 px-2 pt-2">Acciones Rápidas</h2>
-                        <div class="space-y-3">
-                            <button v-for="a in accionesRapidas" :key="a.label" type="button" @click="irA(a)"
-                                class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group text-left">
-                                <div class="rounded-full bg-red-50 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                                    <i class="pi text-sm" :class="a.icon"></i>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">{{ a.label }}</p>
-                                    <p class="text-xs text-gray-400">{{ a.desc }}</p>
-                                </div>
-                            </button>
-                        </div>
+                <!-- Acciones Rápidas -->
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-4" style="grid-area:acciones">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 px-2 pt-2">Acciones Rápidas</h2>
+                    <div class="space-y-3">
+                        <button v-for="a in accionesRapidas" :key="a.label" type="button" @click="irA(a)"
+                            class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group text-left">
+                            <div class="rounded-full bg-red-50 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                                <i class="pi text-sm" :class="a.icon"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">{{ a.label }}</p>
+                                <p class="text-xs text-gray-400">{{ a.desc }}</p>
+                            </div>
+                        </button>
                     </div>
                 </div>
             </div>
 
             <!-- Fila 2: Productos Más Vendidos | Ventas por Categoría -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
+            <div class="admin-two-col-grid gap-6 mb-6 w-full">
 
-                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <h2 class="font-semibold text-gray-900 text-lg mb-4">Productos Más Vendidos</h2>
                         <ul class="space-y-3.5">
@@ -324,7 +320,7 @@ function irA(a) {
                     </div>
                 </div>
 
-                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <h2 class="font-semibold text-gray-900 text-lg mb-4">Ventas por Categoría</h2>
                         <div v-if="ventasPorCategoria.length" class="relative mx-auto" style="height:160px;width:160px">
@@ -350,9 +346,9 @@ function irA(a) {
             </div>
 
             <!-- Fila 3: Métodos de Pago | Actividad Reciente -->
-            <div class="flex flex-col lg:flex-row gap-6 w-full items-stretch">
+            <div class="admin-two-col-grid gap-6 w-full">
 
-                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <h2 class="font-semibold text-gray-900 text-lg mb-5">Métodos de Pago</h2>
                         <div class="space-y-5">
@@ -370,7 +366,7 @@ function irA(a) {
                     </div>
                 </div>
 
-                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <h2 class="font-semibold text-gray-900 text-lg mb-4">Actividad Reciente</h2>
                         <ul class="space-y-3.5">

@@ -59,29 +59,29 @@ const eventoEstadosColores = {
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
             <!-- Fila 1: KPIs (4 columnas) -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full">
-                <div class="w-full lg:w-[25%] min-w-0">
+            <div class="admin-kpi-grid gap-6 mb-6 w-full">
+                <div class="min-w-0">
                     <KpiCard label="Usuarios Totales" :value="stats?.usuariosTotales ?? 0" icon="pi-users"
                         :hint="`+${stats?.usuariosNuevosHoy ?? 0} nuevos hoy`" />
                 </div>
-                <div class="w-full lg:w-[25%] min-w-0">
+                <div class="min-w-0">
                     <KpiCard label="Ingresos Totales" :value="money(stats?.ingresosTotales ?? 0)" icon="pi-dollar"
                         hint="Sin movimientos recientes" hint-color="text-gray-400" />
                 </div>
-                <div class="w-full lg:w-[25%] min-w-0">
+                <div class="min-w-0">
                     <KpiCard label="Suscripciones Activas" :value="stats?.suscripcionesActivas ?? 0" icon="pi-crown"
                         hint="En espera de activaciones" hint-color="text-gray-400" />
                 </div>
-                <div class="w-full lg:w-[25%] min-w-0">
+                <div class="min-w-0">
                     <KpiCard label="Ventas en Shop" :value="money(stats?.ventasShop ?? 0)" icon="pi-shopping-bag"
                         hint="Sin ventas registradas" hint-color="text-gray-400" />
                 </div>
             </div>
 
-            <!-- Fila 2: Gestión de Usuarios + Acciones Rápidas -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
+            <!-- Fila 2: Gestión de Usuarios + Acciones Rápidas + Cobros + Eventos + Actividad -->
+            <div class="admin-dashboard-grid gap-6 mb-6 w-full">
                 <!-- Gestión de Usuarios -->
-                <div class="w-full lg:flex-[2.35] min-w-0 admin-card flex flex-col justify-between">
+                <div class="min-w-0 admin-card flex flex-col justify-between" style="grid-area:tabla">
                     <div>
                         <!-- Encabezado -->
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
@@ -201,7 +201,7 @@ const eventoEstadosColores = {
                 </div>
 
                 <!-- Acciones Rápidas -->
-                <div class="w-full lg:flex-1 min-w-0 admin-card p-4 flex flex-col justify-between">
+                <div class="min-w-0 admin-card p-4 flex flex-col justify-between" style="grid-area:acciones">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h2>
                         <div class="space-y-3">
@@ -253,12 +253,9 @@ const eventoEstadosColores = {
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Fila 3: Cobros Recientes | Eventos Próximos | Actividad Reciente -->
-            <div class="flex flex-col lg:flex-row gap-6 mt-6 w-full">
-                <!-- 1. Cobros Recientes -->
-                <div class="w-full lg:w-[33.3333%] min-w-0 admin-card p-6 flex flex-col justify-between">
+                <!-- Cobros Recientes -->
+                <div class="min-w-0 admin-card p-6 flex flex-col justify-between" style="grid-area:cobros">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-semibold text-gray-900 text-lg">Cobros Recientes</h2>
@@ -287,8 +284,8 @@ const eventoEstadosColores = {
                     </div>
                 </div>
 
-                <!-- 2. Eventos Próximos -->
-                <div class="w-full lg:w-[33.3333%] min-w-0 admin-card p-6 flex flex-col justify-between">
+                <!-- Eventos Próximos -->
+                <div class="min-w-0 admin-card p-6 flex flex-col justify-between" style="grid-area:eventos">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-semibold text-gray-900 text-lg">Eventos Próximos</h2>
@@ -317,8 +314,8 @@ const eventoEstadosColores = {
                     </div>
                 </div>
 
-                <!-- 3. Actividad Reciente -->
-                <div class="w-full lg:w-[33.3333%] min-w-0 admin-card p-6 flex flex-col justify-between">
+                <!-- Actividad Reciente -->
+                <div class="min-w-0 admin-card p-6 flex flex-col justify-between" style="grid-area:actividad">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-semibold text-gray-900 text-lg">Actividad Reciente</h2>

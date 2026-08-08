@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Contenido;
 use App\Models\Interaccion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -44,7 +45,7 @@ class ContenidoController extends Controller
             'estado' => $c->estado,
             'created_at' => $c->created_at,
             'vistas' => $c->interacciones()->where('tipo', 'vista')->count(),
-            'imagen' => $c->archivos[0] ?? null,
+            'imagen' => $this->resolverUrl($c->archivos[0] ?? null),
         ]);
 
         $tiposContenido = Contenido::selectRaw('tipo, COUNT(*) as cantidad')->groupBy('tipo')->pluck('cantidad', 'tipo');
@@ -90,7 +91,7 @@ class ContenidoController extends Controller
                 'tipo' => $c->tipo,
                 'estado' => $c->estado,
                 'created_at' => $c->created_at,
-                'imagen' => $c->archivos[0] ?? null,
+                'imagen' => $this->resolverUrl($c->archivos[0] ?? null),
             ]),
             'estadisticas' => [
                 'vistasPorDia' => $vistasPorDia,
@@ -141,11 +142,16 @@ class ContenidoController extends Controller
                     }
                 },
             ],
-            'archivos.*' => ['string', 'max:2048'],
+            'archivos.*' => [
+                'file', 'max:1048576',
+                'mimes:jpg,jpeg,png,gif,webp,mp4,mov,webm,avi,mp3,wav,ogg,m4a,pdf,doc,docx,xls,xlsx,ppt,pptx,txt',
+            ],
             'etiquetas' => ['nullable', 'array'],
             'etiquetas.*' => ['string', 'max:50'],
             'programado_en' => ['nullable', 'required_if:estado,programado', 'date'],
         ]);
+
+        $data['archivos'] = $this->guardarArchivos($request->file('archivos', []));
 
         $contenido = Contenido::create($data + [
             'creador_id' => auth('admin')->id(),
@@ -160,15 +166,21 @@ class ContenidoController extends Controller
         $contenido->likes = $contenido->interacciones()->where('tipo', 'like')->count();
         $contenido->comentarios = $contenido->interacciones()->where('tipo', 'comentario')->count();
 
+        $data = $contenido->toArray();
+        $data['archivos'] = $this->resolverArchivos($contenido->archivos);
+
         return Inertia::render('Admin/Contenido/Show', [
-            'contenido' => $contenido,
+            'contenido' => $data,
         ]);
     }
 
     public function edit(Contenido $contenido): Response
     {
+        $data = $contenido->toArray();
+        $data['archivos'] = $this->resolverArchivos($contenido->archivos);
+
         return Inertia::render('Admin/Contenido/Edit', [
-            'contenido' => $contenido,
+            'contenido' => $data,
         ]);
     }
 
@@ -183,20 +195,42 @@ class ContenidoController extends Controller
             'estado' => ['required', 'in:borrador,publicado,programado,archivado'],
             'precio' => ['required', 'numeric', 'min:0'],
             'es_premium' => ['boolean'],
-            'archivos' => [
-                'required', 'array',
+            'archivos_existentes' => [
+                'array',
                 function ($attribute, $value, $fail) use ($request) {
+                    $totalNuevos = count($request->file('archivos_nuevos', []));
                     $minimo = $request->input('tipo') === 'galeria' ? 3 : 1;
-                    if (count($value) < $minimo) {
+                    if (count($value) + $totalNuevos < $minimo) {
                         $fail($minimo === 3 ? 'Una galería debe tener al menos 3 fotos.' : 'Agrega al menos un archivo.');
                     }
                 },
             ],
-            'archivos.*' => ['string', 'max:2048'],
+            'archivos_existentes.*' => ['string'],
+            'archivos_nuevos' => ['nullable', 'array'],
+            'archivos_nuevos.*' => [
+                'file', 'max:1048576',
+                'mimes:jpg,jpeg,png,gif,webp,mp4,mov,webm,avi,mp3,wav,ogg,m4a,pdf,doc,docx,xls,xlsx,ppt,pptx,txt',
+            ],
             'etiquetas' => ['nullable', 'array'],
             'etiquetas.*' => ['string', 'max:50'],
             'programado_en' => ['nullable', 'required_if:estado,programado', 'date'],
         ]);
+
+        // Rutas internas que el admin decidió conservar (convertidas de vuelta
+        // desde la URL pública que le mandamos al formulario)
+        $existentes = array_map(fn ($url) => $this->rutaOriginal($url), $data['archivos_existentes'] ?? []);
+
+        // Borra del disco los archivos que ya no están entre los conservados
+        foreach ($contenido->archivos ?? [] as $rutaAnterior) {
+            if (! in_array($rutaAnterior, $existentes, true)) {
+                $this->borrarSiEsPropio($rutaAnterior);
+            }
+        }
+
+        $nuevasRutas = $this->guardarArchivos($request->file('archivos_nuevos', []));
+
+        $data['archivos'] = array_values(array_merge($existentes, $nuevasRutas));
+        unset($data['archivos_existentes'], $data['archivos_nuevos']);
 
         $contenido->update($data);
 
@@ -206,8 +240,73 @@ class ContenidoController extends Controller
     public function destroy(Contenido $contenido)
     {
         $titulo = $contenido->titulo ?: 'Sin título';
+
+        foreach ($contenido->archivos ?? [] as $ruta) {
+            $this->borrarSiEsPropio($ruta);
+        }
+
         $contenido->delete();
 
-        return back()->with('success', "Contenido \"{$titulo}\" eliminado correctamente.");
+        return redirect()->route('admin.contenido.index')->with('success', "Contenido \"{$titulo}\" eliminado correctamente.");
+    }
+
+    /**
+     * Convierte una ruta guardada en storage (ej. "contenido/archivo.jpg") en
+     * su URL pública. Si ya es una URL externa (http/https), la deja igual
+     * — mismo criterio que ya usan en Evento.imagen.
+     */
+    private function resolverUrl(?string $ruta): ?string
+    {
+        if (! $ruta) {
+            return null;
+        }
+
+        if (str_starts_with($ruta, 'http://') || str_starts_with($ruta, 'https://')) {
+            return $ruta;
+        }
+
+        return Storage::disk('public')->url($ruta);
+    }
+
+    /** Resuelve un array completo de rutas a sus URLs públicas. */
+    private function resolverArchivos(?array $rutas): array
+    {
+        return array_values(array_filter(array_map(fn ($r) => $this->resolverUrl($r), $rutas ?? [])));
+    }
+
+    /**
+     * Camino inverso: dada la URL pública que manda el frontend (la que
+     * generó resolverUrl), regresa la ruta interna guardable en la BD.
+     * Si es una URL externa que no pasa por /storage/, se deja tal cual.
+     */
+    private function rutaOriginal(string $url): string
+    {
+        $marcador = '/storage/';
+        $pos = strpos($url, $marcador);
+
+        if ($pos !== false) {
+            return substr($url, $pos + strlen($marcador));
+        }
+
+        return $url;
+    }
+
+    /** Sube los archivos nuevos recibidos y devuelve las rutas guardadas. */
+    private function guardarArchivos(array $archivos): array
+    {
+        $rutas = [];
+        foreach ($archivos as $archivo) {
+            $rutas[] = $archivo->store('contenido', 'public');
+        }
+
+        return $rutas;
+    }
+
+    /** Borra del disco solo si es una ruta interna (no una URL externa). */
+    private function borrarSiEsPropio(?string $ruta): void
+    {
+        if ($ruta && ! str_starts_with($ruta, 'http://') && ! str_starts_with($ruta, 'https://')) {
+            Storage::disk('public')->delete($ruta);
+        }
     }
 }

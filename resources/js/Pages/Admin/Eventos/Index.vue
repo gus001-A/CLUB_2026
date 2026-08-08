@@ -105,8 +105,8 @@ async function eliminarEvento(evento) {
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4 space-y-6">
 
             <!-- Fila 1: KPIs -->
-            <div class="flex flex-col lg:flex-row gap-6 w-full">
-                <div class="w-full lg:flex-1 min-w-0">
+            <div class="admin-kpi-grid gap-6 w-full">
+                <div class="min-w-0">
                     <KpiCard
                         label="Eventos Totales"
                         :value="stats?.total ?? 0"
@@ -114,7 +114,7 @@ async function eliminarEvento(evento) {
                         :hint="`+${stats?.nuevosEsteMes ?? 0} nuevos este mes`"
                     />
                 </div>
-                <div class="w-full lg:flex-1 min-w-0">
+                <div class="min-w-0">
                     <KpiCard
                         label="Eventos Próximos"
                         :value="stats?.proximos ?? 0"
@@ -122,7 +122,7 @@ async function eliminarEvento(evento) {
                         :hint="`${stats?.total > 0 ? Math.round((stats.proximos / stats.total) * 100) : 0}% del total`"
                     />
                 </div>
-                <div class="w-full lg:flex-1 min-w-0">
+                <div class="min-w-0">
                     <KpiCard
                         label="Eventos en Vivo"
                         :value="stats?.enVivo ?? 0"
@@ -130,7 +130,7 @@ async function eliminarEvento(evento) {
                         hint="Ahora mismo"
                     />
                 </div>
-                <div class="w-full lg:flex-1 min-w-0">
+                <div class="min-w-0">
                     <KpiCard
                         label="Eventos Completados"
                         :value="stats?.completados ?? 0"
@@ -140,11 +140,11 @@ async function eliminarEvento(evento) {
                 </div>
             </div>
 
-            <!-- Fila 2: Tabla de Eventos + Calendario -->
-            <div class="flex flex-col lg:flex-row items-stretch gap-6 w-full">
+            <!-- Fila 2: Tabla de Eventos + Calendario + Próximos Eventos + Estadísticas + Acciones Rápidas -->
+            <div class="admin-eventos-grid gap-6 w-full">
 
-                <!-- Columna Izquierda: Tabla de Eventos -->
-                <div class="w-full lg:flex-[3.45] min-w-0 admin-card flex flex-col justify-between">
+                <!-- Tabla de Eventos -->
+                <div class="min-w-0 admin-card flex flex-col justify-between" style="grid-area:tabla">
                     <div class="flex flex-col flex-1 min-w-0">
                         <!-- Encabezado y Filtros -->
                         <div class="px-6 pt-6">
@@ -255,8 +255,8 @@ async function eliminarEvento(evento) {
                     </div>
                 </div>
 
-                <!-- Columna Derecha: Calendario -->
-                <div class="w-full lg:flex-1 min-w-0 admin-card p-6 flex flex-col justify-between">
+                <!-- Calendario -->
+                <div class="min-w-0 admin-card p-6 flex flex-col justify-between" style="grid-area:calendario">
                     <div>
                         <h3 class="font-bold text-gray-900 text-sm mb-4">Calendario de Eventos</h3>
                         <Calendario
@@ -270,13 +270,8 @@ async function eliminarEvento(evento) {
                     </div>
                 </div>
 
-            </div>
-
-            <!-- Fila 3: Próximos Eventos + Estadísticas + Acciones Rápidas -->
-            <div class="flex flex-col lg:flex-row gap-6 items-stretch">
-
                 <!-- Próximos Eventos -->
-                <div class="w-full lg:flex-[33] min-w-0 admin-card p-6 flex flex-col justify-between">
+                <div class="min-w-0 admin-card p-6 flex flex-col justify-between" style="grid-area:proximos">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="font-bold text-gray-900 text-sm">Próximos Eventos</h3>
@@ -307,7 +302,7 @@ async function eliminarEvento(evento) {
                 </div>
 
                 <!-- Estadísticas de Eventos -->
-                <div class="w-full lg:flex-[39] min-w-0 admin-card p-6 flex flex-col justify-between">
+                <div class="min-w-0 admin-card p-6 flex flex-col justify-between" style="grid-area:estadisticas">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="font-bold text-gray-900 text-sm">Estadísticas de Eventos</h3>
@@ -363,7 +358,7 @@ async function eliminarEvento(evento) {
                 </div>
 
                 <!-- Acciones Rápidas -->
-                <div class="w-full lg:flex-[28] min-w-0 admin-card p-6 flex flex-col justify-between">
+                <div class="min-w-0 admin-card p-6 flex flex-col justify-between" style="grid-area:acciones">
                     <div>
                         <h3 class="font-bold text-gray-900 text-sm mb-3">Acciones Rápidas</h3>
                         <div class="space-y-2.5">

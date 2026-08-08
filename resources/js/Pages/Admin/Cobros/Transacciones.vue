@@ -88,9 +88,9 @@ const estadoDotColores = {
             </div>
 
             <!-- Desglose por estado -->
-            <div class="flex flex-col lg:flex-row gap-4 mb-6 w-full">
+            <div class="admin-estado-grid gap-4 mb-6 w-full">
                 <button v-for="e in porEstado" :key="e.estado" type="button" @click="estado = (estado === e.estado ? '' : e.estado)"
-                    class="w-full lg:flex-1 min-w-0 admin-card px-5 py-4 text-left transition"
+                    class="min-w-0 admin-card px-5 py-4 text-left transition"
                     :class="estado === e.estado ? 'ring-2 ring-brand/40' : 'hover:border-gray-300'">
                     <div class="flex items-center gap-2 mb-1.5">
                         <span class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: estadoDotColores[e.estado] }"></span>

@@ -77,4 +77,228 @@
     .admin-icon-gradient {
         @apply rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0;
     }
+
+    .admin-dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "tabla" "acciones" "cobros" "eventos" "actividad";
+    }
+    @media (min-width: 640px) {
+        .admin-dashboard-grid {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas: "tabla tabla" "acciones cobros" "eventos actividad";
+        }
+    }
+    @media (min-width: 1536px) {
+        .admin-dashboard-grid {
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-areas: "tabla tabla acciones" "cobros eventos actividad";
+        }
+    }
+
+    .admin-kpi-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+    @media (min-width: 640px) {
+        .admin-kpi-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    @media (min-width: 1536px) {
+        .admin-kpi-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    /* Fila de gráficas de Cobros/Index.vue: Ingresos + Cobros y Reembolsos + Pagos Pendientes */
+    .admin-cobros-charts-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "ingresos" "cobros" "pendientes";
+    }
+    @media (min-width: 640px) {
+        .admin-cobros-charts-grid {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas: "ingresos ingresos" "cobros pendientes";
+        }
+    }
+    @media (min-width: 1536px) {
+        .admin-cobros-charts-grid {
+            grid-template-columns: 1.5fr 1fr 1fr;
+            grid-template-areas: "ingresos cobros pendientes";
+        }
+    }
+
+    /* Fila principal de Cobros/Index.vue: tabla de Transacciones + Resumen + Métodos de Pago */
+    .admin-cobros-main-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "tabla" "resumen" "metodos";
+    }
+    @media (min-width: 640px) {
+        .admin-cobros-main-grid {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas: "tabla tabla" "resumen metodos";
+        }
+    }
+    @media (min-width: 1536px) {
+        .admin-cobros-main-grid {
+            grid-template-columns: 3fr 1fr;
+            grid-template-areas: "tabla resumen" "tabla metodos";
+        }
+    }
+
+    /* Fila de tarjetas de estado en Cobros/Transacciones.vue (cantidad variable, se acomodan solas) */
+    .admin-estado-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+
+    /* Fila principal de Invitaciones/Index.vue: Gestión + Enlaces | Acciones Rápidas + Resumen */
+    .admin-invitaciones-main-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "gestion" "enlaces" "acciones" "resumen";
+    }
+    @media (min-width: 640px) {
+        .admin-invitaciones-main-grid {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas: "gestion gestion" "enlaces enlaces" "acciones resumen";
+        }
+    }
+    @media (min-width: 1536px) {
+        .admin-invitaciones-main-grid {
+            grid-template-columns: 2fr 1fr;
+            grid-template-areas: "gestion acciones" "enlaces resumen";
+        }
+    }
+
+    /* Fila combinada de Eventos/Index.vue: Tabla + Calendario + Próximos + Estadísticas + Acciones */
+    .admin-eventos-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "tabla" "calendario" "proximos" "estadisticas" "acciones";
+    }
+    @media (min-width: 640px) {
+        .admin-eventos-grid {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas: "tabla tabla" "calendario proximos" "estadisticas acciones";
+        }
+    }
+    @media (min-width: 1536px) {
+        .admin-eventos-grid {
+            grid-template-columns: repeat(12, 1fr);
+            grid-template-areas:
+                "tabla tabla tabla tabla tabla tabla tabla tabla calendario calendario calendario calendario"
+                "proximos proximos proximos estadisticas estadisticas estadisticas estadisticas estadisticas estadisticas acciones acciones acciones";
+        }
+    }
+
+    /* Fila principal de Contenido/Index.vue: Gestión de Contenido | Tipos + Acciones Rápidas */
+    .admin-contenido-main-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "gestion" "tipos" "acciones";
+    }
+    @media (min-width: 640px) {
+        .admin-contenido-main-grid {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas: "gestion gestion" "tipos acciones";
+        }
+    }
+    @media (min-width: 1536px) {
+        .admin-contenido-main-grid {
+            grid-template-columns: 2fr 1fr;
+            grid-template-areas: "gestion tipos" "gestion acciones";
+        }
+    }
+
+    /* Fila de Contenido/Index.vue: Contenido Reciente + Estadísticas de Contenido */
+    .admin-contenido-reciente-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "reciente" "estadisticas";
+    }
+    @media (min-width: 1536px) {
+        .admin-contenido-reciente-grid {
+            grid-template-columns: 1fr 2fr;
+            grid-template-areas: "reciente estadisticas";
+        }
+    }
+
+    /* Fila principal de Shop/Index.vue: KPIs + Pedidos | Resumen de Ventas + Acciones Rápidas */
+    .admin-shop-main-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "izquierda" "resumen" "acciones";
+    }
+    @media (min-width: 640px) {
+        .admin-shop-main-grid {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas: "izquierda izquierda" "resumen acciones";
+        }
+    }
+    @media (min-width: 1536px) {
+        .admin-shop-main-grid {
+            grid-template-columns: 3fr 1fr;
+            grid-template-areas: "izquierda resumen" "izquierda acciones";
+        }
+    }
+
+    /* Grid genérico de 2 columnas para pares simples (Shop: Productos+Categoría, Métodos+Actividad) */
+    .admin-two-col-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+    @media (min-width: 1024px) {
+        .admin-two-col-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    /* Fila principal de Shop/Show.vue: Productos del Pedido | Columna derecha (Cliente/Envío/Pago) */
+    .admin-pedido-main-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "productos" "derecha";
+    }
+    @media (min-width: 1536px) {
+        .admin-pedido-main-grid {
+            grid-template-columns: 2fr 1fr;
+            grid-template-areas: "productos derecha";
+        }
+    }
+
+    /* Fila de Shop/Show.vue: Proceso + Resumen + Acciones del Pedido */
+    .admin-pedido-resumen-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "proceso" "resumen" "acciones";
+    }
+    @media (min-width: 640px) {
+        .admin-pedido-resumen-grid {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas: "proceso proceso" "resumen acciones";
+        }
+    }
+    @media (min-width: 1536px) {
+        .admin-pedido-resumen-grid {
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-areas: "proceso resumen acciones";
+        }
+    }
+
+    /* Fila principal de Reportes/Index.vue: Cola de Moderación | Reportes por Tipo */
+    .admin-reportes-main-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "cola" "tipo";
+    }
+    @media (min-width: 1536px) {
+        .admin-reportes-main-grid {
+            grid-template-columns: 2fr 1fr;
+            grid-template-areas: "cola tipo";
+        }
+    }
 }

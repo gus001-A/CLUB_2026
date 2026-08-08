@@ -252,7 +252,7 @@ class DashboardController extends Controller
             ->concat($eventos)
             ->concat($contenidos)
             ->sortByDesc('fecha')
-            ->take(6)
+            ->take(5)
             ->values()
             ->all();
     }

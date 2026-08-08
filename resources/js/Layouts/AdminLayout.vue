@@ -12,6 +12,7 @@ const toast = useToast();
 
 const sidebarAbierto = ref(false);
 const notificacionesAbiertas = ref(false);
+const perfilAbierto = ref(false);
 
 // Vendrán de un prop compartido por Inertia (igual que "badges").
 // Ajusta el nombre según cómo lo envíes desde el controlador/middleware.
@@ -101,6 +102,14 @@ function toggleNotificaciones() {
 
 function cerrarNotificaciones() {
     notificacionesAbiertas.value = false;
+}
+
+function togglePerfil() {
+    perfilAbierto.value = !perfilAbierto.value;
+}
+
+function cerrarPerfil() {
+    perfilAbierto.value = false;
 }
 
 function logout() {
@@ -294,15 +303,58 @@ function logout() {
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-10 h-10 rounded-full bg-brand/10 flex items-center justify-center text-brand shrink-0">
-                            <i class="pi pi-user text-lg"></i>
+                    <!-- Perfil -->
+                    <div class="relative">
+                        <button type="button" @click="togglePerfil" class="flex items-center gap-2.5">
+                            <div class="rounded-full bg-brand/10 flex items-center justify-center text-brand shrink-0" style="width:40px;height:40px">
+                                <i class="pi pi-user text-lg"></i>
+                            </div>
+                            <div class="text-sm leading-tight hidden sm:block text-left">
+                                <p class="font-semibold text-gray-800">{{ admin?.nombre || 'Administrador' }}</p>
+                                <p class="text-brand text-xs font-medium">{{ admin?.rol === 'super_admin' ? 'Super Admin' : 'Admin' }}</p>
+                            </div>
+                            <i class="pi text-gray-300 text-xs ml-1 hidden sm:inline transition-transform" :class="perfilAbierto ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
+                        </button>
+
+                        <!-- Overlay para cerrar al hacer click fuera -->
+                        <div v-if="perfilAbierto" @click="cerrarPerfil" class="fixed inset-0 z-40"></div>
+
+                        <!-- Menú desplegable -->
+                        <div v-if="perfilAbierto" class="absolute right-0 top-full mt-3 w-64 bg-white rounded-2xl border border-gray-100 shadow-lg z-50 overflow-hidden">
+                            <div class="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+                                <div class="rounded-full bg-brand/10 flex items-center justify-center text-brand shrink-0" style="width:40px;height:40px">
+                                    <i class="pi pi-user text-lg"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="font-semibold text-gray-800 truncate">{{ admin?.nombre || 'Administrador' }}</p>
+                                    <p class="text-xs text-green-600 flex items-center gap-1">
+                                        <i class="pi pi-check-circle text-[10px]"></i> {{ admin?.rol === 'super_admin' ? 'Super Admin' : 'Admin' }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="py-1.5">
+                                <Link href="#" @click="cerrarPerfil" class="flex items-center gap-3 px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                                    <i class="pi pi-id-card text-sm text-gray-400"></i>
+                                    Mi perfil de creador
+                                </Link>
+                                <Link href="#" @click="cerrarPerfil" class="flex items-center gap-3 px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                                    <i class="pi pi-user text-sm text-gray-400"></i>
+                                    Mi perfil
+                                </Link>
+                                <Link :href="route('admin.configuracion.index')" @click="cerrarPerfil" class="flex items-center gap-3 px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                                    <i class="pi pi-cog text-sm text-gray-400"></i>
+                                    Configuración
+                                </Link>
+                            </div>
+
+                            <div class="border-t border-gray-100 py-1.5">
+                                <button type="button" @click="logout" class="w-full flex items-center gap-3 px-5 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                                    <i class="pi pi-sign-out text-sm"></i>
+                                    Cerrar sesión
+                                </button>
+                            </div>
                         </div>
-                        <div class="text-sm leading-tight hidden sm:block">
-                            <p class="font-semibold text-gray-800">{{ admin?.nombre || 'Administrador' }}</p>
-                            <p class="text-brand text-xs font-medium">{{ admin?.rol === 'super_admin' ? 'Super Admin' : 'Admin' }}</p>
-                        </div>
-                        <i class="pi pi-chevron-down text-gray-300 text-xs ml-1 hidden sm:inline"></i>
                     </div>
                 </div>
             </header>

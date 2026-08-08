@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Evento;
 use App\Models\Reserva;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Carbon\Carbon;
@@ -66,11 +67,11 @@ class EventoController extends Controller
             $query->where('tipo', $tipo);
         }
 
-        $eventos = $query->orderBy('fecha')->paginate(3)->withQueryString();
+        $eventos = $query->orderBy('fecha')->paginate(2)->withQueryString();
         $eventos->through(fn ($e) => [
             'id' => $e->id,
             'nombre' => $e->nombre,
-            'imagen' => $e->imagen,
+            'imagen' => $this->resolverUrl($e->imagen),
             'tipo' => $e->tipo,
             'fecha' => $e->fecha,
             'hora_formateada' => $e->hora_formateada,
@@ -117,7 +118,7 @@ class EventoController extends Controller
                 ->map(fn ($e) => [
                     'id' => $e->id,
                     'nombre' => $e->nombre,
-                    'imagen' => $e->imagen,
+                    'imagen' => $this->resolverUrl($e->imagen),
                     'fecha' => $e->fecha->format('d-m-Y'),
                     'hora_formateada' => $e->hora_formateada,
                     'ciudad' => $e->ciudad,
@@ -167,7 +168,7 @@ class EventoController extends Controller
         $eventos->through(fn ($e) => [
             'id' => $e->id,
             'nombre' => $e->nombre,
-            'imagen' => $e->imagen,
+            'imagen' => $this->resolverUrl($e->imagen),
             'tipo' => $e->tipo,
             'fecha' => $e->fecha,
             'hora_formateada' => $e->hora_formateada,
@@ -222,7 +223,13 @@ class EventoController extends Controller
             'categoria' => ['nullable', 'string', 'max:255'],
             'codigo_vestimenta' => ['nullable', 'string', 'max:255'],
             'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
+            'imagen' => ['nullable', 'file', 'image', 'max:10240'],
+            'destacado' => ['boolean'],
         ]);
+
+        if ($request->hasFile('imagen')) {
+            $data['imagen'] = $request->file('imagen')->store('eventos', 'public');
+        }
 
         $evento = Evento::create($data + ['organizador_id' => \Illuminate\Support\Facades\Auth::guard('admin')->id()]);
 
@@ -234,14 +241,20 @@ class EventoController extends Controller
         $evento->load('organizador:id,nombre');
         $evento->estado_display = $this->estadoDisplay($evento, now()->toDateString());
 
+        $data = $evento->toArray();
+        $data['imagen'] = $this->resolverUrl($evento->imagen);
+
         return Inertia::render('Admin/Eventos/Show', [
-            'evento' => $evento,
+            'evento' => $data,
         ]);
     }
     public function edit(Evento $evento): Response
     {
+        $data = $evento->toArray();
+        $data['imagen'] = $this->resolverUrl($evento->imagen);
+
         return Inertia::render('Admin/Eventos/Edit', [
-            'evento' => $evento,
+            'evento' => $data,
         ]);
     }
 
@@ -262,9 +275,19 @@ class EventoController extends Controller
             'categoria' => ['nullable', 'string', 'max:255'],
             'codigo_vestimenta' => ['nullable', 'string', 'max:255'],
             'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
-            'imagen' => ['nullable', 'url', 'max:255'],
+            'imagen' => ['nullable', 'file', 'image', 'max:10240'],
+            'eliminar_imagen' => ['boolean'],
             'destacado' => ['boolean'],
         ]);
+
+        if ($request->hasFile('imagen')) {
+            $this->borrarImagenSiEsPropia($evento->getRawOriginal('imagen'));
+            $data['imagen'] = $request->file('imagen')->store('eventos', 'public');
+        } elseif ($request->boolean('eliminar_imagen')) {
+            $this->borrarImagenSiEsPropia($evento->getRawOriginal('imagen'));
+            $data['imagen'] = null;
+        }
+        unset($data['eliminar_imagen']);
 
         $evento->update($data);
 
@@ -274,9 +297,35 @@ class EventoController extends Controller
     public function destroy(Evento $evento)
     {
         $nombre = $evento->nombre;
+        $this->borrarImagenSiEsPropia($evento->getRawOriginal('imagen'));
         $evento->delete();
 
         return back()->with('success', "Evento \"{$nombre}\" eliminado correctamente.");
+    }
+
+    /**
+     * Convierte una ruta guardada en storage (ej. "eventos/foto.jpg") en su
+     * URL pública. Si ya es una URL externa (http/https), la deja igual.
+     */
+    private function resolverUrl(?string $ruta): ?string
+    {
+        if (! $ruta) {
+            return null;
+        }
+
+        if (str_starts_with($ruta, 'http://') || str_starts_with($ruta, 'https://')) {
+            return $ruta;
+        }
+
+        return Storage::disk('public')->url($ruta);
+    }
+
+    /** Borra del disco solo si es una ruta interna (no una URL externa). */
+    private function borrarImagenSiEsPropia(?string $ruta): void
+    {
+        if ($ruta && ! str_starts_with($ruta, 'http://') && ! str_starts_with($ruta, 'https://')) {
+            Storage::disk('public')->delete($ruta);
+        }
     }
 
     private function estadoDisplay(Evento $e, string $hoy): string

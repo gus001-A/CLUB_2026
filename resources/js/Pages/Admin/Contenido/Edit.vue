@@ -1,7 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useToast } from '@/composables/useToast';
 
 const toast = useToast();
@@ -26,41 +26,84 @@ const form = useForm({
     estado: props.contenido.estado,
     precio: props.contenido.precio || 0,
     es_premium: !!props.contenido.es_premium,
-    archivos: props.contenido.archivos?.length ? [...props.contenido.archivos] : [''],
+    // Archivos que ya están guardados en storage (URLs que manda el backend)
+    archivos_existentes: props.contenido.archivos?.length ? [...props.contenido.archivos] : [],
+    // Archivos nuevos que se van a subir en esta edición
+    archivos_nuevos: [],
     etiquetas: props.contenido.etiquetas?.length ? props.contenido.etiquetas.join(', ') : '',
     programado_en: paraDatetimeLocal(props.contenido.programado_en),
 });
 
-// Estado de validez por archivo (null = sin probar, true/false = cargó o no).
-// Precargados en 'true' porque ya vienen de un contenido existente.
-const archivosValidos = ref(form.archivos.map((a) => (a ? true : null)));
+// Slots de "nuevo archivo" en el formulario (File | null) y su preview local
+const nuevosSlots = ref([null]);
+const previews = ref([null]);
 
-function agregarArchivo() {
-    form.archivos.push('');
-    archivosValidos.value.push(null);
+const acceptPorTipo = {
+    video: 'video/*',
+    audio: 'audio/*',
+    foto: 'image/*',
+    galeria: 'image/*',
+    documento: '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt',
+    articulo: '.pdf,.doc,.docx,.txt',
+    exclusivo: '*',
+};
+const acceptActual = computed(() => acceptPorTipo[form.tipo] || '*');
+
+function quitarExistente(i) {
+    form.archivos_existentes.splice(i, 1);
 }
 
-function quitarArchivo(i) {
-    form.archivos.splice(i, 1);
-    archivosValidos.value.splice(i, 1);
-    if (!form.archivos.length) {
-        form.archivos.push('');
-        archivosValidos.value.push(null);
+function agregarSlotNuevo() {
+    nuevosSlots.value.push(null);
+    previews.value.push(null);
+}
+
+function quitarSlotNuevo(i) {
+    if (previews.value[i]) URL.revokeObjectURL(previews.value[i]);
+    nuevosSlots.value.splice(i, 1);
+    previews.value.splice(i, 1);
+    if (!nuevosSlots.value.length) {
+        nuevosSlots.value.push(null);
+        previews.value.push(null);
     }
 }
 
-function submit() {
-    const archivosLimpios = form.archivos.map((a) => a.trim()).filter(Boolean);
+function onFileChange(i, event) {
+    const file = event.target.files?.[0] || null;
+    if (previews.value[i]) URL.revokeObjectURL(previews.value[i]);
+    nuevosSlots.value[i] = file;
+    previews.value[i] = file ? URL.createObjectURL(file) : null;
+    event.target.value = '';
+}
 
+function esImagen(file) { return file && file.type.startsWith('image/'); }
+function esVideo(file) { return file && file.type.startsWith('video/'); }
+function esAudio(file) { return file && file.type.startsWith('audio/'); }
+function esArchivoImagen(url) { return /\.(jpe?g|png|gif|webp|avif)$/i.test(url || ''); }
+function esArchivoVideo(url) { return /\.(mp4|webm|mov|ogg)$/i.test(url || ''); }
+function esArchivoAudio(url) { return /\.(mp3|wav|ogg|m4a)$/i.test(url || ''); }
+function nombreArchivo(url) { return (url || '').split('/').pop(); }
+
+function formatoTamano(bytes) {
+    if (!bytes) return '';
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${kb.toFixed(0)} KB`;
+    return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+const nuevosCargados = computed(() => nuevosSlots.value.filter(Boolean));
+const totalArchivos = computed(() => form.archivos_existentes.length + nuevosCargados.value.length);
+
+function submit() {
     if (!form.titulo || !form.tipo) {
         toast.error('Debes llenar todos los campos obligatorios.');
         return;
     }
-    if (!archivosLimpios.length) {
+    if (!totalArchivos.value) {
         toast.error('Agrega al menos un archivo.');
         return;
     }
-    if (form.tipo === 'galeria' && archivosLimpios.length < 3) {
+    if (form.tipo === 'galeria' && totalArchivos.value < 3) {
         toast.error('Una galería debe tener al menos 3 fotos.');
         return;
     }
@@ -71,12 +114,13 @@ function submit() {
 
     form.transform((data) => ({
         ...data,
-        archivos: archivosLimpios,
+        archivos_nuevos: nuevosCargados.value,
         etiquetas: data.etiquetas
             ? data.etiquetas.split(',').map((t) => t.trim()).filter(Boolean)
             : [],
         programado_en: data.estado === 'programado' ? data.programado_en : null,
     })).patch(route('admin.contenido.update', props.contenido.id), {
+        forceFormData: true,
         onSuccess: () => {
             toast.success('Contenido actualizado correctamente.');
         },
@@ -146,51 +190,72 @@ function submit() {
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Archivos *</label>
+
+                            <!-- Archivos ya guardados -->
+                            <div v-if="form.archivos_existentes.length" class="mb-4">
+                                <p class="text-xs font-medium text-gray-500 mb-2">Ya guardados</p>
+                                <div class="space-y-3">
+                                    <div v-for="(archivo, i) in form.archivos_existentes" :key="archivo" class="flex items-center gap-2">
+                                        <div v-if="esArchivoImagen(archivo)" class="rounded-lg overflow-hidden border border-gray-200 bg-gray-50 shrink-0" style="width:56px;height:56px">
+                                            <img :src="archivo" class="w-full h-full object-cover" />
+                                        </div>
+                                        <div v-else class="rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center text-gray-400 shrink-0" style="width:56px;height:56px">
+                                            <i class="pi" :class="esArchivoVideo(archivo) ? 'pi-video' : esArchivoAudio(archivo) ? 'pi-volume-up' : 'pi-file'"></i>
+                                        </div>
+                                        <span class="text-xs text-gray-500 truncate flex-1">{{ nombreArchivo(archivo) }}</span>
+                                        <button type="button" @click="quitarExistente(i)" title="Quitar"
+                                            class="shrink-0 rounded-lg border border-gray-200 text-red-500 hover:bg-red-50 flex items-center justify-center"
+                                            style="width:36px;height:36px">
+                                            <i class="pi pi-trash text-xs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Agregar archivos nuevos -->
+                            <p class="text-xs font-medium text-gray-500 mb-2">Agregar nuevos</p>
                             <div class="space-y-4">
-                                <div v-for="(archivo, i) in form.archivos" :key="i">
+                                <div v-for="(archivo, i) in nuevosSlots" :key="i">
                                     <div class="flex items-center gap-2">
-                                        <input v-model="form.archivos[i]" type="text" placeholder="https://..."
-                                            class="admin-input px-3 py-2.5" />
-                                        <button type="button" @click="quitarArchivo(i)" title="Quitar"
+                                        <label class="admin-input px-3 py-2.5 flex items-center gap-2 cursor-pointer text-gray-500 hover:border-brand transition">
+                                            <i class="pi pi-upload text-xs shrink-0"></i>
+                                            <span class="truncate text-sm">{{ archivo ? archivo.name : 'Seleccionar archivo...' }}</span>
+                                            <input type="file" class="hidden" :accept="acceptActual" @change="onFileChange(i, $event)" />
+                                        </label>
+                                        <button type="button" @click="quitarSlotNuevo(i)" title="Quitar"
                                             class="shrink-0 rounded-lg border border-gray-200 text-red-500 hover:bg-red-50 flex items-center justify-center"
                                             style="width:36px;height:36px">
                                             <i class="pi pi-trash text-xs"></i>
                                         </button>
                                     </div>
 
-                                    <!-- Vista previa según el tipo de contenido -->
+                                    <!-- Vista previa del archivo nuevo -->
                                     <div v-if="archivo" class="mt-2">
-                                        <div v-if="form.tipo === 'foto' || form.tipo === 'galeria'"
+                                        <div v-if="esImagen(archivo)"
                                             class="w-full max-w-xs rounded-xl overflow-hidden border border-gray-200 bg-gray-50" style="height:130px">
-                                            <img :src="archivo" class="w-full h-full object-cover"
-                                                @load="archivosValidos[i] = true" @error="archivosValidos[i] = false" />
+                                            <img :src="previews[i]" class="w-full h-full object-cover" />
                                         </div>
-                                        <video v-else-if="form.tipo === 'video'" :src="archivo" controls
-                                            class="w-full max-w-xs rounded-xl border border-gray-200 bg-gray-50" style="height:170px"
-                                            @loadeddata="archivosValidos[i] = true" @error="archivosValidos[i] = false"></video>
-                                        <audio v-else-if="form.tipo === 'audio'" :src="archivo" controls class="w-full max-w-sm"
-                                            @loadeddata="archivosValidos[i] = true" @error="archivosValidos[i] = false"></audio>
+                                        <video v-else-if="esVideo(archivo)" :src="previews[i]" controls
+                                            class="w-full max-w-xs rounded-xl border border-gray-200 bg-gray-50" style="height:170px"></video>
+                                        <audio v-else-if="esAudio(archivo)" :src="previews[i]" controls class="w-full max-w-sm"></audio>
                                         <div v-else class="flex items-center gap-2 text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 max-w-xs">
-                                            <i class="pi pi-link text-brand shrink-0"></i>
-                                            <span class="truncate">{{ archivo }}</span>
+                                            <i class="pi pi-file text-brand shrink-0"></i>
+                                            <span class="truncate">{{ archivo.name }}</span>
                                         </div>
 
-                                        <p v-if="archivosValidos[i] === false" class="text-red-600 text-xs mt-1.5 flex items-center gap-1">
-                                            <i class="pi pi-exclamation-triangle"></i> No se pudo cargar. Revisa que sea el link directo al archivo.
-                                        </p>
-                                        <p v-else-if="archivosValidos[i] === true" class="text-green-600 text-xs mt-1.5 flex items-center gap-1">
-                                            <i class="pi pi-check-circle"></i> Se ve bien.
+                                        <p class="text-[11px] text-gray-400 mt-1.5 flex items-center gap-1">
+                                            <i class="pi pi-check-circle text-green-600"></i> Listo para subir ({{ formatoTamano(archivo.size) }}).
                                         </p>
                                     </div>
                                 </div>
                             </div>
-                            <button type="button" @click="agregarArchivo" class="mt-2 text-xs font-semibold text-brand hover:underline">
+                            <button type="button" @click="agregarSlotNuevo" class="mt-2 text-xs font-semibold text-brand hover:underline">
                                 <i class="pi pi-plus text-[10px] mr-1"></i>Agregar otro archivo
                             </button>
-                            <p v-if="form.errors.archivos" class="text-red-600 text-xs mt-1">{{ form.errors.archivos }}</p>
-                            <p v-if="form.tipo === 'galeria'" class="text-xs mt-1" :class="form.archivos.filter(a => a.trim()).length >= 3 ? 'text-green-600' : 'text-amber-500'">
-                                <i class="pi" :class="form.archivos.filter(a => a.trim()).length >= 3 ? 'pi-check-circle' : 'pi-info-circle'"></i>
-                                Una galería necesita mínimo 3 fotos (llevas {{ form.archivos.filter(a => a.trim()).length }}).
+                            <p v-if="form.errors.archivos_nuevos" class="text-red-600 text-xs mt-1">{{ form.errors.archivos_nuevos }}</p>
+                            <p v-if="form.tipo === 'galeria'" class="text-xs mt-1" :class="totalArchivos >= 3 ? 'text-green-600' : 'text-amber-500'">
+                                <i class="pi" :class="totalArchivos >= 3 ? 'pi-check-circle' : 'pi-info-circle'"></i>
+                                Una galería necesita mínimo 3 fotos (llevas {{ totalArchivos }}).
                             </p>
                         </div>
 

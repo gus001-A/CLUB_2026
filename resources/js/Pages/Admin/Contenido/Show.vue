@@ -46,7 +46,7 @@ async function eliminar() {
                 <div class="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div class="flex items-center gap-4">
                         <div class="rounded-2xl bg-brand/10 text-brand flex items-center justify-center shrink-0 overflow-hidden" style="width:64px;height:64px">
-                            <img v-if="contenido.archivos?.[0]" :src="contenido.archivos[0]" class="w-full h-full object-cover" />
+                            <img v-if="contenido.archivos?.[0] && (contenido.tipo === 'foto' || contenido.tipo === 'galeria')" :src="contenido.archivos[0]" class="w-full h-full object-cover" />
                             <i v-else class="pi" :class="tipoIcono[contenido.tipo]" style="font-size:1.5rem"></i>
                         </div>
                         <div>
@@ -79,10 +79,40 @@ async function eliminar() {
                     <!-- Galería de archivos -->
                     <div v-if="contenido.archivos?.length" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                         <h2 class="text-sm font-bold text-gray-900 mb-4">Archivos ({{ contenido.archivos.length }})</h2>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+
+                        <!-- Fotos / Galería -->
+                        <div v-if="contenido.tipo === 'foto' || contenido.tipo === 'galeria'" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                             <div v-for="(archivo, idx) in contenido.archivos" :key="idx" class="aspect-square rounded-xl overflow-hidden bg-gray-100">
                                 <img :src="archivo" class="w-full h-full object-cover" />
                             </div>
+                        </div>
+
+                        <!-- Video -->
+                        <div v-else-if="contenido.tipo === 'video'" class="space-y-3">
+                            <video v-for="(archivo, idx) in contenido.archivos" :key="idx" :src="archivo" controls
+                                class="w-full max-w-lg rounded-xl border border-gray-200 bg-black" style="max-height:360px"></video>
+                        </div>
+
+                        <!-- Audio -->
+                        <div v-else-if="contenido.tipo === 'audio'" class="space-y-3">
+                            <div v-for="(archivo, idx) in contenido.archivos" :key="idx" class="flex items-center gap-3 border border-gray-200 rounded-xl p-3 bg-gray-50/60">
+                                <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:36px;height:36px">
+                                    <i class="pi pi-volume-up text-sm"></i>
+                                </div>
+                                <audio :src="archivo" controls class="w-full"></audio>
+                            </div>
+                        </div>
+
+                        <!-- Documento / Artículo / Exclusivo -->
+                        <div v-else class="space-y-2">
+                            <a v-for="(archivo, idx) in contenido.archivos" :key="idx" :href="archivo" target="_blank" rel="noopener"
+                                class="flex items-center gap-3 border border-gray-200 rounded-xl p-3 bg-gray-50/60 hover:bg-gray-100 transition">
+                                <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:36px;height:36px">
+                                    <i class="pi pi-file text-sm"></i>
+                                </div>
+                                <span class="text-sm text-gray-700 truncate flex-1">{{ archivo.split('/').pop() }}</span>
+                                <i class="pi pi-external-link text-xs text-gray-400"></i>
+                            </a>
                         </div>
                     </div>
 

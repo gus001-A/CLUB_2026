@@ -129,30 +129,30 @@ async function eliminarContenido(c) {
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
             <!-- Fila 1: KPIs -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full">
-                <div class="w-full lg:flex-1 min-w-0">
+            <div class="admin-kpi-grid gap-6 mb-6 w-full">
+                <div class="min-w-0">
                     <KpiCard label="Total de Contenidos" :value="stats.total" icon="pi-play"
                         :hint="`+${stats.nuevosEsteMes} nuevos este mes`" />
                 </div>
-                <div class="w-full lg:flex-1 min-w-0">
+                <div class="min-w-0">
                     <KpiCard label="Publicados" :value="stats.publicados" icon="pi-check-circle"
                         :hint="`${stats.total ? Math.round((stats.publicados / stats.total) * 100) : 0}% del total`" hint-color="text-gray-400" />
                 </div>
-                <div class="w-full lg:flex-1 min-w-0">
+                <div class="min-w-0">
                     <KpiCard label="Borradores" :value="stats.borradores" icon="pi-file"
                         :hint="`${stats.total ? Math.round((stats.borradores / stats.total) * 100) : 0}% del total`" hint-color="text-gray-400" />
                 </div>
-                <div class="w-full lg:flex-1 min-w-0">
+                <div class="min-w-0">
                     <KpiCard label="Archivados" :value="stats.archivados" icon="pi-box"
                         :hint="`${stats.total ? Math.round((stats.archivados / stats.total) * 100) : 0}% del total`" hint-color="text-gray-400" />
                 </div>
             </div>
 
-            <!-- Fila 2: Gestión de Contenido (2/3) | Tipos + Acciones Rápidas (1/3) -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
+            <!-- Fila 2: Gestión de Contenido | Tipos + Acciones Rápidas -->
+            <div class="admin-contenido-main-grid gap-6 mb-6 w-full">
 
                 <!-- Gestión de Contenido -->
-                <div class="w-full lg:flex-[2] min-w-0 bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between">
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between" style="grid-area:gestion">
                     <div class="flex flex-col flex-1">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
                             <div>
@@ -214,8 +214,8 @@ async function eliminarContenido(c) {
                                 <tr v-for="c in contenidos.data" :key="c.id" class="hover:bg-gray-50/50 transition">
                                     <td class="pl-6 pr-4 py-3.5 whitespace-nowrap">
                                         <div class="flex items-center gap-3">
-                                            <div class="w-9 h-9 min-w-[36px] max-w-[36px] rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 overflow-hidden">
-                                                <img v-if="c.imagen" :src="c.imagen" class="w-full h-full object-cover" />
+                                            <div class="rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 overflow-hidden" style="width:36px;height:36px">
+                                                <img v-if="c.imagen && (c.tipo === 'foto' || c.tipo === 'galeria')" :src="c.imagen" class="w-full h-full object-cover" />
                                                 <i v-else class="pi text-sm" :class="tipoIcono[c.tipo]"></i>
                                             </div>
                                             <p class="font-semibold text-gray-800 text-sm truncate">{{ c.titulo }}</p>
@@ -268,22 +268,23 @@ async function eliminarContenido(c) {
                     </div>
                 </div>
 
-                <!-- Tipos de Contenido + Acciones Rápidas -->
-                <div class="w-full lg:flex-1 min-w-0 flex flex-col gap-6">
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Tipos de Contenido</h2>
-                        <ul class="space-y-3">
-                            <li v-for="(cantidad, key) in tiposContenido" :key="key" class="flex items-center justify-between text-sm">
-                                <span class="flex items-center gap-2 text-gray-600">
-                                    <i class="pi text-brand" :class="tiposIconos[key]"></i>
-                                    {{ tiposNombres[key] }}
-                                </span>
-                                <span class="font-semibold text-gray-800">{{ cantidad }}</span>
-                            </li>
-                        </ul>
-                    </div>
+                <!-- Tipos de Contenido -->
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6" style="grid-area:tipos">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Tipos de Contenido</h2>
+                    <ul class="space-y-3">
+                        <li v-for="(cantidad, key) in tiposContenido" :key="key" class="flex items-center justify-between text-sm">
+                            <span class="flex items-center gap-2 text-gray-600">
+                                <i class="pi text-brand" :class="tiposIconos[key]"></i>
+                                {{ tiposNombres[key] }}
+                            </span>
+                            <span class="font-semibold text-gray-800">{{ cantidad }}</span>
+                        </li>
+                    </ul>
+                </div>
 
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex-1">
+                <!-- Acciones Rápidas -->
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col justify-between" style="grid-area:acciones">
+                    <div>
                         <h2 class="text-lg font-semibold text-gray-900 mb-4 px-2 pt-2">Acciones Rápidas</h2>
                         <div class="space-y-3">
                             <button v-for="a in accionesRapidas" :key="a.label" type="button" @click="irA(a)"
@@ -301,11 +302,11 @@ async function eliminarContenido(c) {
                 </div>
             </div>
 
-            <!-- Fila 3: Estadísticas de Contenido (2/3) | Contenido Reciente (1/3) -->
-            <div class="flex flex-col lg:flex-row gap-6 w-full items-stretch">
+            <!-- Fila 3: Contenido Reciente | Estadísticas de Contenido -->
+            <div class="admin-contenido-reciente-grid gap-6 w-full">
 
                 <!-- Contenido Reciente -->
-                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:reciente">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-semibold text-gray-900 text-lg">Contenido Reciente</h2>
@@ -313,8 +314,8 @@ async function eliminarContenido(c) {
                         </div>
                         <ul class="space-y-3.5">
                             <li v-for="c in contenidoReciente" :key="c.id" class="flex items-center gap-3">
-                                <div class="w-9 h-9 min-w-[36px] max-w-[36px] rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 overflow-hidden">
-                                    <img v-if="c.imagen" :src="c.imagen" class="w-full h-full object-cover" />
+                                <div class="rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 overflow-hidden" style="width:36px;height:36px">
+                                    <img v-if="c.imagen && (c.tipo === 'foto' || c.tipo === 'galeria')" :src="c.imagen" class="w-full h-full object-cover" />
                                     <i v-else class="pi text-sm" :class="tipoIcono[c.tipo]"></i>
                                 </div>
                                 <div class="min-w-0 flex-1">
@@ -331,7 +332,7 @@ async function eliminarContenido(c) {
                 </div>
 
                 <!-- Estadísticas de Contenido -->
-                <div class="w-full lg:flex-[2] min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:estadisticas">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-semibold text-gray-900 text-lg">Estadísticas de Contenido</h2>

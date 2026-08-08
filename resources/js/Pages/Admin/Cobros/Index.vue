@@ -230,28 +230,28 @@ const totalCategorias = computed(() => props.categoriasResumen.reduce((sum, c) =
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
             <!-- Fila 1: KPIs -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full">
-                <div class="w-full lg:flex-1 min-w-0">
+            <div class="admin-kpi-grid gap-6 mb-6 w-full">
+                <div class="min-w-0">
                     <KpiCard label="Ingresos Totales" :value="money(stats.ingresosTotales)" icon="pi-dollar" />
                 </div>
-                <div class="w-full lg:flex-1 min-w-0">
+                <div class="min-w-0">
                     <KpiCard label="Cobros del Mes" :value="money(stats.cobrosDelMes)" icon="pi-calendar"
                         :hint="stats.cobrosVariacion !== null ? `${stats.cobrosVariacion >= 0 ? '+' : ''}${stats.cobrosVariacion}% vs mes anterior` : ''"
                         :hint-color="stats.cobrosVariacion >= 0 ? 'text-green-600' : 'text-red-500'" />
                 </div>
-                <div class="w-full lg:flex-1 min-w-0">
+                <div class="min-w-0">
                     <KpiCard label="Reembolsos del Mes" :value="money(stats.reembolsosDelMes)" icon="pi-replay" />
                 </div>
-                <div class="w-full lg:flex-1 min-w-0">
+                <div class="min-w-0">
                     <KpiCard label="Pagos Pendientes" :value="money(stats.pagosPendientesMonto)" icon="pi-clock"
                         :hint="`${stats.pagosPendientesCount} transacciones`" hint-color="text-gray-400" />
                 </div>
             </div>
             <!-- Fila 2: Tabla de Transacciones + Resumen y Métodos de Pago -->
-            <div class="flex flex-col lg:flex-row items-stretch gap-6 mb-6 w-full">
-                <!-- Columna Izquierda: Tabla Transacciones (75%) -->
+            <div class="admin-cobros-main-grid gap-6 mb-6 w-full">
+                <!-- Tabla Transacciones -->
                 <div
-                    class="w-full lg:flex-[3] min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between self-stretch">
+                    class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between" style="grid-area:tabla">
                     <div class="flex flex-col flex-1">
                         <!-- Encabezado -->
                         <div class="px-6 pt-6">
@@ -376,66 +376,63 @@ const totalCategorias = computed(() => props.categoriasResumen.reduce((sum, c) =
                         </Link>
                     </div>
                 </div>
-                <!-- Columna Derecha: Resumen + Métodos de Pago (25%) -->
-                <div class="w-full lg:flex-1 min-w-0 flex flex-col gap-6 self-stretch">
-                    <!-- Resumen -->
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                        <div class="flex items-center justify-between mb-5">
-                            <h2 class="text-lg font-semibold text-gray-900">Resumen de Cobros</h2>
-                            <select v-model="periodoResumen" class="text-xs rounded-lg border-gray-300 focus:border-brand focus:ring-brand">
-                                <option value="semana">Esta semana</option>
-                                <option value="mes">Este mes</option>
-                                <option value="anio">Este año</option>
-                            </select>
+                <!-- Resumen de Cobros -->
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6" style="grid-area:resumen">
+                    <div class="flex items-center justify-between mb-5">
+                        <h2 class="text-lg font-semibold text-gray-900">Resumen de Cobros</h2>
+                        <select v-model="periodoResumen" class="text-xs rounded-lg border-gray-300 focus:border-brand focus:ring-brand">
+                            <option value="semana">Esta semana</option>
+                            <option value="mes">Este mes</option>
+                            <option value="anio">Este año</option>
+                        </select>
+                    </div>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Total Cobros</span>
+                            <span class="font-semibold text-gray-800">{{ money(resumen.cobrosDelMes) }}</span>
                         </div>
-                        <div class="space-y-3 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-gray-500">Total Cobros</span>
-                                <span class="font-semibold text-gray-800">{{ money(resumen.cobrosDelMes) }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-500">Comisiones</span>
-                                <span class="font-semibold text-red-500">-{{ money(resumen.comisionesDelMes) }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-500">Reembolsos</span>
-                                <span class="font-semibold text-red-500">-{{ money(resumen.reembolsosDelMes) }}</span>
-                            </div>
-                            <div class="border-t border-gray-100 pt-3 flex justify-between">
-                                <span class="font-semibold text-gray-700">Total Neto</span>
-                                <span class="font-bold text-brand">{{ money(resumen.cobrosDelMes - resumen.comisionesDelMes - resumen.reembolsosDelMes) }}</span>
-                            </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Comisiones</span>
+                            <span class="font-semibold text-red-500">-{{ money(resumen.comisionesDelMes) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Reembolsos</span>
+                            <span class="font-semibold text-red-500">-{{ money(resumen.reembolsosDelMes) }}</span>
+                        </div>
+                        <div class="border-t border-gray-100 pt-3 flex justify-between">
+                            <span class="font-semibold text-gray-700">Total Neto</span>
+                            <span class="font-bold text-brand">{{ money(resumen.cobrosDelMes - resumen.comisionesDelMes - resumen.reembolsosDelMes) }}</span>
                         </div>
                     </div>
-                    <!-- Métodos de Pago -->
-                    <div
-                        class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex-1 flex flex-col justify-between">
-                        <div>
-                            <h2 class="text-lg font-semibold text-gray-900 mb-5">Métodos de Pago</h2>
-                            <div class="space-y-5">
-                                <div v-for="m in metodosPago" :key="m.metodo">
-                                    <div class="flex items-center justify-between text-sm mb-2">
-                                        <span class="text-gray-600">{{ m.metodo_nombre }}</span>
-                                        <span class="font-semibold text-gray-800">{{ m.porcentaje }}%</span>
-                                    </div>
-                                    <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                        <div class="h-full bg-brand rounded-full"
-                                            :style="{ width: m.porcentaje + '%' }"></div>
-                                    </div>
+                </div>
+                <!-- Métodos de Pago -->
+                <div
+                    class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:metodos">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 mb-5">Métodos de Pago</h2>
+                        <div class="space-y-5">
+                            <div v-for="m in metodosPago" :key="m.metodo">
+                                <div class="flex items-center justify-between text-sm mb-2">
+                                    <span class="text-gray-600">{{ m.metodo_nombre }}</span>
+                                    <span class="font-semibold text-gray-800">{{ m.porcentaje }}%</span>
                                 </div>
-                                <p v-if="!metodosPago?.length" class="text-sm text-gray-400 text-center py-6">Aún no hay
-                                    cobros
-                                    para mostrar.</p>
+                                <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div class="h-full bg-brand rounded-full"
+                                        :style="{ width: m.porcentaje + '%' }"></div>
+                                </div>
                             </div>
+                            <p v-if="!metodosPago?.length" class="text-sm text-gray-400 text-center py-6">Aún no hay
+                                cobros
+                                para mostrar.</p>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- Fila 3: Gráficas y Pagos Pendientes (Flexbox con ancho exacto) -->
-            <div class="flex flex-col lg:flex-row items-stretch gap-6 mt-6 w-full">
-                <!-- 1. Ingresos (50% de ancho) -->
+            <!-- Fila 3: Gráficas y Pagos Pendientes -->
+            <div class="admin-cobros-charts-grid gap-6 mt-6 w-full">
+                <!-- 1. Ingresos -->
                 <div
-                    class="w-full lg:flex-[1.5] min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                    class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:ingresos">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-semibold text-gray-800 text-lg">Ingresos</h2>
@@ -463,9 +460,9 @@ const totalCategorias = computed(() => props.categoriasResumen.reduce((sum, c) =
                         </div>
                     </div>
                 </div>
-                <!-- 2. Cobros y Reembolsos (25% de ancho) -->
+                <!-- 2. Cobros y Reembolsos -->
                 <div
-                    class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                    class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:cobros">
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-semibold text-gray-800 text-lg">Cobros y Reembolsos</h2>
@@ -503,9 +500,9 @@ const totalCategorias = computed(() => props.categoriasResumen.reduce((sum, c) =
                         </ul>
                     </div>
                 </div>
-                <!-- 3. Pagos Pendientes (25% de ancho) -->
+                <!-- 3. Pagos Pendientes -->
                 <div
-                    class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                    class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:pendientes">
                     <div>
                         <!-- Header con Badge estilo diseño -->
                         <div class="flex items-center justify-between mb-5">

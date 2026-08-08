@@ -39,6 +39,7 @@ function formatDate(v) {
 const tipoLabel = { spam: 'Spam', inapropiado: 'Contenido inapropiado', falso: 'Perfil falso', acoso: 'Acoso', otro: 'Otro' };
 const tipoColor = { spam: 'bg-gray-100 text-gray-600', inapropiado: 'bg-red-50 text-red-600', falso: 'bg-amber-50 text-amber-600', acoso: 'bg-red-100 text-red-700', otro: 'bg-blue-50 text-blue-600' };
 const tipoIcono = { spam: 'pi-ban', inapropiado: 'pi-exclamation-triangle', falso: 'pi-id-card', acoso: 'pi-shield', otro: 'pi-question-circle' };
+const tipoIconoColor = { spam: 'text-red-500', inapropiado: 'text-amber-500', falso: 'text-orange-500', acoso: 'text-blue-500', otro: 'text-purple-500' };
 const estadoColores = { pendiente: 'bg-amber-100 text-amber-700', revisado: 'bg-blue-100 text-blue-700', resuelto: 'bg-green-100 text-green-700' };
 const estadoLabel = { pendiente: 'Pendiente', revisado: 'Revisado', resuelto: 'Resuelto' };
 
@@ -87,8 +88,8 @@ async function descartar(r) {
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
             <!-- Fila 1: KPIs -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full">
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+            <div class="admin-kpi-grid gap-6 mb-6 w-full">
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-400">Reportes Totales</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.total }}</p>
@@ -97,7 +98,7 @@ async function descartar(r) {
                         <i class="pi pi-flag text-lg"></i>
                     </div>
                 </div>
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-400">Pendientes</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.pendientes }}</p>
@@ -106,7 +107,7 @@ async function descartar(r) {
                         <i class="pi pi-clock text-lg"></i>
                     </div>
                 </div>
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-400">Revisados</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.revisados }}</p>
@@ -115,7 +116,7 @@ async function descartar(r) {
                         <i class="pi pi-eye text-lg"></i>
                     </div>
                 </div>
-                <div class="w-full lg:w-1/4 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-400">Resueltos</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.resueltos }}</p>
@@ -126,11 +127,11 @@ async function descartar(r) {
                 </div>
             </div>
 
-            <!-- Fila 2: Cola de Moderación (2/3) + Reportes por Tipo (1/3) -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
+            <!-- Fila 2: Cola de Moderación | Reportes por Tipo -->
+            <div class="admin-reportes-main-grid gap-6 mb-6 w-full">
 
                 <!-- Cola de moderación -->
-                <div class="w-full lg:w-2/3 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6" style="grid-area:cola">
                     <div class="mb-4">
                         <h2 class="text-xl font-semibold text-gray-900">Cola de Moderación</h2>
                         <p class="text-xs text-gray-500 mt-0.5">Revisa y resuelve los reportes entre usuarios.</p>
@@ -218,12 +219,12 @@ async function descartar(r) {
                 </div>
 
                 <!-- Reportes por tipo -->
-                <div class="w-full lg:w-1/3 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6" style="grid-area:tipo">
                     <h2 class="text-sm font-bold text-gray-900 mb-4">Reportes por Tipo</h2>
                     <ul class="space-y-3">
                         <li v-for="(cantidad, key) in porTipo" :key="key" class="flex items-center justify-between text-sm">
                             <span class="flex items-center gap-2 text-gray-600">
-                                <i class="pi text-xs" :class="tipoIcono[key]"></i>
+                                <i class="pi text-xs" :class="[tipoIcono[key], tipoIconoColor[key]]"></i>
                                 {{ tipoLabel[key] }}
                             </span>
                             <span class="font-medium text-gray-800">{{ cantidad }}</span>
@@ -233,11 +234,11 @@ async function descartar(r) {
 
             </div>
 
-            <!-- Fila 3: Actividad Reciente de Moderación + Usuarios Más Reportados (mitad y mitad) -->
-            <div class="flex flex-col lg:flex-row gap-6 w-full items-stretch">
+            <!-- Fila 3: Actividad Reciente de Moderación + Usuarios Más Reportados -->
+            <div class="admin-two-col-grid gap-6 w-full">
 
                 <!-- Actividad Reciente de Moderación -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <h2 class="text-sm font-bold text-gray-900 mb-4">Actividad Reciente de Moderación</h2>
                     <ul class="space-y-3">
                         <li v-for="(a, i) in actividadModeracion" :key="i" class="flex items-start gap-3">
@@ -260,12 +261,12 @@ async function descartar(r) {
                 </div>
 
                 <!-- Usuarios más reportados -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <h2 class="text-sm font-bold text-gray-900 mb-4">Usuarios Más Reportados</h2>
                     <ul class="space-y-3">
                         <li v-for="(item, i) in masReportados" :key="i" class="flex items-center justify-between gap-2">
                             <div class="flex items-center gap-2.5 min-w-0">
-                                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0 text-xs font-semibold">
+                                <div class="rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0 text-xs font-semibold" style="width:32px;height:32px">
                                     {{ item.usuario.nombre?.charAt(0)?.toUpperCase() || 'U' }}
                                 </div>
                                 <div class="min-w-0">

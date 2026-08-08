@@ -127,10 +127,10 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
             <!-- Fila 1: Mi cuenta | Contraseña | Notificaciones de Seguridad -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
+            <div class="admin-two-col-grid gap-6 mb-6 w-full">
 
                 <!-- Mi cuenta -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
                         <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:44px;height:44px">
                             <i class="pi pi-user text-lg"></i>
@@ -174,7 +174,7 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
                 </div>
 
                 <!-- Contraseña -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
                         <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:44px;height:44px">
                             <i class="pi pi-lock text-lg"></i>
@@ -207,10 +207,10 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
             </div>
 
             <!-- Fila 2: Sesiones Activas | Registro de Actividad -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
+            <div class="admin-two-col-grid gap-6 mb-6 w-full">
 
                 <!-- Sesiones Activas -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-5">
                             <div class="flex items-center gap-3">
@@ -256,7 +256,7 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
                 </div>
 
                 <!-- Registro de Actividad -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center gap-3 mb-5">
                             <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:44px;height:44px">
@@ -289,10 +289,10 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
             </div>
 
             <!-- Fila 3 (solo super_admin): Administradores | Permisos y Roles -->
-            <div v-if="esSuperAdmin" class="flex flex-col lg:flex-row gap-6 w-full items-stretch">
+            <div v-if="esSuperAdmin" class="admin-two-col-grid gap-6 w-full">
 
                 <!-- Administradores -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <div class="flex items-center gap-3 pb-4 mb-4 border-b border-gray-100">
                         <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:44px;height:44px">
                             <i class="pi pi-shield text-lg"></i>
@@ -319,7 +319,7 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
                 </div>
 
                 <!-- Permisos y Roles -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <div class="flex items-center gap-3 pb-4 mb-4 border-b border-gray-100">
                         <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:44px;height:44px">
                             <i class="pi pi-sitemap text-lg"></i>

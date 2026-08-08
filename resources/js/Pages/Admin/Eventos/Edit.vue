@@ -5,7 +5,6 @@ import { ref } from 'vue';
 import { useToast } from '@/composables/useToast';
 
 const toast = useToast();
-const imagenValida = ref(null);
 
 const props = defineProps({
     evento: Object,
@@ -26,9 +25,31 @@ const form = useForm({
     categoria: props.evento.categoria || '',
     codigo_vestimenta: props.evento.codigo_vestimenta || '',
     estado: props.evento.estado,
-    imagen: props.evento.imagen || '',
+    imagen: null, // File nuevo (solo si el admin cambia la imagen)
+    eliminar_imagen: false,
     destacado: !!props.evento.destacado,
 });
+
+// URL de la imagen ya guardada (viene resuelta desde el backend)
+const imagenExistente = ref(props.evento.imagen || null);
+const preview = ref(null);
+
+function onFileChange(event) {
+    const file = event.target.files?.[0] || null;
+    if (preview.value) URL.revokeObjectURL(preview.value);
+    form.imagen = file;
+    form.eliminar_imagen = false;
+    preview.value = file ? URL.createObjectURL(file) : null;
+    event.target.value = '';
+}
+
+function quitarImagen() {
+    if (preview.value) URL.revokeObjectURL(preview.value);
+    form.imagen = null;
+    preview.value = null;
+    imagenExistente.value = null;
+    form.eliminar_imagen = true;
+}
 
 function submit() {
     const obligatorios = ['nombre', 'fecha', 'hora', 'ciudad', 'tipo', 'estado'];
@@ -38,7 +59,7 @@ function submit() {
         return;
     }
 
-    form.patch(route('admin.eventos.update', props.evento.id));
+    form.patch(route('admin.eventos.update', props.evento.id), { forceFormData: true });
 }
 </script>
 
@@ -198,29 +219,37 @@ function submit() {
 
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Imagen (URL)</label>
-                        <input v-model="form.imagen" type="text" placeholder="https://..." class="admin-input px-3 py-2.5" />
-                        <p class="text-xs text-gray-400 mt-1">
-                            Debe ser el link directo al archivo (termina en .jpg, .png, .webp...), no a una página de producto.
-                        </p>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Imagen</label>
 
-                        <!-- Vista previa en vivo -->
-                        <div v-if="form.imagen" class="mt-3">
-                            <div class="w-full rounded-xl overflow-hidden border border-gray-200 bg-gray-50" style="height:160px">
-                                <img
-                                    :src="form.imagen"
-                                    class="w-full h-full object-cover"
-                                    @load="imagenValida = true"
-                                    @error="imagenValida = false"
-                                />
+                        <!-- Ya guardada -->
+                        <div v-if="imagenExistente && !preview" class="mb-3">
+                            <div class="w-full rounded-xl overflow-hidden border border-gray-200 bg-gray-50 relative" style="height:160px">
+                                <img :src="imagenExistente" class="w-full h-full object-cover" />
                             </div>
-                            <p v-if="imagenValida === false" class="text-red-600 text-xs mt-1.5 flex items-center gap-1">
-                                <i class="pi pi-exclamation-triangle"></i>
-                                Esta URL no cargó una imagen. Revisa que sea el link directo al archivo.
-                            </p>
-                            <p v-else-if="imagenValida === true" class="text-green-600 text-xs mt-1.5 flex items-center gap-1">
-                                <i class="pi pi-check-circle"></i> Se ve bien.
-                            </p>
+                            <button type="button" @click="quitarImagen" class="mt-2 text-xs font-semibold text-red-500 hover:underline">
+                                <i class="pi pi-trash text-[10px] mr-1"></i>Quitar imagen actual
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <label class="admin-input px-3 py-2.5 flex items-center gap-2 cursor-pointer text-gray-500 hover:border-brand transition">
+                                <i class="pi pi-upload text-xs shrink-0"></i>
+                                <span class="truncate text-sm">{{ form.imagen ? form.imagen.name : (imagenExistente ? 'Reemplazar imagen...' : 'Seleccionar imagen...') }}</span>
+                                <input type="file" class="hidden" accept="image/*" @change="onFileChange" />
+                            </label>
+                            <button v-if="form.imagen" type="button" @click="quitarImagen" title="Quitar"
+                                class="shrink-0 rounded-lg border border-gray-200 text-red-500 hover:bg-red-50 flex items-center justify-center"
+                                style="width:36px;height:36px">
+                                <i class="pi pi-trash text-xs"></i>
+                            </button>
+                        </div>
+                        <p v-if="form.errors.imagen" class="text-red-600 text-xs mt-1">{{ form.errors.imagen }}</p>
+
+                        <!-- Vista previa del archivo nuevo -->
+                        <div v-if="preview" class="mt-3">
+                            <div class="w-full rounded-xl overflow-hidden border border-gray-200 bg-gray-50" style="height:160px">
+                                <img :src="preview" class="w-full h-full object-cover" />
+                            </div>
                         </div>
                     </div>
 
