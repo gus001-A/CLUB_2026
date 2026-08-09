@@ -28,16 +28,46 @@ const props = defineProps({
 });
 
 /* ---------------------------------------------------------------
- * Formulario
+ * Estado reactivo local (se actualiza sin recargar)
  * --------------------------------------------------------------- */
-const form = reactive({
+const userData = reactive({
     nombre: props.user.nombre || '',
     apodo: props.user.apodo || '',
     email: props.user.email || '',
     telefono: props.user.telefono || '',
     ciudad: props.user.ciudad || '',
     fecha_nacimiento: props.user.fecha_nacimiento || '',
+    foto_principal: props.user.foto_principal || null,
+    estado: props.user.estado || 'incompleto',
+    avatar: props.user.avatar || '/images/shared/avatar-default.jpg',
+    created_at: props.user.created_at || null,
+    rol: props.user.rol || 'usuario',
 });
+
+/* ---------------------------------------------------------------
+ * Formulario
+ * --------------------------------------------------------------- */
+const form = reactive({
+    nombre: userData.nombre || '',
+    apodo: userData.apodo || '',
+    email: userData.email || '',
+    telefono: userData.telefono || '',
+    ciudad: userData.ciudad || '',
+    fecha_nacimiento: userData.fecha_nacimiento || '',
+});
+
+// Formulario de cambio de contraseña
+const passwordForm = reactive({
+    current_password: '',
+    password: '',
+    password_confirmation: '',
+});
+
+// Estados para mostrar/ocultar contraseñas
+const showCurrentPassword = ref(false);
+const showNewPassword = ref(false);
+const showConfirmPassword = ref(false);
+const passwordFocused = ref(false);
 
 function formatearFechaParaInput(fecha) {
     if (!fecha) return '';
@@ -62,15 +92,25 @@ const fechaNacimientoFormateada = computed({
 });
 
 const isSaving = ref(false);
+const isChangingPassword = ref(false);
 const isEditing = ref(false);
 const fieldErrors = ref({});
+const passwordErrors = ref({});
 
 /* ---------------------------------------------------------------
- * Computed - Información del usuario
+ * Computed - Información del usuario (usando userData reactivo)
  * --------------------------------------------------------------- */
-const avatarUrl = computed(() => 
-    props.user.foto_principal || props.user.avatar || '/images/shared/avatar-default.jpg'
-);
+const avatarUrl = computed(() => {
+    if (userData.foto_principal) {
+        if (userData.foto_principal.startsWith('http://') || 
+            userData.foto_principal.startsWith('https://') ||
+            userData.foto_principal.startsWith('/storage/')) {
+            return userData.foto_principal;
+        }
+        return '/storage/' + userData.foto_principal.replace(/^\/+/, '');
+    }
+    return userData.avatar || '/images/shared/avatar-default.jpg';
+});
 
 const edad = computed(() => {
     if (!form.fecha_nacimiento) return null;
@@ -99,9 +139,9 @@ const fechaNacimientoFormateadaMostrar = computed(() => {
 });
 
 const fechaRegistro = computed(() => {
-    if (!props.user.created_at) return 'Fecha no disponible';
+    if (!userData.created_at) return 'Fecha no disponible';
     try {
-        return new Date(props.user.created_at).toLocaleDateString('es-ES', {
+        return new Date(userData.created_at).toLocaleDateString('es-ES', {
             day: '2-digit',
             month: 'long',
             year: 'numeric'
@@ -112,7 +152,7 @@ const fechaRegistro = computed(() => {
 });
 
 /* ---------------------------------------------------------------
- * Computed - Estados y roles
+ * Computed - Estados y roles (usando userData reactivo)
  * --------------------------------------------------------------- */
 const estadoActual = computed(() => {
     const estados = {
@@ -148,10 +188,10 @@ const estadoActual = computed(() => {
         },
     };
     
-    let key = props.user.estado || 'pendiente';
-    if (props.user.estado === 'verificado') key = 'verificado';
-    else if (props.user.estado === 'incompleto' && form.nombre && form.apodo && form.email) key = 'pendiente';
-    else if (props.user.estado === 'completo') key = 'completo';
+    let key = userData.estado || 'pendiente';
+    if (userData.estado === 'verificado') key = 'verificado';
+    else if (userData.estado === 'incompleto' && form.nombre && form.apodo && form.email) key = 'pendiente';
+    else if (userData.estado === 'completo') key = 'completo';
     
     return estados[key] || estados['pendiente'];
 });
@@ -163,72 +203,89 @@ const rolActual = computed(() => {
         'usuario': { label: 'Usuario', icon: 'pi pi-user', color: '#4B4744' },
         'invitado': { label: 'Invitado', icon: 'pi pi-user', color: '#8A8481' },
     };
-    return roles[props.user.rol] || roles['usuario'];
+    return roles[userData.rol] || roles['usuario'];
 });
 
-const estaVerificado = computed(() => props.user.estado === 'verificado');
+const estaVerificado = computed(() => userData.estado === 'verificado');
 
 /* ---------------------------------------------------------------
- * Computed - Consejos para el perfil
+ * VALIDACIONES MEJORADAS
  * --------------------------------------------------------------- */
-const consejos = computed(() => ({
-    nombre: form.nombre && form.nombre.length >= 2,
-    apodo: form.apodo && form.apodo.length >= 3,
-    email: form.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email),
-    foto: props.user.foto_principal && props.user.foto_principal.length > 0,
-    ciudad: form.ciudad && form.ciudad.length > 0,
-    edad: form.fecha_nacimiento && edad.value !== null && edad.value >= 18,
-}));
 
-const consejosTotales = computed(() => Object.keys(consejos.value).length);
-const consejosCompletados = computed(() => {
-    return Object.values(consejos.value).filter(Boolean).length;
-});
+// Validación de email
+function isValidEmail(email) {
+    // Regex más estricto para email
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email);
+}
 
-const progresoConsejos = computed(() => {
-    if (consejosTotales.value === 0) return 0;
-    return Math.round((consejosCompletados.value / consejosTotales.value) * 100);
-});
+// Validación de teléfono (10 dígitos, solo números)
+function isValidPhone(telefono) {
+    if (!telefono) return true; // Opcional
+    // Solo números, exactamente 10 dígitos
+    const phoneRegex = /^[0-9]{10}$/;
+    return phoneRegex.test(telefono.replace(/\s/g, ''));
+}
 
-/* ---------------------------------------------------------------
- * Validaciones
- * --------------------------------------------------------------- */
+// Validación de nombre (solo letras y espacios)
+function isValidName(nombre) {
+    const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+    return nameRegex.test(nombre);
+}
+
+// Validación de apodo (letras, números y guión bajo)
+function isValidApodo(apodo) {
+    const apodoRegex = /^[a-zA-Z0-9_]+$/;
+    return apodoRegex.test(apodo);
+}
+
 function validateForm() {
     const errors = {};
     let isValid = true;
 
+    // Validar nombre
     if (!form.nombre || form.nombre.trim().length < 2) {
         errors.nombre = 'El nombre debe tener al menos 2 caracteres.';
         isValid = false;
     } else if (form.nombre.length > 100) {
         errors.nombre = 'El nombre no puede tener más de 100 caracteres.';
         isValid = false;
+    } else if (!isValidName(form.nombre)) {
+        errors.nombre = 'El nombre solo puede contener letras y espacios.';
+        isValid = false;
     }
 
+    // Validar apodo
     if (!form.apodo || form.apodo.trim().length < 3) {
         errors.apodo = 'El apodo debe tener al menos 3 caracteres.';
         isValid = false;
     } else if (form.apodo.length > 20) {
         errors.apodo = 'El apodo no puede tener más de 20 caracteres.';
         isValid = false;
-    } else if (!/^[a-zA-Z0-9_]+$/.test(form.apodo)) {
+    } else if (!isValidApodo(form.apodo)) {
         errors.apodo = 'El apodo solo puede contener letras, números y guión bajo.';
         isValid = false;
     }
 
+    // Validar email
     if (!form.email) {
         errors.email = 'El email es obligatorio.';
         isValid = false;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-        errors.email = 'Ingresa un email válido.';
+    } else if (!isValidEmail(form.email)) {
+        errors.email = 'Ingresa un email válido (ejemplo: usuario@dominio.com).';
         isValid = false;
     }
 
-    if (form.telefono && !/^[0-9+\-\s()]{6,15}$/.test(form.telefono)) {
-        errors.telefono = 'Ingresa un número de teléfono válido.';
-        isValid = false;
+    // Validar teléfono
+    if (form.telefono) {
+        const telefonoLimpio = form.telefono.replace(/\s/g, '');
+        if (!isValidPhone(telefonoLimpio)) {
+            errors.telefono = 'El teléfono debe tener exactamente 10 dígitos numéricos.';
+            isValid = false;
+        }
     }
 
+    // Validar fecha de nacimiento
     if (form.fecha_nacimiento) {
         const fecha = new Date(form.fecha_nacimiento);
         if (!isNaN(fecha.getTime())) {
@@ -240,6 +297,9 @@ function validateForm() {
                 errors.fecha_nacimiento = 'Debes ser mayor de 18 años.';
                 isValid = false;
             }
+        } else {
+            errors.fecha_nacimiento = 'Ingresa una fecha de nacimiento válida.';
+            isValid = false;
         }
     }
 
@@ -247,8 +307,80 @@ function validateForm() {
     return isValid;
 }
 
+function validatePassword() {
+    const errors = {};
+    let isValid = true;
+
+    if (!passwordForm.current_password) {
+        errors.current_password = 'La contraseña actual es obligatoria.';
+        isValid = false;
+    }
+
+    if (!passwordForm.password) {
+        errors.password = 'La nueva contraseña es obligatoria.';
+        isValid = false;
+    } else if (passwordForm.password.length < 8) {
+        errors.password = 'La contraseña debe tener al menos 8 caracteres.';
+        isValid = false;
+    }
+
+    if (!passwordForm.password_confirmation) {
+        errors.password_confirmation = 'Debes confirmar la nueva contraseña.';
+        isValid = false;
+    } else if (passwordForm.password !== passwordForm.password_confirmation) {
+        errors.password_confirmation = 'Las contraseñas no coinciden.';
+        isValid = false;
+    }
+
+    passwordErrors.value = errors;
+    return isValid;
+}
+
 /* ---------------------------------------------------------------
- * Acciones
+ * Requisitos de contraseña en tiempo real
+ * --------------------------------------------------------------- */
+const passwordRequirements = computed(() => {
+    const pwd = passwordForm.password || '';
+    return [
+        { 
+            label: 'Mínimo 8 caracteres', 
+            met: pwd.length >= 8,
+            icon: pwd.length >= 8 ? 'pi pi-check-circle' : 'pi pi-circle'
+        },
+        { 
+            label: 'Al menos una mayúscula', 
+            met: /[A-Z]/.test(pwd),
+            icon: /[A-Z]/.test(pwd) ? 'pi pi-check-circle' : 'pi pi-circle'
+        },
+        { 
+            label: 'Al menos una minúscula', 
+            met: /[a-z]/.test(pwd),
+            icon: /[a-z]/.test(pwd) ? 'pi pi-check-circle' : 'pi pi-circle'
+        },
+        { 
+            label: 'Al menos un número', 
+            met: /[0-9]/.test(pwd),
+            icon: /[0-9]/.test(pwd) ? 'pi pi-check-circle' : 'pi pi-circle'
+        },
+        { 
+            label: 'Al menos un carácter especial', 
+            met: /[^A-Za-z0-9]/.test(pwd),
+            icon: /[^A-Za-z0-9]/.test(pwd) ? 'pi pi-check-circle' : 'pi pi-circle'
+        },
+    ];
+});
+
+const passwordStrength = computed(() => {
+    const met = passwordRequirements.value.filter(r => r.met).length;
+    if (met === 0) return { label: 'Muy débil', color: '#E53E3E', width: '0%' };
+    if (met <= 2) return { label: 'Débil', color: '#ED6C02', width: '40%' };
+    if (met <= 3) return { label: 'Regular', color: '#ED6C02', width: '60%' };
+    if (met <= 4) return { label: 'Fuerte', color: '#1fbf5c', width: '80%' };
+    return { label: 'Muy fuerte', color: '#1fbf5c', width: '100%' };
+});
+
+/* ---------------------------------------------------------------
+ * Acciones - SIN RECARGAR LA PÁGINA
  * --------------------------------------------------------------- */
 function guardarCambios() {
     if (!validateForm()) {
@@ -268,28 +400,53 @@ function guardarCambios() {
     router.put(route('usuario.actualizar'), form, {
         preserveScroll: true,
         preserveState: true,
-        onSuccess: () => {
+        onSuccess: (page) => {
             isSaving.value = false;
             isEditing.value = false;
             fieldErrors.value = {};
 
-            Object.assign(props.user, {
-                nombre: form.nombre,
-                apodo: form.apodo,
-                email: form.email,
-                telefono: form.telefono,
-                ciudad: form.ciudad,
-                fecha_nacimiento: form.fecha_nacimiento,
-            });
+            // ✅ ACTUALIZAR DATOS LOCALMENTE SIN RECARGAR
+            if (page.props?.user) {
+                const u = page.props.user;
+                userData.nombre = u.nombre || '';
+                userData.apodo = u.apodo || '';
+                userData.email = u.email || '';
+                userData.telefono = u.telefono || '';
+                userData.ciudad = u.ciudad || '';
+                userData.fecha_nacimiento = u.fecha_nacimiento || '';
+                userData.foto_principal = u.foto_principal || null;
+                userData.estado = u.estado || 'incompleto';
+                userData.avatar = u.avatar || '/images/shared/avatar-default.jpg';
+                userData.rol = u.rol || 'usuario';
+                
+                // Actualizar también el form
+                form.nombre = userData.nombre;
+                form.apodo = userData.apodo;
+                form.email = userData.email;
+                form.telefono = userData.telefono;
+                form.ciudad = userData.ciudad;
+                form.fecha_nacimiento = userData.fecha_nacimiento;
+            }
 
             if (window.showToast) {
-                window.showToast({
-                    type: 'success',
-                    title: 'Datos actualizados',
-                    message: 'Tu información personal se ha guardado correctamente.',
-                    duration: 3000,
-                });
+                if (page.props.flash?.toast) {
+                    window.showToast({
+                        type: page.props.flash.toast.type || 'success',
+                        title: page.props.flash.toast.title || 'Datos actualizados',
+                        message: page.props.flash.toast.message || 'Tu información personal se ha guardado correctamente.',
+                        duration: page.props.flash.toast.duration || 3000,
+                    });
+                } else {
+                    window.showToast({
+                        type: 'success',
+                        title: 'Datos actualizados',
+                        message: 'Tu información personal se ha guardado correctamente.',
+                        duration: 3000,
+                    });
+                }
             }
+            
+            console.log('✅ Datos actualizados sin recargar la página');
         },
         onError: (errors) => {
             isSaving.value = false;
@@ -309,17 +466,88 @@ function guardarCambios() {
     });
 }
 
+function cambiarPassword() {
+    if (!validatePassword()) {
+        if (window.showToast) {
+            window.showToast({
+                type: 'error',
+                title: 'Errores en el formulario',
+                message: 'Revisa los campos marcados en rojo.',
+                duration: 5000,
+            });
+        }
+        return;
+    }
+
+    isChangingPassword.value = true;
+
+    router.put(route('usuario.cambiar-password'), passwordForm, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: (page) => {
+            isChangingPassword.value = false;
+            passwordErrors.value = {};
+            passwordForm.current_password = '';
+            passwordForm.password = '';
+            passwordForm.password_confirmation = '';
+
+            if (window.showToast) {
+                if (page.props.flash?.toast) {
+                    window.showToast({
+                        type: page.props.flash.toast.type || 'success',
+                        title: page.props.flash.toast.title || 'Contraseña actualizada',
+                        message: page.props.flash.toast.message || 'Tu contraseña se ha cambiado correctamente.',
+                        duration: page.props.flash.toast.duration || 3000,
+                    });
+                } else {
+                    window.showToast({
+                        type: 'success',
+                        title: 'Contraseña actualizada',
+                        message: 'Tu contraseña se ha cambiado correctamente.',
+                        duration: 3000,
+                    });
+                }
+            }
+            
+            console.log('✅ Contraseña actualizada sin recargar la página');
+        },
+        onError: (errors) => {
+            isChangingPassword.value = false;
+            if (errors && typeof errors === 'object') {
+                passwordErrors.value = errors;
+            }
+            if (window.showToast) {
+                const firstError = Object.values(errors)[0];
+                window.showToast({
+                    type: 'error',
+                    title: 'Error al cambiar contraseña',
+                    message: Array.isArray(firstError) ? firstError[0] : firstError || 'Ocurrió un error inesperado.',
+                    duration: 5000,
+                });
+            }
+        }
+    });
+}
+
 function cancelarEdicion() {
     isEditing.value = false;
     fieldErrors.value = {};
+    // Restaurar desde userData (que tiene los últimos datos guardados)
     Object.assign(form, {
-        nombre: props.user.nombre || '',
-        apodo: props.user.apodo || '',
-        email: props.user.email || '',
-        telefono: props.user.telefono || '',
-        ciudad: props.user.ciudad || '',
-        fecha_nacimiento: props.user.fecha_nacimiento || '',
+        nombre: userData.nombre || '',
+        apodo: userData.apodo || '',
+        email: userData.email || '',
+        telefono: userData.telefono || '',
+        ciudad: userData.ciudad || '',
+        fecha_nacimiento: userData.fecha_nacimiento || '',
     });
+}
+
+function cancelarPassword() {
+    passwordForm.current_password = '';
+    passwordForm.password = '';
+    passwordForm.password_confirmation = '';
+    passwordErrors.value = {};
 }
 
 let apodoTimeout = null;
@@ -343,6 +571,25 @@ function verificarApodo() {
         .catch(() => {});
     }, 500);
 }
+
+// Función para toggle de mostrar contraseña
+function togglePassword(field) {
+    if (field === 'current') showCurrentPassword.value = !showCurrentPassword.value;
+    else if (field === 'new') showNewPassword.value = !showNewPassword.value;
+    else if (field === 'confirm') showConfirmPassword.value = !showConfirmPassword.value;
+}
+
+// Función para formatear teléfono mientras se escribe
+function formatPhoneNumber(event) {
+    const input = event.target;
+    // Eliminar todo lo que no sea número
+    let value = input.value.replace(/\D/g, '');
+    // Limitar a 10 dígitos
+    if (value.length > 10) {
+        value = value.slice(0, 10);
+    }
+    form.telefono = value;
+}
 </script>
 
 <template>
@@ -351,7 +598,7 @@ function verificarApodo() {
 
         <div class="profile-edit">
             <!-- ============================================================ -->
-            <!-- HEADER -->
+            <!-- HEADER - CON ESTADO DE CUENTA -->
             <!-- ============================================================ -->
             <div class="profile-edit__header">
                 <div class="profile-edit__avatar">
@@ -393,6 +640,10 @@ function verificarApodo() {
                         </span>
                         <span>
                             <i class="pi pi-calendar-plus"></i> Desde {{ fechaRegistro }}
+                        </span>
+                        <span :class="'status-badge status-badge--' + estadoActual.class">
+                            <i :class="estadoActual.icon"></i>
+                            {{ estadoActual.label }}
                         </span>
                     </div>
                 </div>
@@ -438,20 +689,21 @@ function verificarApodo() {
                         <div class="card__body">
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label>Nombre completo</label>
+                                    <label>Nombre completo *</label>
                                     <span v-if="!isEditing" class="form-value">{{ form.nombre || 'No especificado' }}</span>
                                     <input 
                                         v-else 
                                         v-model="form.nombre" 
                                         class="form-input"
                                         :class="{ 'is-invalid': fieldErrors.nombre }"
-                                        placeholder="Tu nombre"
+                                        placeholder="Tu nombre (solo letras)"
                                     />
                                     <span v-if="fieldErrors.nombre" class="form-error">{{ fieldErrors.nombre }}</span>
+                                    <small class="form-help">Solo letras y espacios</small>
                                 </div>
 
                                 <div class="form-group">
-                                    <label>Apodo</label>
+                                    <label>Apodo *</label>
                                     <span v-if="!isEditing" class="form-value">@{{ form.apodo || 'No especificado' }}</span>
                                     <input 
                                         v-else 
@@ -466,7 +718,7 @@ function verificarApodo() {
                                 </div>
 
                                 <div class="form-group">
-                                    <label>Correo electrónico</label>
+                                    <label>Correo electrónico *</label>
                                     <span v-if="!isEditing" class="form-value">{{ form.email || 'No especificado' }}</span>
                                     <input 
                                         v-else 
@@ -474,8 +726,10 @@ function verificarApodo() {
                                         class="form-input"
                                         :class="{ 'is-invalid': fieldErrors.email }"
                                         placeholder="tu@email.com"
+                                        type="email"
                                     />
                                     <span v-if="fieldErrors.email" class="form-error">{{ fieldErrors.email }}</span>
+                                    <small class="form-help">Formato: usuario@dominio.com</small>
                                 </div>
 
                                 <div class="form-group">
@@ -486,10 +740,12 @@ function verificarApodo() {
                                         v-model="form.telefono" 
                                         class="form-input"
                                         :class="{ 'is-invalid': fieldErrors.telefono }"
-                                        placeholder="+34 600 000 000"
+                                        placeholder="10 dígitos numéricos"
+                                        maxlength="10"
+                                        @input="formatPhoneNumber"
                                     />
                                     <span v-if="fieldErrors.telefono" class="form-error">{{ fieldErrors.telefono }}</span>
-                                    <small class="form-help">Opcional. Solo números, +, -, espacios y paréntesis</small>
+                                    <small class="form-help">Opcional. Exactamente 10 dígitos numéricos</small>
                                 </div>
 
                                 <div class="form-group">
@@ -504,7 +760,7 @@ function verificarApodo() {
                                 </div>
 
                                 <div class="form-group">
-                                    <label>Fecha de nacimiento</label>
+                                    <label>Fecha de nacimiento *</label>
                                     <span v-if="!isEditing" class="form-value">
                                         {{ fechaNacimientoFormateadaMostrar }}
                                         <span v-if="edad !== null" class="edad-tag">{{ edad }} años</span>
@@ -525,124 +781,148 @@ function verificarApodo() {
                 </div>
 
                 <!-- ========================================================== -->
-                <!-- COLUMNA DERECHA - Estado y Consejos -->
+                <!-- COLUMNA DERECHA - Cambiar contraseña -->
                 <!-- ========================================================== -->
                 <div class="profile-edit__column">
-                    <!-- Estado de la cuenta -->
-                    <div class="card card--status">
+                    <div class="card card--password">
                         <div class="card__header">
                             <div class="card__header-left">
-                                <i class="pi pi-shield card__header-icon"></i>
-                                <h3>Estado de la cuenta</h3>
+                                <i class="pi pi-lock card__header-icon"></i>
+                                <h3>Cambiar contraseña</h3>
                             </div>
-                        </div>
-                        <div class="card__body">
-                            <div class="status-grid-3">
-                                <div class="status-item status-item--highlight" :class="estadoActual.class">
-                                    <span class="status-item__label">Estado</span>
-                                    <span class="status-item__value">
-                                        <i :class="estadoActual.icon"></i>
-                                        {{ estadoActual.label }}
-                                    </span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="status-item__label">Rol</span>
-                                    <span class="status-item__value" :style="{ color: rolActual.color }">
-                                        <i :class="rolActual.icon"></i>
-                                        {{ rolActual.label }}
-                                    </span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="status-item__label">Verificación</span>
-                                    <span class="status-item__value">
-                                        <i :class="estaVerificado ? 'pi pi-check-circle' : 'pi pi-clock'"></i>
-                                        {{ estaVerificado ? 'Verificado' : 'Pendiente' }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Consejos para el perfil - 2 líneas -->
-                    <div class="card card--tips">
-                        <div class="card__header">
-                            <div class="card__header-left">
-                                <i class="pi pi-lightbulb card__header-icon"></i>
-                                <h3>Mejora tu perfil</h3>
-                            </div>
-                            <span class="tips-counter">
-                                <i class="pi pi-check-circle"></i> {{ consejosCompletados }}/{{ consejosTotales }}
+                            <span class="card__badge card__badge--password">
+                                <i class="pi pi-shield"></i> Seguridad
                             </span>
                         </div>
                         <div class="card__body">
-                            <!-- Grid de 3 columnas - 2 líneas -->
-                            <div class="tips-grid-3">
-                                <div class="tip-item" :class="{ 'tip-item--completed': consejos.nombre }">
-                                    <div class="tip-item__icon">
-                                        <i :class="consejos.nombre ? 'pi pi-check-circle' : 'pi pi-user'"></i>
+                            <div class="password-form">
+                                <!-- Contraseña actual -->
+                                <div class="form-group">
+                                    <label>Contraseña actual *</label>
+                                    <div class="password-input-wrapper">
+                                        <input 
+                                            :type="showCurrentPassword ? 'text' : 'password'" 
+                                            v-model="passwordForm.current_password" 
+                                            class="form-input"
+                                            :class="{ 'is-invalid': passwordErrors.current_password }"
+                                            placeholder="Ingresa tu contraseña actual"
+                                        />
+                                        <button 
+                                            type="button" 
+                                            class="password-toggle"
+                                            @click="togglePassword('current')"
+                                            :title="showCurrentPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                                        >
+                                            <i :class="showCurrentPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
+                                        </button>
                                     </div>
-                                    <div class="tip-item__content">
-                                        <span class="tip-item__title">Nombre real</span>
-                                        <span class="tip-item__description">{{ consejos.nombre ? 'Completado' : 'Agrega tu nombre' }}</span>
+                                    <span v-if="passwordErrors.current_password" class="form-error">{{ passwordErrors.current_password }}</span>
+                                </div>
+
+                                <!-- Nueva contraseña -->
+                                <div class="form-group">
+                                    <label>Nueva contraseña *</label>
+                                    <div class="password-input-wrapper">
+                                        <input 
+                                            :type="showNewPassword ? 'text' : 'password'" 
+                                            v-model="passwordForm.password" 
+                                            class="form-input"
+                                            :class="{ 'is-invalid': passwordErrors.password }"
+                                            placeholder="Nueva contraseña (mínimo 8 caracteres)"
+                                            @focus="passwordFocused = true"
+                                            @blur="passwordFocused = false"
+                                        />
+                                        <button 
+                                            type="button" 
+                                            class="password-toggle"
+                                            @click="togglePassword('new')"
+                                            :title="showNewPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                                        >
+                                            <i :class="showNewPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
+                                        </button>
+                                    </div>
+                                    <span v-if="passwordErrors.password" class="form-error">{{ passwordErrors.password }}</span>
+                                    
+                                    <!-- Barra de fortaleza de contraseña -->
+                                    <div v-if="passwordForm.password" class="password-strength">
+                                        <div class="password-strength__bar">
+                                            <div 
+                                                class="password-strength__fill" 
+                                                :style="{ width: passwordStrength.width, background: passwordStrength.color }"
+                                            ></div>
+                                        </div>
+                                        <span class="password-strength__label" :style="{ color: passwordStrength.color }">
+                                            {{ passwordStrength.label }}
+                                        </span>
+                                    </div>
+
+                                    <!-- Requisitos de contraseña -->
+                                    <div v-if="passwordForm.password" class="password-requirements">
+                                        <div class="password-requirements__title">
+                                            <i class="pi pi-info-circle"></i>
+                                            Requisitos de la contraseña:
+                                        </div>
+                                        <ul class="password-requirements__list">
+                                            <li 
+                                                v-for="req in passwordRequirements" 
+                                                :key="req.label"
+                                                :class="{ 'requirement-met': req.met }"
+                                            >
+                                                <i :class="req.icon"></i>
+                                                {{ req.label }}
+                                            </li>
+                                        </ul>
                                     </div>
                                 </div>
 
-                                <div class="tip-item" :class="{ 'tip-item--completed': consejos.apodo }">
-                                    <div class="tip-item__icon">
-                                        <i :class="consejos.apodo ? 'pi pi-check-circle' : 'pi pi-hashtag'"></i>
+                                <!-- Confirmar nueva contraseña -->
+                                <div class="form-group">
+                                    <label>Confirmar nueva contraseña *</label>
+                                    <div class="password-input-wrapper">
+                                        <input 
+                                            :type="showConfirmPassword ? 'text' : 'password'" 
+                                            v-model="passwordForm.password_confirmation" 
+                                            class="form-input"
+                                            :class="{ 
+                                                'is-invalid': passwordErrors.password_confirmation,
+                                                'is-valid': passwordForm.password_confirmation && passwordForm.password === passwordForm.password_confirmation && passwordForm.password.length >= 8
+                                            }"
+                                            placeholder="Confirma tu nueva contraseña"
+                                        />
+                                        <button 
+                                            type="button" 
+                                            class="password-toggle"
+                                            @click="togglePassword('confirm')"
+                                            :title="showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                                        >
+                                            <i :class="showConfirmPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
+                                        </button>
                                     </div>
-                                    <div class="tip-item__content">
-                                        <span class="tip-item__title">Apodo único</span>
-                                        <span class="tip-item__description">{{ consejos.apodo ? 'Completado' : 'Elige un apodo' }}</span>
-                                    </div>
+                                    <span v-if="passwordErrors.password_confirmation" class="form-error">{{ passwordErrors.password_confirmation }}</span>
+                                    <span 
+                                        v-else-if="passwordForm.password_confirmation && passwordForm.password === passwordForm.password_confirmation && passwordForm.password.length >= 8" 
+                                        class="form-success"
+                                    >
+                                        <i class="pi pi-check-circle"></i> Las contraseñas coinciden
+                                    </span>
+                                    <span 
+                                        v-else-if="passwordForm.password_confirmation && passwordForm.password !== passwordForm.password_confirmation" 
+                                        class="form-error"
+                                    >
+                                        <i class="pi pi-times-circle"></i> Las contraseñas no coinciden
+                                    </span>
                                 </div>
 
-                                <div class="tip-item" :class="{ 'tip-item--completed': consejos.email }">
-                                    <div class="tip-item__icon">
-                                        <i :class="consejos.email ? 'pi pi-check-circle' : 'pi pi-envelope'"></i>
-                                    </div>
-                                    <div class="tip-item__content">
-                                        <span class="tip-item__title">Email verificado</span>
-                                        <span class="tip-item__description">{{ consejos.email ? 'Completado' : 'Verifica tu email' }}</span>
-                                    </div>
+                                <div class="password-actions">
+                                    <button 
+                                        class="btn btn--primary btn--full" 
+                                        @click="cambiarPassword" 
+                                        :disabled="isChangingPassword"
+                                    >
+                                        <i class="pi" :class="isChangingPassword ? 'pi-spin pi-spinner' : 'pi-save'"></i>
+                                        {{ isChangingPassword ? 'Cambiando...' : 'Cambiar contraseña' }}
+                                    </button>
                                 </div>
-
-                                <div class="tip-item" :class="{ 'tip-item--completed': consejos.foto }">
-                                    <div class="tip-item__icon">
-                                        <i :class="consejos.foto ? 'pi pi-check-circle' : 'pi pi-image'"></i>
-                                    </div>
-                                    <div class="tip-item__content">
-                                        <span class="tip-item__title">Foto de perfil</span>
-                                        <span class="tip-item__description">{{ consejos.foto ? 'Completado' : 'Sube una foto' }}</span>
-                                    </div>
-                                </div>
-
-                                <div class="tip-item" :class="{ 'tip-item--completed': consejos.ciudad }">
-                                    <div class="tip-item__icon">
-                                        <i :class="consejos.ciudad ? 'pi pi-check-circle' : 'pi pi-map-marker'"></i>
-                                    </div>
-                                    <div class="tip-item__content">
-                                        <span class="tip-item__title">Ubicación</span>
-                                        <span class="tip-item__description">{{ consejos.ciudad ? 'Completado' : 'Indica tu ciudad' }}</span>
-                                    </div>
-                                </div>
-
-                                <div class="tip-item" :class="{ 'tip-item--completed': consejos.edad }">
-                                    <div class="tip-item__icon">
-                                        <i :class="consejos.edad ? 'pi pi-check-circle' : 'pi pi-calendar'"></i>
-                                    </div>
-                                    <div class="tip-item__content">
-                                        <span class="tip-item__title">Edad verificada</span>
-                                        <span class="tip-item__description">{{ consejos.edad ? 'Completado' : 'Confirma tu edad' }}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="tips-progress">
-                                <div class="tips-progress__bar">
-                                    <div class="tips-progress__fill" :style="{ width: progresoConsejos + '%' }"></div>
-                                </div>
-                                <span class="tips-progress__label">{{ progresoConsejos }}% completado</span>
                             </div>
                         </div>
                     </div>
@@ -872,6 +1152,7 @@ function verificarApodo() {
   font-size: 0.8rem;
   color: var(--muted);
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .profile-edit__meta span {
@@ -883,6 +1164,22 @@ function verificarApodo() {
 .profile-edit__meta i {
   font-size: 0.75rem;
 }
+
+.status-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.15rem 0.7rem;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.status-badge--verified { background: var(--success-soft); color: var(--success); }
+.status-badge--pending { background: var(--warning-soft); color: var(--warning); }
+.status-badge--incomplete { background: var(--info-soft); color: var(--info); }
+.status-badge--completed { background: #E8F5E9; color: #2E7D32; }
+.status-badge--blocked { background: #FCE4EC; color: var(--error); }
 
 @media (max-width: 768px) {
   .profile-edit__meta {
@@ -958,6 +1255,11 @@ function verificarApodo() {
 .btn--secondary:hover:not(:disabled) {
   background: #FEE8EA;
   border-color: var(--error);
+}
+
+.btn--full {
+  width: 100%;
+  justify-content: center;
 }
 
 .btn:disabled {
@@ -1048,12 +1350,17 @@ function verificarApodo() {
   letter-spacing: 0.03em;
 }
 
-.card--status {
-  border-left: 3px solid var(--brand);
+.card__badge--password {
+  color: var(--warning);
+  background: var(--warning-soft);
 }
 
 .card--form {
   border-left: 3px solid var(--brand);
+}
+
+.card--password {
+  border-left: 3px solid var(--warning);
 }
 
 /* =========================================================================
@@ -1119,11 +1426,32 @@ function verificarApodo() {
   box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.08);
 }
 
+.form-input.is-valid {
+  border-color: var(--success);
+}
+
+.form-input.is-valid:focus {
+  box-shadow: 0 0 0 3px rgba(31, 191, 92, 0.08);
+}
+
 .form-error {
   font-size: 0.7rem;
   color: var(--error);
   font-weight: 500;
   margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.form-success {
+  font-size: 0.7rem;
+  color: var(--success);
+  font-weight: 500;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .form-help {
@@ -1144,195 +1472,61 @@ function verificarApodo() {
 }
 
 /* =========================================================================
-   STATUS - 3 items en una línea
+   PASSWORD
    ========================================================================= */
-.status-grid-3 {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0.6rem;
-}
-
-@media (max-width: 600px) {
-  .status-grid-3 {
-    grid-template-columns: 1fr;
-  }
-}
-
-.status-item {
+.password-form {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.6rem 0.8rem;
-  background: var(--surface);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-  transition: all 0.3s ease;
-}
-
-.status-item:hover {
-  background: var(--white);
-  box-shadow: var(--shadow);
-}
-
-.status-item--highlight {
-  border-left: 3px solid var(--brand);
-  background: var(--brand-soft);
-}
-
-.status-item--highlight.verified { border-color: var(--success); background: var(--success-soft); }
-.status-item--highlight.pending { border-color: var(--warning); background: var(--warning-soft); }
-.status-item--highlight.incomplete { border-color: var(--info); background: var(--info-soft); }
-.status-item--highlight.completed { border-color: #2E7D32; background: #E8F5E9; }
-.status-item--highlight.blocked { border-color: var(--error); background: #FCE4EC; }
-
-.status-item__label {
-  font-size: 0.6rem;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.status-item__value {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--ink);
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.status-item__value i {
-  font-size: 0.7rem;
-}
-
-/* =========================================================================
-   TIPS - 2 líneas (3 columnas)
-   ========================================================================= */
-.card--tips .card__header {
-  background: linear-gradient(135deg, #FFF8F6 0%, var(--brand-soft) 100%);
-  border-bottom: 2px solid var(--brand);
-}
-
-.tips-counter {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--brand);
-  background: var(--white);
-  padding: 0.15rem 0.8rem;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--brand-soft);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-/* Grid de 3 columnas para los consejos - 2 líneas */
-.tips-grid-3 {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0.6rem;
-}
-
-@media (max-width: 1024px) {
-  .tips-grid-3 {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 600px) {
-  .tips-grid-3 {
-    grid-template-columns: 1fr;
-  }
-}
-
-.tip-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.8rem;
-  background: var(--surface);
-  border-radius: var(--radius-sm);
-  border-left: 3px solid var(--line);
-  transition: all 0.3s ease;
-}
-
-.tip-item:hover {
-  background: var(--white);
-  box-shadow: var(--shadow);
-  transform: translateX(3px);
-}
-
-.tip-item--completed {
-  border-left-color: var(--success);
-  background: var(--success-soft);
-}
-
-.tip-item--completed:hover {
-  background: #E8F5E9;
-}
-
-.tip-item__icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  background: var(--white);
-  color: var(--muted-light);
-  flex-shrink: 0;
-  transition: all 0.3s ease;
-  border: 1px solid var(--line);
-}
-
-.tip-item--completed .tip-item__icon {
-  color: var(--success);
-  border-color: var(--success);
-}
-
-.tip-item:not(.tip-item--completed) .tip-item__icon {
-  color: var(--brand);
-  border-color: var(--brand-soft);
-}
-
-.tip-item__content {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-}
-
-.tip-item__title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.tip-item__description {
-  font-size: 0.65rem;
-  color: var(--muted);
-  line-height: 1.3;
-}
-
-.tip-item--completed .tip-item__description {
-  color: var(--success);
-}
-
-/* =========================================================================
-   PROGRESS BAR
-   ========================================================================= */
-.tips-progress {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
-  display: flex;
-  align-items: center;
   gap: 1rem;
 }
 
-.tips-progress__bar {
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-input-wrapper .form-input {
+  padding-right: 2.5rem;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--muted-light);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-toggle:hover {
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.password-actions {
+  margin-top: 0.5rem;
+}
+
+/* =========================================================================
+   PASSWORD STRENGTH
+   ========================================================================= */
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+.password-strength__bar {
   flex: 1;
   height: 4px;
   background: var(--line);
@@ -1340,18 +1534,76 @@ function verificarApodo() {
   overflow: hidden;
 }
 
-.tips-progress__fill {
+.password-strength__fill {
   height: 100%;
-  background: var(--brand-gradient);
   border-radius: 2px;
-  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s ease;
 }
 
-.tips-progress__label {
-  font-size: 0.7rem;
+.password-strength__label {
+  font-size: 0.65rem;
   font-weight: 600;
-  color: var(--brand);
   white-space: nowrap;
+}
+
+/* =========================================================================
+   PASSWORD REQUIREMENTS
+   ========================================================================= */
+.password-requirements {
+  margin-top: 0.3rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+}
+
+.password-requirements__title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 0.2rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.password-requirements__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.1rem 0.8rem;
+}
+
+@media (max-width: 600px) {
+  .password-requirements__list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.password-requirements__list li {
+  font-size: 0.6rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.3s ease;
+  padding: 0.1rem 0;
+}
+
+.password-requirements__list li i {
+  font-size: 0.5rem;
+  color: var(--muted-light);
+  transition: all 0.3s ease;
+}
+
+.password-requirements__list li.requirement-met {
+  color: var(--success);
+}
+
+.password-requirements__list li.requirement-met i {
+  color: var(--success);
 }
 
 /* =========================================================================
@@ -1363,9 +1615,6 @@ function verificarApodo() {
   }
   .profile-edit__column {
     gap: 1.2rem;
-  }
-  .tips-grid-3 {
-    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -1402,10 +1651,7 @@ function verificarApodo() {
   .form-grid {
     grid-template-columns: 1fr;
   }
-  .status-grid-3 {
-    grid-template-columns: 1fr;
-  }
-  .tips-grid-3 {
+  .password-requirements__list {
     grid-template-columns: 1fr;
   }
 }

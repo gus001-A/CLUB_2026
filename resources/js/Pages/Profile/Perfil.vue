@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref, onMounted } from 'vue';
+import { computed, reactive, ref, onMounted, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -93,7 +93,6 @@ const buscandoOptions = [
     { label: 'Algo serio', selected: false, icon: 'pi pi-heart' },
 ];
 
-// Cargar intereses guardados
 const intereses = reactive(interesesOptions.map(i => ({
     ...i,
     selected: form.intereses.includes(i.label)
@@ -116,11 +115,8 @@ const interesesCount = computed(() => intereses.filter(i => i.selected).length);
 const buscandoCount = computed(() => buscando.filter(i => i.selected).length);
 
 /* ---------------------------------------------------------------
- * Fotos
+ * Fotos - Función para obtener URL correcta
  * --------------------------------------------------------------- */
-const fotos = reactive([]);
-const fotosEliminar = ref([]);
-
 function getFotoUrl(foto) {
     if (!foto) return '/images/shared/avatar-default.jpg';
     
@@ -138,31 +134,67 @@ function getFotoUrl(foto) {
         return '/storage/' + foto.ruta_foto.replace(/^\/+/, '');
     }
     
+    if (typeof foto === 'string') {
+        if (foto.startsWith('http://') || foto.startsWith('https://')) {
+            return foto;
+        }
+        if (foto.startsWith('/storage/') || foto.startsWith('/images/')) {
+            return foto;
+        }
+        return '/storage/' + foto.replace(/^\/+/, '');
+    }
+    
     return '/images/shared/avatar-default.jpg';
 }
 
-// Cargar fotos existentes
+/* ---------------------------------------------------------------
+ * Fotos
+ * --------------------------------------------------------------- */
+const fotos = reactive([]);
+const fotosEliminar = ref([]);
+
 onMounted(() => {
     if (props.perfil?.fotos && props.perfil.fotos.length > 0) {
-        props.perfil.fotos.forEach(f => {
+        props.perfil.fotos.forEach((f) => {
+            const url = getFotoUrl(f);
             fotos.push({
-                id: f.id,
-                url: getFotoUrl(f),
-                principal: f.principal || false,
+                url: url,
+                file: null,
+                principal: f.principal || f.es_principal || false,
                 existente: true,
                 ruta_foto: f.ruta_foto || '',
-                file: null,
+                id: f.id || null,
                 marcadaEliminar: false
             });
         });
+    }
+    
+    if (fotos.length === 0 && props.user?.foto_principal) {
+        const url = getFotoUrl(props.user.foto_principal);
+        fotos.push({
+            url: url,
+            file: null,
+            principal: true,
+            existente: true,
+            ruta_foto: props.user.foto_principal,
+            id: null,
+            marcadaEliminar: false
+        });
+    }
+    
+    if (fotos.length > 0 && !fotos.some(f => f.principal)) {
+        fotos[0].principal = true;
     }
 });
 
 const maxFotos = 8;
 
+// Fotos que realmente cuentan (excluye las marcadas para eliminar)
+const fotosActivas = computed(() => fotos.filter(f => !f.marcadaEliminar));
+
 function onFileSelected(event) {
     const files = Array.from(event.target.files || []);
-    const disponibles = maxFotos - fotos.length;
+    const disponibles = maxFotos - fotosActivas.value.length;
     
     files.slice(0, disponibles).forEach((file) => {
         if (!file.type.startsWith('image/')) {
@@ -191,7 +223,7 @@ function onFileSelected(event) {
         
         const reader = new FileReader();
         reader.onload = (e) => {
-            fotos.push({ 
+            const nuevaFoto = { 
                 url: e.target.result, 
                 file: file,
                 principal: fotos.length === 0,
@@ -199,7 +231,11 @@ function onFileSelected(event) {
                 ruta_foto: '',
                 id: null,
                 marcadaEliminar: false
-            });
+            };
+            fotos.push(nuevaFoto);
+        };
+        reader.onerror = (e) => {
+            console.error('Error leyendo archivo:', e);
         };
         reader.readAsDataURL(file);
     });
@@ -208,16 +244,26 @@ function onFileSelected(event) {
 
 function eliminarFoto(index) {
     const foto = fotos[index];
-    
+
     if (foto.existente && foto.id) {
+        // Foto guardada en BD: se marca para eliminar (se borra al guardar)
+        // y se mantiene en el array para poder deshacer con "restaurar".
         foto.marcadaEliminar = true;
         fotosEliminar.value.push(foto.id);
+
+        if (foto.principal) {
+            foto.principal = false;
+            const siguiente = fotos.find(f => !f.marcadaEliminar);
+            if (siguiente) siguiente.principal = true;
+        }
+        return;
     }
-    
+
+    // Foto nueva sin guardar: se puede quitar directamente
     fotos.splice(index, 1);
-    
-    if (fotos.length > 0 && !fotos.some(f => f.principal)) {
-        fotos[0].principal = true;
+
+    if (fotosActivas.value.length > 0 && !fotosActivas.value.some(f => f.principal)) {
+        fotosActivas.value[0].principal = true;
     }
 }
 
@@ -229,25 +275,153 @@ function restaurarFoto(index) {
         if (idx > -1) {
             fotosEliminar.value.splice(idx, 1);
         }
+        if (!fotosActivas.value.some(f => f.principal)) {
+            foto.principal = true;
+        }
     }
 }
 
 function setPrincipal(index) {
-    fotos.forEach((f, i) => f.principal = i === index);
+    const foto = fotos[index];
+    if (foto.marcadaEliminar) return;
+    fotos.forEach((f) => f.principal = (f === foto));
+}
+
+/**
+ * Reemplaza el archivo de una foto YA EXISTENTE (guardada en BD).
+ * El backend, al detectar id + file juntos, borra la imagen anterior
+ * del storage y actualiza el registro con la nueva ruta.
+ */
+function onReplaceFileSelected(event, index) {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        if (window.showToast) {
+            window.showToast({
+                type: 'error',
+                title: 'Formato no válido',
+                message: 'Solo se permiten archivos de imagen.',
+                duration: 3000,
+            });
+        }
+        return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+        if (window.showToast) {
+            window.showToast({
+                type: 'error',
+                title: 'Archivo muy grande',
+                message: 'La imagen no debe superar los 5MB.',
+                duration: 3000,
+            });
+        }
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        // Se conserva "existente" + "id" para que el envío se marque
+        // como 'reemplazo' y no como foto nueva.
+        fotos[index].url = e.target.result;
+        fotos[index].file = file;
+    };
+    reader.onerror = (e) => {
+        console.error('Error leyendo archivo:', e);
+    };
+    reader.readAsDataURL(file);
+}
+
+function getFotoCountText() {
+    const count = fotos.length;
+    if (count === 0) return 'Sube tus mejores fotos';
+    if (count === 1) return '1 foto subida';
+    return `${count} fotos subidas`;
 }
 
 function getFotoPrincipal() {
-    const principal = fotos.find(f => f.principal);
+    const principal = fotosActivas.value.find(f => f.principal);
     if (principal) return principal.url;
-    if (fotos.length > 0) return fotos[0].url;
+    if (fotosActivas.value.length > 0) return fotosActivas.value[0].url;
     return props.user?.avatar || '/images/shared/avatar-default.jpg';
 }
 
 /* ---------------------------------------------------------------
- * Guardar cambios con validaciones y toasts
+ * ACTUALIZAR DATOS LOCALMENTE SIN RECARGAR
  * --------------------------------------------------------------- */
+function actualizarDatosLocales(respuesta) {
+    console.log('🔄 Actualizando datos locales sin recargar...');
+    
+    if (respuesta.props?.user) {
+        const u = respuesta.props.user;
+        form.nickname = u.nickname || u.nombre || '';
+        form.edad = u.edad || '';
+        form.ciudad = u.ciudad || '';
+    }
+    
+    if (respuesta.props?.perfil) {
+        const p = respuesta.props.perfil;
+        form.bio = p.descripcion || '';
+        form.tipoPerfil = p.tipo || 'personal';
+        form.visibilidadFotos = p.privacidad_fotos || 'todos';
+        form.intereses = p.intereses || [];
+        form.buscando = p.pasatiempos || [];
+        
+        if (p.metadatos?.pareja) {
+            form.pareja = p.metadatos.pareja;
+        }
+        if (p.metadatos?.ocupacion) {
+            form.ocupacion = p.metadatos.ocupacion;
+        }
+        if (p.metadatos?.edad) {
+            form.edad = p.metadatos.edad;
+        }
+        
+        // Actualizar fotos
+        if (p.fotos) {
+            fotos.splice(0, fotos.length);
+            p.fotos.forEach(f => {
+                fotos.push({
+                    url: getFotoUrl(f),
+                    file: null,
+                    principal: f.principal || false,
+                    existente: true,
+                    ruta_foto: f.ruta_foto || '',
+                    id: f.id || null,
+                    marcadaEliminar: false
+                });
+            });
+            fotosEliminar.value = [];
+        }
+        
+        // Actualizar intereses
+        if (p.intereses) {
+            intereses.forEach(i => {
+                i.selected = p.intereses.includes(i.label);
+            });
+        }
+        if (p.pasatiempos) {
+            buscando.forEach(i => {
+                i.selected = p.pasatiempos.includes(i.label);
+            });
+        }
+    }
+    
+    console.log('✅ Datos locales actualizados correctamente');
+}
+
+/* ---------------------------------------------------------------
+ * FUNCIONES DE GUARDADO
+ * --------------------------------------------------------------- */
+function prepararFormulario() {
+    form.intereses = intereses.filter(i => i.selected).map(i => i.label);
+    form.buscando = buscando.filter(i => i.selected).map(i => i.label);
+}
+
 function guardarCambios() {
-    // Validación: Verificar que el nickname no esté vacío
+    // Validaciones básicas
     if (!form.nickname || form.nickname.trim() === '') {
         if (window.showToast) {
             window.showToast({
@@ -260,7 +434,6 @@ function guardarCambios() {
         return;
     }
     
-    // Validación: Verificar que el nickname tenga entre 3 y 20 caracteres
     if (form.nickname.length < 3 || form.nickname.length > 20) {
         if (window.showToast) {
             window.showToast({
@@ -273,7 +446,6 @@ function guardarCambios() {
         return;
     }
     
-    // Validación: Verificar que la edad sea válida
     if (form.edad && (form.edad < 18 || form.edad > 120)) {
         if (window.showToast) {
             window.showToast({
@@ -286,8 +458,7 @@ function guardarCambios() {
         return;
     }
     
-    // Validación: Verificar que tenga al menos una foto
-    if (fotos.length === 0) {
+    if (fotosActivas.value.length === 0) {
         if (window.showToast) {
             window.showToast({
                 type: 'error',
@@ -300,9 +471,11 @@ function guardarCambios() {
     }
     
     isSaving.value = true;
+    prepararFormulario();
     
     const formData = new FormData();
     
+    // Campos básicos
     formData.append('nickname', form.nickname || '');
     formData.append('edad', String(form.edad || ''));
     formData.append('ciudad', form.ciudad || '');
@@ -311,17 +484,20 @@ function guardarCambios() {
     formData.append('tipoPerfil', form.tipoPerfil || 'personal');
     formData.append('visibilidadFotos', form.visibilidadFotos || 'todos');
     
-    const interesesSeleccionados = intereses.filter(i => i.selected).map(i => i.label);
-    const buscandoSeleccionados = buscando.filter(i => i.selected).map(i => i.label);
+    // Intereses
+    if (form.intereses && form.intereses.length > 0) {
+        form.intereses.forEach((interes, index) => {
+            formData.append(`intereses[${index}]`, interes);
+        });
+    }
     
-    interesesSeleccionados.forEach((interes, index) => {
-        formData.append(`intereses[${index}]`, interes);
-    });
+    if (form.buscando && form.buscando.length > 0) {
+        form.buscando.forEach((buscandoItem, index) => {
+            formData.append(`buscando[${index}]`, buscandoItem);
+        });
+    }
     
-    buscandoSeleccionados.forEach((item, index) => {
-        formData.append(`buscando[${index}]`, item);
-    });
-    
+    // Datos de pareja
     if (form.tipoPerfil === 'pareja') {
         formData.append('pareja[nombre1]', form.pareja.nombre1 || '');
         formData.append('pareja[edad1]', String(form.pareja.edad1 || ''));
@@ -330,16 +506,38 @@ function guardarCambios() {
         formData.append('pareja[visibleParaAmbos]', form.pareja.visibleParaAmbos ? '1' : '0');
     }
     
+    // FOTOS: campos planos foto_{index}_* que el controlador entiende
+    formData.append('total_fotos', String(fotos.length));
+
     fotos.forEach((foto, index) => {
-        if (foto.file) {
-            formData.append(`fotos[${index}][file]`, foto.file);
-            formData.append(`fotos[${index}][principal]`, foto.principal ? '1' : '0');
-        } else if (foto.existente && foto.id && !foto.marcadaEliminar) {
-            formData.append(`fotos[${index}][id]`, String(foto.id));
-            formData.append(`fotos[${index}][principal]`, foto.principal ? '1' : '0');
+        // Las marcadas para eliminar no se reenvían aquí: van en fotos_eliminar[]
+        if (foto.marcadaEliminar) return;
+
+        if (foto.file && foto.file instanceof File && foto.existente && foto.id) {
+            // Foto EXISTENTE a la que se le cambió el archivo (reemplazo)
+            formData.append(`foto_${index}_file`, foto.file);
+            formData.append(`foto_${index}_id`, String(foto.id));
+            formData.append(`foto_${index}_principal`, foto.principal ? '1' : '0');
+            formData.append(`foto_${index}_tipo`, 'reemplazo');
+        } else if (foto.file && foto.file instanceof File) {
+            // Foto NUEVA con archivo
+            formData.append(`foto_${index}_file`, foto.file);
+            formData.append(`foto_${index}_principal`, foto.principal ? '1' : '0');
+            formData.append(`foto_${index}_tipo`, 'nueva');
+        } else if (foto.existente && foto.id) {
+            // Foto EXISTENTE con ID (sin cambio de archivo)
+            formData.append(`foto_${index}_id`, String(foto.id));
+            formData.append(`foto_${index}_principal`, foto.principal ? '1' : '0');
+            formData.append(`foto_${index}_tipo`, 'existente_id');
+        } else if (foto.existente && foto.ruta_foto) {
+            // Foto EXISTENTE con ruta (fallback)
+            formData.append(`foto_${index}_ruta`, foto.ruta_foto);
+            formData.append(`foto_${index}_principal`, foto.principal ? '1' : '0');
+            formData.append(`foto_${index}_tipo`, 'existente_ruta');
         }
     });
     
+    // Fotos a eliminar
     fotosEliminar.value.forEach((id, index) => {
         formData.append(`fotos_eliminar[${index}]`, String(id));
     });
@@ -348,32 +546,46 @@ function guardarCambios() {
         preserveScroll: true,
         preserveState: true,
         headers: {
-            'Content-Type': 'multipart/form-data',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        onStart: () => {
+            console.log('📤 Envío iniciado...');
+        },
+        onProgress: (progress) => {
+            console.log('📊 Progreso:', progress);
         },
         onSuccess: (page) => {
+            console.log('✅ Envío exitoso!');
             isSaving.value = false;
             isEditing.value = false;
             
-            // Verificar si el controlador envió un toast
-            if (page.props.flash?.toast) {
-                // El toast ya será mostrado por ToastNotification
-                console.log('Toast recibido del controlador:', page.props.flash.toast);
-            } else if (window.showToast) {
-                // Fallback: mostrar toast directamente
-                window.showToast({
-                    type: 'success',
-                    title: 'Perfil actualizado',
-                    message: 'Tu perfil ha sido guardado correctamente.',
-                    duration: 3000,
-                });
+            // ✅ Actualizar datos localmente sin recargar
+            if (page.props) {
+                actualizarDatosLocales(page);
             }
             
-            // Recargar la página para ver los cambios
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
+            if (window.showToast) {
+                if (page.props.flash?.toast) {
+                    window.showToast({
+                        type: page.props.flash.toast.type || 'success',
+                        title: page.props.flash.toast.title || 'Perfil actualizado',
+                        message: page.props.flash.toast.message || 'Tu perfil ha sido guardado correctamente.',
+                        duration: page.props.flash.toast.duration || 5000,
+                    });
+                } else {
+                    window.showToast({
+                        type: 'success',
+                        title: 'Perfil actualizado',
+                        message: 'Tu perfil ha sido guardado correctamente.',
+                        duration: 3000,
+                    });
+                }
+            }
+            
+            console.log('✅ Actualización completada sin recargar la página');
         },
         onError: (errors) => {
+            console.error('❌ Errores:', errors);
             isSaving.value = false;
             
             if (window.showToast) {
@@ -383,7 +595,6 @@ function guardarCambios() {
                     errorMsg = Array.isArray(firstError) ? firstError[0] : firstError;
                 }
                 
-                // Determinar el título del error según el campo
                 let errorTitle = 'Error';
                 const errorField = Object.keys(errors)[0];
                 const fieldTitles = {
@@ -406,8 +617,9 @@ function guardarCambios() {
                     duration: 5000,
                 });
             }
-            
-            console.error('Errores:', errors);
+        },
+        onFinish: () => {
+            console.log('📤 Envío finalizado');
         }
     });
 }
@@ -415,8 +627,55 @@ function guardarCambios() {
 function toggleEdicion() {
     isEditing.value = !isEditing.value;
     if (!isEditing.value) {
-        window.location.reload();
+        restaurarDatosOriginales();
     }
+}
+
+function restaurarDatosOriginales() {
+    form.nickname = props.user.nickname || '';
+    form.edad = props.user.edad || '';
+    form.ciudad = props.user.ciudad || '';
+    form.bio = props.perfil?.descripcion || '';
+    form.tipoPerfil = props.perfil?.tipo || 'personal';
+    form.visibilidadFotos = props.perfil?.privacidad_fotos || 'todos';
+    form.intereses = props.perfil?.intereses || [];
+    form.buscando = props.perfil?.pasatiempos || [];
+    
+    if (props.perfil?.metadatos?.pareja) {
+        form.pareja = props.perfil.metadatos.pareja;
+    }
+    if (props.perfil?.metadatos?.ocupacion) {
+        form.ocupacion = props.perfil.metadatos.ocupacion;
+    }
+    if (props.perfil?.metadatos?.edad) {
+        form.edad = props.perfil.metadatos.edad;
+    }
+    
+    const interesesLabels = props.perfil?.intereses || [];
+    intereses.forEach(i => {
+        i.selected = interesesLabels.includes(i.label);
+    });
+    
+    const buscandoLabels = props.perfil?.pasatiempos || [];
+    buscando.forEach(i => {
+        i.selected = buscandoLabels.includes(i.label);
+    });
+    
+    fotos.splice(0, fotos.length);
+    if (props.perfil?.fotos) {
+        props.perfil.fotos.forEach(f => {
+            fotos.push({
+                url: getFotoUrl(f),
+                file: null,
+                principal: f.principal || false,
+                existente: true,
+                ruta_foto: f.ruta_foto || '',
+                id: f.id || null,
+                marcadaEliminar: false
+            });
+        });
+    }
+    fotosEliminar.value = [];
 }
 </script>
 
@@ -662,33 +921,40 @@ function toggleEdicion() {
                     <div class="profile-card">
                         <div class="profile-card__header">
                             <h3><i class="pi pi-images"></i> Galería</h3>
-                            <span class="photo-count">{{ fotos.length }}/{{ maxFotos }}</span>
+                            <span class="photo-count">{{ fotosActivas.length }}/{{ maxFotos }}</span>
                         </div>
                         <div class="profile-card__body">
                             <div class="photo-grid">
-                                <div v-for="(foto, idx) in fotos" :key="idx" class="photo-item" @click="isEditing ? setPrincipal(idx) : null">
+                                <div v-for="(foto, idx) in fotos" :key="idx" class="photo-item" :class="{ 'photo-item--marked': foto.marcadaEliminar }" @click="isEditing ? setPrincipal(idx) : null">
                                     <img :src="foto.url" :alt="`Foto ${idx + 1}`" @error="(e) => { e.target.src = '/images/placeholder-image.png' }" />
-                                    <div v-if="foto.principal" class="photo-item__badge photo-item__badge--principal">Principal</div>
+                                    <div v-if="foto.principal && !foto.marcadaEliminar" class="photo-item__badge photo-item__badge--principal">Principal</div>
                                     <div v-if="foto.marcadaEliminar" class="photo-item__badge photo-item__badge--deleted">Eliminar</div>
                                     <div v-if="foto.existente && !foto.marcadaEliminar" class="photo-item__badge photo-item__badge--existing">Guardada</div>
+                                    <div v-if="!foto.existente && !foto.marcadaEliminar" class="photo-item__badge photo-item__badge--new">Nueva</div>
                                     
                                     <div v-if="isEditing" class="photo-item__actions">
-                                        <button class="photo-item__btn photo-item__btn--delete" @click.stop="eliminarFoto(idx)">
-                                            <i class="pi pi-trash"></i>
-                                        </button>
-                                        <button v-if="foto.marcadaEliminar" class="photo-item__btn photo-item__btn--restore" @click.stop="restaurarFoto(idx)">
+                                        <template v-if="!foto.marcadaEliminar">
+                                            <label v-if="foto.existente" class="photo-item__btn photo-item__btn--replace" @click.stop title="Reemplazar foto">
+                                                <i class="pi pi-pencil"></i>
+                                                <input type="file" accept="image/*" hidden @change="onReplaceFileSelected($event, idx)" />
+                                            </label>
+                                            <button class="photo-item__btn photo-item__btn--delete" @click.stop="eliminarFoto(idx)">
+                                                <i class="pi pi-trash"></i>
+                                            </button>
+                                        </template>
+                                        <button v-else class="photo-item__btn photo-item__btn--restore" @click.stop="restaurarFoto(idx)">
                                             <i class="pi pi-undo"></i>
                                         </button>
                                     </div>
                                 </div>
                                 
-                                <label v-if="isEditing && fotos.length < maxFotos" class="photo-item photo-item--upload">
+                                <label v-if="isEditing && fotosActivas.length < maxFotos" class="photo-item photo-item--upload">
                                     <i class="pi pi-plus"></i>
                                     <span>Subir foto</span>
                                     <input type="file" accept="image/*" multiple hidden @change="onFileSelected" />
                                 </label>
                             </div>
-                            <div v-if="fotos.length === 0" class="empty-photos">
+                            <div v-if="fotosActivas.length === 0" class="empty-photos">
                                 <i class="pi pi-camera"></i>
                                 <span>Sube tus primeras fotos</span>
                                 <p>Mínimo 1 foto para completar tu perfil</p>
@@ -1521,6 +1787,10 @@ function toggleEdicion() {
   background: rgba(229, 62, 62, 0.9);
 }
 
+.photo-item__badge--new {
+  background: rgba(59, 130, 246, 0.9);
+}
+
 .photo-item__actions {
   position: absolute;
   top: 3px;
@@ -1566,6 +1836,20 @@ function toggleEdicion() {
 .photo-item__btn--restore:hover {
   background: var(--success);
   transform: scale(1.1);
+}
+
+.photo-item__btn--replace {
+  background: rgba(59, 130, 246, 0.85);
+}
+
+.photo-item__btn--replace:hover {
+  background: #3b82f6;
+  transform: scale(1.1);
+}
+
+.photo-item--marked img {
+  opacity: 0.35;
+  filter: grayscale(60%);
 }
 
 .photo-item--upload {

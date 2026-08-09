@@ -57,31 +57,6 @@ class Evento extends Model
         return $this->hasMany(Reserva::class, 'evento_id');
     }
 
-    // ========== NUEVAS RELACIONES CON FotosEvento ==========
-    public function fotos()
-    {
-        return $this->hasMany(FotosEvento::class, 'evento_id');
-    }
-
-    public function fotosRecientes()
-    {
-        return $this->hasMany(FotosEvento::class, 'evento_id')
-                    ->orderBy('fecha_subida', 'desc');
-    }
-
-    public function fotoPrincipal()
-    {
-        return $this->hasOne(FotosEvento::class, 'evento_id')
-                    ->orderBy('fecha_subida', 'asc');
-    }
-
-    public function fotosAprobadas()
-    {
-        return $this->hasMany(FotosEvento::class, 'evento_id')
-                    ->where('estado', 'aprobada');
-    }
-    // ========== FIN NUEVAS RELACIONES ==========
-
     // Scopes
     public function scopePublicados($query)
     {
@@ -101,24 +76,6 @@ class Evento extends Model
     public function scopeEnCiudad($query, $ciudad)
     {
         return $query->where('ciudad', $ciudad);
-    }
-
-    public function scopePorTipo($query, $tipo)
-    {
-        return $query->where('tipo', $tipo);
-    }
-
-    public function scopePorCategoria($query, $categoria)
-    {
-        return $query->where('categoria', $categoria);
-    }
-
-    public function scopeConCapacidadDisponible($query)
-    {
-        return $query->where(function($q) {
-            $q->whereNull('capacidad')
-              ->orWhere('capacidad', '>', 0);
-        });
     }
 
     // Accesors
@@ -154,39 +111,6 @@ class Evento extends Model
         return null;
     }
 
-    // ========== NUEVOS ACCESORS PARA FOTOS ==========
-    public function getCantidadFotosAttribute()
-    {
-        return $this->fotos()->count();
-    }
-
-    public function getTieneFotosAttribute()
-    {
-        return $this->fotos()->exists();
-    }
-
-    public function getUrlFotoPrincipalAttribute()
-    {
-        $fotoPrincipal = $this->fotoPrincipal;
-        if ($fotoPrincipal) {
-            return asset('storage/' . $fotoPrincipal->ruta);
-        }
-        return null;
-    }
-
-    public function getFotosRecientesUrlAttribute()
-    {
-        return $this->fotosRecientes->map(function($foto) {
-            return [
-                'id' => $foto->id,
-                'url' => asset('storage/' . $foto->ruta),
-                'nombre' => $foto->nombre_imagen,
-                'fecha_subida' => $foto->fecha_subida_formateada
-            ];
-        });
-    }
-    // ========== FIN NUEVOS ACCESORS ==========
-
     /**
      * Estado de transmisión calculado con fecha + hora (no confundir con
      * la columna 'estado', que es de publicación: borrador/publicado/etc).
@@ -210,67 +134,120 @@ class Evento extends Model
     }
 
     /**
-     * URL pública de la imagen del evento (asume disco 'public' con
-     * php artisan storage:link ya ejecutado). Ajusta si usas otro disco.
+     * Obtener la URL completa de la imagen del evento
+     * 
+     * @return string|null
      */
     public function getImagenUrlAttribute(): ?string
     {
-        return $this->imagen ? Storage::url($this->imagen) : null;
-    }
+        if (!$this->imagen) {
+            return null;
+        }
 
-    // ========== MUTATORS ==========
-    public function setMetadatosAttribute($value)
-    {
-        $this->attributes['metadatos'] = is_array($value) ? json_encode($value) : $value;
-    }
+        // Si la imagen ya es una URL completa, devolverla
+        if (filter_var($this->imagen, FILTER_VALIDATE_URL)) {
+            return $this->imagen;
+        }
 
-    public function setPrecioAttribute($value)
-    {
-        $this->attributes['precio'] = str_replace(',', '.', str_replace('.', '', $value));
+        // Si está en el storage, generar la URL
+        if (Storage::disk('public')->exists($this->imagen)) {
+            return Storage::url($this->imagen);
+        }
+
+        // Si está en un subdirectorio específico de eventos
+        if (Storage::disk('public')->exists('eventos/' . $this->imagen)) {
+            return Storage::url('eventos/' . $this->imagen);
+        }
+
+        return null;
     }
 
     /**
-     * Mutator: guarda la ciudad siempre en mayúsculas, sin importar cómo la escriban
+     * Obtener la ruta completa de la imagen en el storage
+     * 
+     * @return string|null
      */
+    public function getImagenPathAttribute(): ?string
+    {
+        if (!$this->imagen) {
+            return null;
+        }
+
+        if (Storage::disk('public')->exists($this->imagen)) {
+            return Storage::disk('public')->path($this->imagen);
+        }
+
+        if (Storage::disk('public')->exists('eventos/' . $this->imagen)) {
+            return Storage::disk('public')->path('eventos/' . $this->imagen);
+        }
+
+        return null;
+    }
+
+    /**
+     * Verificar si el evento tiene una imagen
+     * 
+     * @return bool
+     */
+    public function hasImagen(): bool
+    {
+        return $this->imagen !== null && 
+               (Storage::disk('public')->exists($this->imagen) || 
+                Storage::disk('public')->exists('eventos/' . $this->imagen));
+    }
+
+    /**
+     * Eliminar la imagen del storage
+     * 
+     * @return bool
+     */
+    public function deleteImagen(): bool
+    {
+        if (!$this->imagen) {
+            return false;
+        }
+
+        $deleted = false;
+
+        if (Storage::disk('public')->exists($this->imagen)) {
+            $deleted = Storage::disk('public')->delete($this->imagen);
+        }
+
+        if (Storage::disk('public')->exists('eventos/' . $this->imagen)) {
+            $deleted = Storage::disk('public')->delete('eventos/' . $this->imagen);
+        }
+
+        if ($deleted) {
+            $this->imagen = null;
+            $this->save();
+        }
+
+        return $deleted;
+    }
+
+    // Mutator: guarda la ciudad siempre en mayúsculas, sin importar cómo la escriban
     public function setCiudadAttribute($value)
     {
         $this->attributes['ciudad'] = $value ? mb_strtoupper($value, 'UTF-8') : $value;
     }
-    // ========== FIN MUTATORS ==========
 
-    // ========== MÉTODOS ADICIONALES PARA FOTOS ==========
-    public function agregarFoto($nombreImagen, $ruta, $usuarioId)
+    /**
+     * Boot del modelo para manejar eventos de eliminar
+     */
+    protected static function boot()
     {
-        return $this->fotos()->create([
-            'nombre_imagen' => $nombreImagen,
-            'ruta' => $ruta,
-            'usuario_subio' => $usuarioId,
-            'fecha_subida' => now(),
-        ]);
-    }
+        parent::boot();
 
-    public function eliminarFoto($fotoId)
-    {
-        $foto = $this->fotos()->find($fotoId);
-        if ($foto) {
-            // Eliminar archivo físico si existe
-            if (file_exists(storage_path('app/public/' . $foto->ruta))) {
-                unlink(storage_path('app/public/' . $foto->ruta));
+        static::deleting(function ($evento) {
+            // Si es eliminación permanente, borrar la imagen
+            if ($evento->isForceDeleting()) {
+                $evento->deleteImagen();
             }
-            return $foto->delete();
-        }
-        return false;
-    }
+        });
 
-    public function eliminarTodasFotos()
-    {
-        foreach ($this->fotos as $foto) {
-            // Eliminar archivos físicos
-            if (file_exists(storage_path('app/public/' . $foto->ruta))) {
-                unlink(storage_path('app/public/' . $foto->ruta));
-            }
-        }
-        return $this->fotos()->delete();
+        static::forceDeleted(function ($evento) {
+            // Asegurar que la imagen se borre en force delete
+            $evento->deleteImagen();
+        });
     }
-    // ========== FIN MÉTODOS ADICIONALES ==========
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -105,11 +106,58 @@ class UserController extends Controller
         // Actualizar estado del perfil si está completo
         $this->actualizarEstadoPerfil($user);
 
-        return redirect()->back()->with('toast', [
-            'type' => 'success',
-            'title' => '¡Datos actualizados!',
-            'message' => 'Tu información personal se ha guardado correctamente.',
-            'duration' => 3000,
+        return redirect()->back()->with('flash', [
+            'toast' => [
+                'type' => 'success',
+                'title' => '¡Datos actualizados!',
+                'message' => 'Tu información personal se ha guardado correctamente.',
+                'duration' => 3000,
+            ]
+        ]);
+    }
+
+    /**
+     * Cambiar la contraseña del usuario
+     */
+    public function cambiarPassword(Request $request)
+    {
+        $user = Auth::user();
+
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ], [
+            'current_password.required' => 'La contraseña actual es obligatoria.',
+            'password.required' => 'La nueva contraseña es obligatoria.',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+            'password.confirmed' => 'Las contraseñas no coinciden.',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        // Verificar la contraseña actual
+        if (!Hash::check($request->current_password, $user->password)) {
+            return redirect()->back()
+                ->withErrors(['current_password' => 'La contraseña actual es incorrecta.'])
+                ->withInput();
+        }
+
+        // Actualizar la contraseña
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        return redirect()->back()->with('flash', [
+            'toast' => [
+                'type' => 'success',
+                'title' => 'Contraseña actualizada',
+                'message' => 'Tu contraseña se ha cambiado correctamente.',
+                'duration' => 3000,
+            ]
         ]);
     }
 
@@ -147,19 +195,23 @@ class UserController extends Controller
                 'foto_principal' => '/storage/' . $path,
             ]);
 
-            return redirect()->back()->with('toast', [
-                'type' => 'success',
-                'title' => 'Avatar actualizado',
-                'message' => 'Tu foto de perfil se ha actualizado correctamente.',
-                'duration' => 3000,
+            return redirect()->back()->with('flash', [
+                'toast' => [
+                    'type' => 'success',
+                    'title' => 'Avatar actualizado',
+                    'message' => 'Tu foto de perfil se ha actualizado correctamente.',
+                    'duration' => 3000,
+                ]
             ]);
         }
 
-        return redirect()->back()->with('toast', [
-            'type' => 'error',
-            'title' => 'Error',
-            'message' => 'No se pudo actualizar el avatar.',
-            'duration' => 3000,
+        return redirect()->back()->with('flash', [
+            'toast' => [
+                'type' => 'error',
+                'title' => 'Error',
+                'message' => 'No se pudo actualizar el avatar.',
+                'duration' => 3000,
+            ]
         ]);
     }
 
@@ -222,11 +274,13 @@ class UserController extends Controller
         Auth::logout();
         $user->delete();
 
-        return redirect('/')->with('toast', [
-            'type' => 'info',
-            'title' => 'Cuenta eliminada',
-            'message' => 'Tu cuenta ha sido eliminada. Lamentamos verte ir.',
-            'duration' => 5000,
+        return redirect('/')->with('flash', [
+            'toast' => [
+                'type' => 'info',
+                'title' => 'Cuenta eliminada',
+                'message' => 'Tu cuenta ha sido eliminada. Lamentamos verte ir.',
+                'duration' => 5000,
+            ]
         ]);
     }
 

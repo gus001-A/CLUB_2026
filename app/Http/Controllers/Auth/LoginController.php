@@ -43,20 +43,20 @@ class LoginController extends Controller
             'password.min' => 'La contraseña debe tener al menos 6 caracteres',
         ]);
 
-        // PRIMERO: Buscar en usuarios normales con su perfil
-        $user = User::where('apodo', $request->nickname)
-            ->with('perfil') // Cargar la relación perfil
+        // PRIMERO: Buscar en administradores (por nickname o email)
+        $admin = Administrador::where('nickname', $request->nickname)
+            ->orWhere('email', $request->nickname)
             ->first();
         
-        // SEGUNDO: Si no existe en usuarios, buscar en administradores
-        if (!$user) {
-            $admin = Administrador::where('nickname', $request->nickname)->first();
-            
-            if ($admin && Hash::check($request->password, $admin->password)) {
-                // Es un administrador
-                return $this->loginAdmin($admin, $request);
-            }
+        // Si existe administrador y la contraseña es correcta
+        if ($admin && Hash::check($request->password, $admin->password)) {
+            return $this->loginAdmin($admin, $request);
         }
+
+        // SEGUNDO: Buscar en usuarios normales (por apodo o email)
+        $user = User::where('apodo', $request->nickname)
+            ->orWhere('email', $request->nickname)
+            ->first();
 
         // Si existe usuario normal y la contraseña es correcta
         if ($user && Hash::check($request->password, $user->password)) {
@@ -71,55 +71,7 @@ class LoginController extends Controller
         
         return back()->withErrors([
             'login' => 'Nickname y/o contraseña incorrecta'
-       ])->onlyInput('nickname');
-    }
-
-    /**
-     * Login para usuarios normales
-     */
-    private function loginUser($user, Request $request)
-    {
-        // Verificar si el usuario está activo
-        if ($user->estado === 'inactivo' || $user->estado === 'suspendido') {
-            Log::warning('Intento de login - cuenta inactiva', [
-                'user_id' => $user->id,
-                'estado' => $user->estado,
-                'ip' => $request->ip()
-            ]);
-            
-            return back()->withErrors([
-                'login' => 'Tu cuenta está inactiva o suspendida. Contacta al soporte.'
-            ])->onlyInput('nickname');
-        }
-
-        // Iniciar sesión como usuario
-        Auth::guard('web')->login($user, $request->remember ?? false);
-        
-        // Guardar el perfil en la sesión para acceso rápido
-        if ($user->perfil) {
-            session()->put('user_perfil', $user->perfil);
-        }
-        
-        Log::info('Inicio de sesión exitoso - Usuario', [
-            'user_id' => $user->id,
-            'nickname' => $user->apodo,
-            'email' => $user->email,
-            'rol' => $user->rol,
-            'ip' => $request->ip()
-        ]);
-
-        $request->session()->regenerate();
-        $request->session()->put('auth.password_confirmed_at', time());
-
-        return redirect()->intended(route('inicio'))
-            ->with('flash', [
-                'toast' => [
-                    'type' => 'success',
-                    'title' => '¡Bienvenido de nuevo!',
-                    'message' => 'Has iniciado sesión correctamente, ' . ($user->nombre ?? $user->apodo) . '.',
-                    'duration' => 5000,
-                ]
-            ]);
+        ])->onlyInput('nickname');
     }
 
     /**
@@ -148,7 +100,7 @@ class LoginController extends Controller
             'admin_id' => $admin->id,
             'nickname' => $admin->nickname,
             'email' => $admin->email,
-            'rol' => $admin->rol,
+            'rol' => $admin->rol ?? 'admin',
             'ip' => $request->ip()
         ]);
 
@@ -158,15 +110,98 @@ class LoginController extends Controller
         $admin->ultimo_acceso_en = now();
         $admin->save();
 
-        return redirect()->intended(route('admin.dashboard'))
+        // Redirigir al dashboard de admin
+        return redirect()->route('admin.dashboard')
             ->with('flash', [
                 'toast' => [
                     'type' => 'success',
                     'title' => '¡Bienvenido Administrador!',
-                    'message' => 'Has iniciado sesión correctamente, ' . ($admin->nombre ?? $admin->nickname) . '.',
+                    'message' => 'Has iniciado sesión correctamente, ' . ($admin->nombre ?? $admin->nickname ?? $admin->email) . '.',
                     'duration' => 5000,
                 ]
             ]);
+    }
+
+    /**
+     * Login para usuarios normales
+     */
+    private function loginUser($user, Request $request)
+    {
+        // Verificar si el usuario está activo
+        if ($user->estado === 'inactivo' || $user->estado === 'suspendido') {
+            Log::warning('Intento de login - cuenta inactiva', [
+                'user_id' => $user->id,
+                'estado' => $user->estado,
+                'ip' => $request->ip()
+            ]);
+            
+            return back()->withErrors([
+                'login' => 'Tu cuenta está inactiva o suspendida. Contacta al soporte.'
+            ])->onlyInput('nickname');
+        }
+
+        Log::info('Usuario encontrado para login', [
+            'user_id' => $user->id,
+            'apodo' => $user->apodo,
+            'email' => $user->email,
+            'estado' => $user->estado
+        ]);
+
+        try {
+            // 🔥 INTENTAR LOGIN CON GUARD WEB
+            Auth::guard('web')->login($user, $request->remember ?? false);
+            
+            // Verificar que el login fue exitoso
+            if (!Auth::guard('web')->check()) {
+                Log::error('Fallo al autenticar usuario - Auth::check() es false', [
+                    'user_id' => $user->id,
+                    'guard' => 'web'
+                ]);
+                
+                return back()->withErrors([
+                    'login' => 'Error al iniciar sesión. Por favor intenta de nuevo.'
+                ])->onlyInput('nickname');
+            }
+
+            // Guardar el perfil en la sesión para acceso rápido
+            if ($user->perfil) {
+                session()->put('user_perfil', $user->perfil);
+            }
+            
+            Log::info('Inicio de sesión exitoso - Usuario', [
+                'user_id' => $user->id,
+                'nickname' => $user->apodo,
+                'email' => $user->email,
+                'rol' => $user->rol,
+                'ip' => $request->ip()
+            ]);
+
+            $request->session()->regenerate();
+            $request->session()->put('auth.password_confirmed_at', time());
+
+            // 🔥 REDIRECCIONAR A INICIO
+            return redirect()->intended(route('inicio'))
+                ->with('flash', [
+                    'toast' => [
+                        'type' => 'success',
+                        'title' => '¡Bienvenido de nuevo!',
+                        'message' => 'Has iniciado sesión correctamente, ' . ($user->nombre ?? $user->apodo) . '.',
+                        'duration' => 5000,
+                    ]
+                ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error durante el login del usuario', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+
+            return back()->withErrors([
+                'login' => 'Error al iniciar sesión: ' . $e->getMessage()
+            ])->onlyInput('nickname');
+        }
     }
 
     /**
@@ -179,7 +214,7 @@ class LoginController extends Controller
         
         $userType = $user ? 'Usuario' : ($admin ? 'Administrador' : 'Desconocido');
         $userId = $user?->id ?? $admin?->id ?? null;
-        $userIdentifier = $user?->apodo ?? $admin?->nickname ?? null;
+        $userIdentifier = $user?->apodo ?? $admin?->nickname ?? $admin?->nombre ?? $admin?->email ?? null;
         
         Log::info('Cierre de sesión', [
             'tipo' => $userType,
@@ -204,7 +239,7 @@ class LoginController extends Controller
         $request->session()->regenerateToken();
 
         if ($userType === 'Administrador') {
-            return redirect()->route('admin.login')
+            return redirect()->route('login')
                 ->with('flash', [
                     'toast' => [
                         'type' => 'info',

@@ -28,36 +28,34 @@ const page = usePage();
 // Confirm modal
 const { confirm } = useConfirm();
 
-// Computed para el usuario autenticado
+// 🔥 USUARIO - CORREGIDO PARA AGREGAR /storage/ AL AVATAR
 const usuario = computed(() => {
-    const user = page.props.auth?.user || null;
+    // Obtener usuario de page.props.usuario
+    const user = page.props.usuario || null;
     
     if (user) {
-        let avatar = '/images/shared/avatar-default.jpg';
+        // 🔥 CORREGIDO: Asegurar que el avatar tenga la ruta completa
+        let avatar = user.avatar || '/images/shared/avatar-default.jpg';
         
-        if (user.foto_principal) {
-            if (user.foto_principal.startsWith('http://') || 
-                user.foto_principal.startsWith('https://') || 
-                user.foto_principal.startsWith('/')) {
-                avatar = user.foto_principal;
-            } else {
-                avatar = '/storage/' + user.foto_principal;
-            }
+        // Si el avatar no es la imagen por defecto y no tiene /storage/ ni http, agregarlo
+        if (avatar !== '/images/shared/avatar-default.jpg' && 
+            !avatar.startsWith('http://') && 
+            !avatar.startsWith('https://') && 
+            !avatar.startsWith('/')) {
+            avatar = '/storage/' + avatar;
         }
-        else if (user.avatar && user.avatar !== '/images/shared/avatar-default.jpg') {
-            avatar = user.avatar;
-        }
-
+        
         return {
             id: user.id,
             nombre: user.nombre || user.apodo || 'Usuario',
             apodo: user.apodo || user.nombre || 'Usuario',
             email: user.email || '',
-            avatar: avatar,
-            verificado: user.estado === 'verificado' || user.email_verificado_en !== null || false,
+            avatar: avatar, // 🔥 AHORA CON LA RUTA COMPLETA
+            verificado: user.verificado || false,
             rol: user.rol || 'usuario',
             foto_principal: user.foto_principal || null,
             perfil: user.perfil || null,
+            tiene_perfil: user.tiene_perfil || false,
         };
     }
     
@@ -71,6 +69,7 @@ const usuario = computed(() => {
         rol: 'invitado',
         foto_principal: null,
         perfil: null,
+        tiene_perfil: false,
     };
 });
 
@@ -225,7 +224,6 @@ onUnmounted(() => {
                                 <Link :href="route('perfil.ver')" class="user-dropdown__item" @click="closeDropdown">
                                     <i class="pi pi-user"></i> Mi perfil
                                 </Link>
-                                <!-- ✅ CAMBIO: Ahora va a la ruta de edición de usuario -->
                                 <Link :href="route('profile.usuario')" class="user-dropdown__item" @click="closeDropdown">
                                     <i class="pi pi-cog"></i> Configuración
                                 </Link>

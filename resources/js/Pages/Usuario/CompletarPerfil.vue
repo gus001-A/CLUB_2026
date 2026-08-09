@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref, onMounted, watch } from 'vue';
+import { computed, reactive, ref, onMounted, watch, onBeforeMount, onUpdated, onBeforeUpdate } from 'vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -103,7 +103,6 @@ const buscandoOptions = [
     { label: 'Algo serio', selected: false, icon: 'pi pi-heart' },
 ];
 
-// Cargar intereses guardados
 const intereses = reactive(interesesOptions.map(i => ({
     ...i,
     selected: form.intereses.includes(i.label)
@@ -119,18 +118,25 @@ function toggle(list, item) {
     validarFormulario();
 }
 
-const interesesSeleccionados = computed(() =>
-    [...intereses, ...buscando].filter((i) => i.selected)
-);
+const interesesSeleccionados = computed(() => {
+    return [...intereses, ...buscando].filter((i) => i.selected);
+});
 
-const interesesCount = computed(() => intereses.filter(i => i.selected).length);
-const buscandoCount = computed(() => buscando.filter(i => i.selected).length);
+const interesesCount = computed(() => {
+    return intereses.filter(i => i.selected).length;
+});
+
+const buscandoCount = computed(() => {
+    return buscando.filter(i => i.selected).length;
+});
 
 /* ---------------------------------------------------------------
  * Fotos - Función para obtener URL correcta
  * --------------------------------------------------------------- */
 function getFotoUrl(foto) {
-    if (!foto) return '/images/shared/avatar-default.jpg';
+    if (!foto) {
+        return '/images/shared/avatar-default.jpg';
+    }
     
     if (foto.url) {
         if (foto.url.startsWith('http://') || foto.url.startsWith('https://')) {
@@ -164,10 +170,13 @@ function getFotoUrl(foto) {
  * --------------------------------------------------------------- */
 const fotos = reactive([]);
 
-// Cargar fotos existentes del perfil
+onBeforeMount(() => {
+    // Antes de montar el componente
+});
+
 onMounted(() => {
     if (props.perfil?.fotos && props.perfil.fotos.length > 0) {
-        props.perfil.fotos.forEach(f => {
+        props.perfil.fotos.forEach((f) => {
             const url = getFotoUrl(f);
             fotos.push({
                 url: url,
@@ -197,6 +206,14 @@ onMounted(() => {
     }
     
     validarFormulario();
+});
+
+onBeforeUpdate(() => {
+    // Antes de actualizar el DOM
+});
+
+onUpdated(() => {
+    // DOM actualizado
 });
 
 const maxFotos = 8;
@@ -232,15 +249,19 @@ function onFileSelected(event) {
         
         const reader = new FileReader();
         reader.onload = (e) => {
-            fotos.push({ 
+            const nuevaFoto = { 
                 url: e.target.result, 
                 file: file,
                 principal: fotos.length === 0,
                 existente: false,
                 ruta_foto: '',
                 id: null
-            });
+            };
+            fotos.push(nuevaFoto);
             validarFormulario();
+        };
+        reader.onerror = (e) => {
+            console.error('Error leyendo archivo:', e);
         };
         reader.readAsDataURL(file);
     });
@@ -268,8 +289,12 @@ function getFotoCountText() {
 
 function getFotoPrincipal() {
     const principal = fotos.find(f => f.principal);
-    if (principal) return principal.url;
-    if (fotos.length > 0) return fotos[0].url;
+    if (principal) {
+        return principal.url;
+    }
+    if (fotos.length > 0) {
+        return fotos[0].url;
+    }
     return props.user?.avatar || '/images/shared/avatar-default.jpg';
 }
 
@@ -287,10 +312,12 @@ function validarFormulario() {
         errores.push('El nombre o nickname es obligatorio.');
         pendientes.push('Nombre o nickname');
     }
+    
     if (!form.edad || form.edad < 18) {
         errores.push('La edad es obligatoria y debe ser mayor de 18 años.');
         pendientes.push('Edad (mínimo 18)');
     }
+    
     if (!form.ciudad || form.ciudad.trim() === '') {
         errores.push('La ciudad es obligatoria.');
         pendientes.push('Ciudad');
@@ -466,30 +493,37 @@ function guardarYContinuar() {
     }
     
     // Fotos
+    formData.append('total_fotos', String(fotos.length));
+    
     fotos.forEach((foto, index) => {
-        if (foto.file) {
-            // Archivo nuevo
-            formData.append(`fotos[${index}][file]`, foto.file);
-            formData.append(`fotos[${index}][principal]`, foto.principal ? '1' : '0');
+        if (foto.file && foto.file instanceof File) {
+            formData.append(`foto_${index}_file`, foto.file);
+            formData.append(`foto_${index}_principal`, foto.principal ? '1' : '0');
+            formData.append(`foto_${index}_tipo`, 'nueva');
         } else if (foto.existente && foto.id) {
-            // Foto existente con ID
-            formData.append(`fotos[${index}][id]`, String(foto.id));
-            formData.append(`fotos[${index}][principal]`, foto.principal ? '1' : '0');
+            formData.append(`foto_${index}_id`, String(foto.id));
+            formData.append(`foto_${index}_principal`, foto.principal ? '1' : '0');
+            formData.append(`foto_${index}_tipo`, 'existente_id');
         } else if (foto.existente && foto.ruta_foto) {
-            // Foto existente con ruta (sin ID)
-            formData.append(`fotos[${index}][ruta_foto]`, foto.ruta_foto);
-            formData.append(`fotos[${index}][principal]`, foto.principal ? '1' : '0');
+            formData.append(`foto_${index}_ruta`, foto.ruta_foto);
+            formData.append(`foto_${index}_principal`, foto.principal ? '1' : '0');
+            formData.append(`foto_${index}_tipo`, 'existente_ruta');
         }
     });
     
-    // Enviar con Inertia
     router.post(route('perfil.guardar'), formData, {
         preserveScroll: true,
         preserveState: true,
         headers: {
-            'Content-Type': 'multipart/form-data',
+            'X-Requested-With': 'XMLHttpRequest'
         },
-        onSuccess: () => {
+        onStart: () => {
+            // Envío iniciado
+        },
+        onProgress: (progress) => {
+            // Progreso de envío
+        },
+        onSuccess: (response) => {
             isSaving.value = false;
             if (window.showToast) {
                 window.showToast({
@@ -505,7 +539,6 @@ function guardarYContinuar() {
         },
         onError: (errors) => {
             isSaving.value = false;
-            console.error('❌ Errores al guardar:', errors);
             const firstError = Object.values(errors)[0];
             if (window.showToast) {
                 window.showToast({
@@ -515,6 +548,9 @@ function guardarYContinuar() {
                     duration: 5000,
                 });
             }
+        },
+        onFinish: () => {
+            // Envío finalizado
         }
     });
 }
@@ -548,6 +584,21 @@ watch([() => form.nickname, () => form.edad, () => form.ciudad, () => form.bio, 
 watch(() => form.pareja, () => {
     validarFormulario();
 }, { deep: true });
+
+watch(fotos, () => {
+    validarFormulario();
+}, { deep: true });
+
+// Debug disponible en consola
+window.__debug = {
+    fotos,
+    form,
+    intereses,
+    buscando,
+    validarFormulario,
+    guardarYContinuar,
+    props
+};
 </script>
 
 <template>
@@ -1024,7 +1075,7 @@ watch(() => form.pareja, () => {
 
 <style scoped>
 /* =========================================================================
-   PÁGINA COMPLETAR
+   PÁGINA COMPLETAR - (EL MISMO CSS QUE TENÍAS ANTES)
    ========================================================================= */
 .completar-page {
   --brand: #C81E3A;

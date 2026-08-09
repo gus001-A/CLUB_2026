@@ -7,6 +7,7 @@ use App\Http\Controllers\LandingController;
 use App\Http\Controllers\Usuario\ProfileController;
 use App\Http\Controllers\Usuario\ComunidadController;
 use App\Http\Controllers\Usuario\EventoController;
+use App\Http\Controllers\Usuario\ReservaController; // ← NUEVO
 use App\Http\Controllers\Usuario\DescubrirController;
 use App\Http\Controllers\Usuario\ShopController;
 use App\Http\Controllers\Usuario\MensajeController;
@@ -128,13 +129,24 @@ Route::middleware(['auth'])->group(function () {
         return Inertia::render('Settings');
     })->name('configuracion');
     
-
+    // ============================================
+    // USUARIO - DATOS PERSONALES ✅
+    // ============================================
     Route::get('/profile/usuario', [UserController::class, 'edit'])
         ->name('profile.usuario');
     
     Route::put('/usuario/actualizar', [UserController::class, 'actualizar'])
         ->name('usuario.actualizar');
     
+    // ============================================
+    // USUARIO - CAMBIAR CONTRASEÑA ✅ (NUEVO)
+    // ============================================
+    Route::put('/usuario/cambiar-password', [UserController::class, 'cambiarPassword'])
+        ->name('usuario.cambiar-password');
+    
+    // ============================================
+    // USUARIO - AVATAR Y VERIFICACIÓN ✅
+    // ============================================
     Route::post('/usuario/avatar', [UserController::class, 'actualizarAvatar'])
         ->name('usuario.avatar');
     
@@ -170,6 +182,41 @@ Route::middleware(['auth'])->group(function () {
     // ============================================
     Route::get('/eventos/buscar', [EventoController::class, 'buscar'])->name('eventos.buscar');
     Route::get('/eventos/ciudades', [EventoController::class, 'ciudades'])->name('eventos.ciudades');
+    
+    // ============================================
+    // RESERVAS - GESTIÓN DE RESERVAS 🆕
+    // ============================================
+    // Lista de reservas del usuario
+    Route::get('/eventos/reservas', [ReservaController::class, 'misReservas'])
+        ->name('eventos.reservas');
+    
+    // Paso 1: Crear reserva (formulario)
+    Route::get('/eventos/{id}/reservar', [ReservaController::class, 'crear'])
+        ->name('eventos.reservar.crear');
+    
+    // Paso 1: Guardar reserva
+    Route::post('/eventos/{id}/reservar', [ReservaController::class, 'store'])
+        ->name('eventos.reservar.store');
+    
+    // Paso 2: Pago (formulario)
+    Route::get('/eventos/reserva/{reservaId}/pago', [ReservaController::class, 'pago'])
+        ->name('eventos.reserva.pago');
+    
+    // Paso 2: Procesar pago
+    Route::post('/eventos/reserva/{reservaId}/pago', [ReservaController::class, 'procesarPago'])
+        ->name('eventos.reserva.procesar-pago');
+    
+    // Paso 3: Éxito / Confirmación
+    Route::get('/eventos/reserva/{reservaId}/exito', [ReservaController::class, 'exito'])
+        ->name('eventos.reserva.exito');
+    
+    // Cancelar reserva
+    Route::post('/eventos/reserva/{reservaId}/cancelar', [ReservaController::class, 'cancelar'])
+        ->name('eventos.reserva.cancelar');
+    
+    // Verificar disponibilidad (API)
+    Route::get('/eventos/{id}/disponibilidad', [ReservaController::class, 'verificarDisponibilidad'])
+        ->name('eventos.disponibilidad');
     
     // ============================================
     // TIENDA - SHOP (CON CONTROLADOR)

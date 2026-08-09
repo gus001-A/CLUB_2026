@@ -4,50 +4,46 @@ namespace App\Http\Controllers\Usuario;
 
 use App\Http\Controllers\Controller;
 use App\Models\Evento;
-use App\Models\FotosEvento;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class EventoController extends Controller
 {
     /**
-     * Muestra la página principal de eventos
+     * Muestra la página principal de eventos (Índice)
      */
     public function index()
     {
-        // Evento destacado (el primero que tenga destacado = true)
-        $destacado = Evento::with(['organizador', 'fotos'])
+        // Evento destacado
+        $destacado = Evento::with(['organizador'])
             ->publicados()
             ->destacados()
             ->proximos()
             ->first();
 
-        // Si no hay destacado, tomar el más reciente
         if (!$destacado) {
-            $destacado = Evento::with(['organizador', 'fotos'])
+            $destacado = Evento::with(['organizador'])
                 ->publicados()
                 ->proximos()
                 ->orderBy('fecha', 'asc')
                 ->first();
         }
 
-        // Formatear el destacado para la vista
-        $destacadoFormateado = $destacado ? $this->formatearEvento($destacado) : null;
+        $destacadoFormateado = $destacado ? $this->formatearEventoParaIndex($destacado) : null;
 
-        // Todos los eventos públicos (con sus fotos)
-        $eventos = Evento::with(['organizador', 'fotos'])
+        // Todos los eventos públicos
+        $eventos = Evento::with(['organizador'])
             ->publicados()
             ->proximos()
             ->orderBy('fecha', 'asc')
             ->limit(12)
             ->get();
 
-        // Formatear eventos
         $eventosFormateados = $eventos->map(function ($evento) {
-            return $this->formatearEvento($evento);
+            return $this->formatearEventoParaIndex($evento);
         });
 
-        // Categorías disponibles (extraer de los eventos existentes)
+        // Categorías disponibles
         $categorias = Evento::select('categoria')
             ->whereNotNull('categoria')
             ->publicados()
@@ -63,13 +59,12 @@ class EventoController extends Controller
             })
             ->toArray();
 
-        // Si no hay categorías, usar datos por defecto
         if (empty($categorias)) {
             $categorias = $this->getCategoriasDefault();
         }
 
-        // Próximos eventos recomendados (para el sidebar)
-        $proximos = Evento::with(['organizador', 'fotos'])
+        // Próximos eventos recomendados
+        $proximos = Evento::with(['organizador'])
             ->publicados()
             ->proximos()
             ->orderBy('fecha', 'asc')
@@ -80,14 +75,15 @@ class EventoController extends Controller
                     'id' => $evento->id,
                     'dia' => $evento->fecha ? $evento->fecha->format('d') : '--',
                     'mes' => $evento->fecha ? strtoupper($evento->fecha->format('M')) : '---',
-                    'imagen' => $evento->url_foto_principal ?? '/images/eventos/default-event.jpg',
+                    'imagen' => $this->getImagenEvento($evento),
                     'titulo' => $evento->nombre,
                     'lugar' => $evento->ciudad,
                     'hora' => $evento->hora_formateada ?? '--:--',
+                    'vip' => $evento->destacado || ($evento->precio && $evento->precio >= 1000),
                 ];
             });
 
-        return Inertia::render('Usuario/Eventos', [
+        return Inertia::render('Usuario/Eventos/Eventos', [
             'destacado' => $destacadoFormateado,
             'eventos' => $eventosFormateados,
             'categorias' => $categorias,
@@ -96,18 +92,36 @@ class EventoController extends Controller
     }
 
     /**
-     * Muestra un evento específico
+     * Muestra un evento específico (Detalle)
      */
     public function show($id)
     {
-        $evento = Evento::with(['organizador', 'fotos', 'reservas'])
+        $evento = Evento::with(['organizador', 'reservas.usuario'])
             ->publicados()
             ->findOrFail($id);
 
-        $eventoFormateado = $this->formatearEvento($evento);
+        // Formatear evento para el detalle
+        $eventoFormateado = $this->formatearEventoParaDetalle($evento);
 
-        // Obtener eventos relacionados (misma ciudad o categoría)
-        $relacionados = Evento::with(['organizador', 'fotos'])
+        // Obtener asistentes (reservas confirmadas)
+        $asistentes = $evento->reservas()
+            ->where('estado', 'confirmada')
+            ->with('usuario')
+            ->limit(10)
+            ->get()
+            ->map(function ($reserva) {
+                $usuario = $reserva->usuario;
+                return [
+                    'id' => $usuario->id,
+                    'nombre' => $usuario->nombre ?? $usuario->nickname ?? 'Usuario',
+                    'avatar_url' => $usuario->avatar_url ?? null,
+                    'verificado' => $usuario->verificado ?? false,
+                ];
+            })
+            ->toArray();
+
+        // Eventos relacionados
+        $relacionados = Evento::with(['organizador'])
             ->publicados()
             ->proximos()
             ->where('id', '!=', $id)
@@ -118,25 +132,25 @@ class EventoController extends Controller
             ->limit(4)
             ->get()
             ->map(function ($e) {
-                return $this->formatearEvento($e);
+                return $this->formatearEventoParaIndex($e);
             });
 
-        return Inertia::render('EventoDetalle', [
+        return Inertia::render('Usuario/Eventos/VerEvento', [
             'evento' => $eventoFormateado,
-            'relacionados' => $relacionados,
+            'asistentes' => $asistentes,
+            'eventosRelacionados' => $relacionados,
         ]);
     }
 
     /**
-     * Busca eventos según filtros (para API o carga dinámica)
+     * Busca eventos según filtros
      */
     public function buscar(Request $request)
     {
-        $query = Evento::with(['organizador', 'fotos'])
+        $query = Evento::with(['organizador'])
             ->publicados()
             ->proximos();
 
-        // Filtro por búsqueda
         if ($request->filled('busqueda')) {
             $search = $request->busqueda;
             $query->where(function ($q) use ($search) {
@@ -146,22 +160,18 @@ class EventoController extends Controller
             });
         }
 
-        // Filtro por ciudad
         if ($request->filled('ciudad') && $request->ciudad !== 'Todas') {
             $query->where('ciudad', $request->ciudad);
         }
 
-        // Filtro por tipo
         if ($request->filled('tipo') && $request->tipo !== 'Todos') {
             $query->where('tipo', $request->tipo);
         }
 
-        // Filtro por categoría
         if ($request->filled('categoria') && $request->categoria !== 'Todas') {
             $query->where('categoria', $request->categoria);
         }
 
-        // Filtro solo VIP (eventos con precio > 1000 o marcados como destacados)
         if ($request->boolean('soloVip')) {
             $query->where(function ($q) {
                 $q->where('precio', '>=', 1000)
@@ -169,7 +179,6 @@ class EventoController extends Controller
             });
         }
 
-        // Ordenar
         $orden = $request->get('orden', 'proximos');
         if ($orden === 'proximos') {
             $query->orderBy('fecha', 'asc');
@@ -180,14 +189,14 @@ class EventoController extends Controller
         }
 
         $eventos = $query->paginate(12)->through(function ($evento) {
-            return $this->formatearEvento($evento);
+            return $this->formatearEventoParaIndex($evento);
         });
 
         return response()->json($eventos);
     }
 
     /**
-     * Obtiene las ciudades disponibles para filtros
+     * Obtiene las ciudades disponibles
      */
     public function ciudades()
     {
@@ -205,70 +214,144 @@ class EventoController extends Controller
     }
 
     /**
-     * Formatea un evento para la vista
+     * Obtener la imagen del evento
      */
-    private function formatearEvento(Evento $evento)
+    private function getImagenEvento(Evento $evento)
     {
-        // Obtener la foto principal
-        $imagen = $evento->url_foto_principal;
-
-        // Si no tiene foto principal, usar la primera foto de la relación
-        if (!$imagen && $evento->fotos->isNotEmpty()) {
-            $primeraFoto = $evento->fotos->first();
-            if ($primeraFoto) {
-                $imagen = $primeraFoto->url_completa;
-            }
+        if (!$evento->imagen) {
+            return '/images/eventos/default-event.jpg';
         }
 
-        // Si aún no hay imagen, usar la imagen por defecto del evento
-        if (!$imagen) {
-            $imagen = $evento->imagen 
-                ? (str_starts_with($evento->imagen, 'http') ? $evento->imagen : asset('storage/' . $evento->imagen))
-                : '/images/eventos/default-event.jpg';
+        // Si es una URL completa
+        if (filter_var($evento->imagen, FILTER_VALIDATE_URL)) {
+            return $evento->imagen;
         }
 
-        // Formatear fecha
-        $dia = $evento->fecha ? $evento->fecha->format('d') : '--';
-        $mes = $evento->fecha ? strtoupper($evento->fecha->format('M')) : '---';
+        // Si ya tiene storage/ o /storage/
+        if (str_starts_with($evento->imagen, 'storage/') || str_starts_with($evento->imagen, '/storage/')) {
+            return asset($evento->imagen);
+        }
 
-        // Construir fecha completa
-        $fechaCompleta = '';
+        // Si tiene la ruta completa en el storage
+        if (str_starts_with($evento->imagen, 'eventos/')) {
+            return asset('storage/' . $evento->imagen);
+        }
+
+        // Por defecto, asumir que está en storage/eventos/
+        return asset('storage/eventos/' . $evento->imagen);
+    }
+
+    /**
+     * Obtener la imagen de galería del evento
+     */
+    private function getImagenesGaleria(Evento $evento)
+    {
+        // Si el evento tiene imágenes de galería en un campo JSON
+        if ($evento->galeria && is_array($evento->galeria)) {
+            return array_map(function ($imagen) {
+                if (filter_var($imagen, FILTER_VALIDATE_URL)) {
+                    return $imagen;
+                }
+                return asset('storage/' . $imagen);
+            }, $evento->galeria);
+        }
+
+        // Si solo tiene una imagen principal, usarla en la galería
+        return [$this->getImagenEvento($evento)];
+    }
+
+    /**
+     * Formatea un evento para el índice
+     */
+    private function formatearEventoParaIndex(Evento $evento)
+    {
+        return [
+            'id' => $evento->id,
+            'dia' => $evento->fecha ? $evento->fecha->format('d') : '--',
+            'mes' => $evento->fecha ? strtoupper($evento->fecha->format('M')) : '---',
+            'imagen' => $this->getImagenEvento($evento),
+            'titulo' => $evento->nombre,
+            'vip' => $evento->destacado || ($evento->precio && $evento->precio >= 1000),
+            'ciudad' => $evento->ciudad ?? 'Ciudad de México',
+            'hora' => $evento->hora_formateada ?? '--:--',
+            'precio' => $evento->precio,
+            'descripcion_corta' => $evento->descripcion_corta ?? $this->truncateText($evento->descripcion, 120),
+            'cupos_disponibles' => $evento->cupos_disponibles,
+            'cupos_totales' => $evento->capacidad ?? 50,
+            'esta_completo' => $evento->esta_completo,
+            'destacado' => $evento->destacado,
+            'favorito' => false, // TODO: Implementar favoritos
+        ];
+    }
+
+    /**
+     * Formatea un evento para el detalle
+     */
+    private function formatearEventoParaDetalle(Evento $evento)
+    {
+        $fechaFormateada = '';
         if ($evento->fecha) {
             $diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
             $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-            $fechaCompleta = $diasSemana[$evento->fecha->dayOfWeek] . ', ' . 
-                            $evento->fecha->day . ' de ' . 
-                            $meses[$evento->fecha->month - 1] . ' · ' . 
-                            ($evento->hora_formateada ?? '--:--') . ' hrs';
+            $fechaFormateada = $diasSemana[$evento->fecha->dayOfWeek] . ', ' . 
+                              $evento->fecha->day . ' de ' . 
+                              $meses[$evento->fecha->month - 1] . ' de ' . 
+                              $evento->fecha->year;
         }
 
         return [
             'id' => $evento->id,
-            'dia' => $dia,
-            'mes' => $mes,
-            'imagen' => $imagen,
             'titulo' => $evento->nombre,
-            'vip' => $evento->destacado || ($evento->precio && $evento->precio >= 1000),
-            'ciudad' => $evento->ciudad,
-            'hora' => $evento->hora_formateada ?? '--:--',
-            'desc' => $evento->descripcion,
-            'fecha' => $fechaCompleta,
-            'precio' => $evento->precio,
-            'capacidad' => $evento->capacidad,
+            'imagen_url' => $this->getImagenEvento($evento),
+            'galeria' => $this->getImagenesGaleria($evento),
+            'dia' => $evento->fecha ? $evento->fecha->format('d') : '--',
+            'mes' => $evento->fecha ? strtoupper($evento->fecha->format('M')) : '---',
+            'fecha' => $evento->fecha,
+            'fecha_completa' => $fechaFormateada,
+            'hora' => $evento->hora_formateada ?? '23:00 hrs',
+            'ciudad' => $evento->ciudad ?? 'Ciudad de México',
+            'ubicacion' => $evento->ubicacion ?? 'Locación privada',
+            'ubicacion_detalle' => $evento->ubicacion_detalle ?? $evento->ubicacion ?? 'Locación privada en CDMX',
+            'ubicacion_nota' => $evento->ubicacion_nota ?? 'Se comparte al confirmar tu asistencia',
+            'precio' => $evento->precio ?? 1290,
+            'moneda' => $evento->moneda ?? 'MXN',
             'cupos_disponibles' => $evento->cupos_disponibles,
-            'esta_completo' => $evento->esta_completo,
-            'tipo' => $evento->tipo,
+            'cupos_totales' => $evento->capacidad ?? 50,
+            'tipo_evento' => $evento->tipo ?? 'Fiesta privada',
+            'codigo_vestimenta' => $evento->codigo_vestimenta ?? 'Elegante / Casual sofisticado',
+            'descripcion' => $evento->descripcion,
+            'descripcion_corta' => $evento->descripcion_corta ?? $this->truncateText($evento->descripcion, 150),
+            'destacado' => $evento->destacado,
             'categoria' => $evento->categoria,
-            'codigo_vestimenta' => $evento->codigo_vestimenta,
+            'esta_completo' => $evento->esta_completo,
             'organizador' => $evento->organizador ? [
                 'id' => $evento->organizador->id,
                 'nombre' => $evento->organizador->nombre ?? $evento->organizador->nickname ?? 'Organizador',
-                'avatar' => $evento->organizador->avatar ?? '/images/shared/avatar-default.jpg',
+                'avatar_url' => $evento->organizador->avatar_url ?? null,
+                'verificado' => $evento->organizador->verificado ?? false,
+                'descripcion' => $evento->organizador->descripcion ?? 'Creamos experiencias exclusivas para conectar, disfrutar y vivir tu fantasía.',
             ] : null,
-            'fotos' => $evento->fotos_recientes_url ?? [],
-            'cantidad_fotos' => $evento->cantidad_fotos ?? 0,
-            'favorito' => false, // Esto se manejará con el sistema de favoritos del usuario
+            'favorito' => false, // TODO: Implementar favoritos
+            'mapa_url' => $evento->mapa_url ?? '/images/eventos/mapa-default.jpg',
         ];
+    }
+
+    /**
+     * Trunca un texto a una longitud específica
+     */
+    private function truncateText($text, $length = 120)
+    {
+        if (!$text) return '';
+        if (strlen($text) <= $length) return $text;
+        
+        $text = substr($text, 0, $length);
+        $lastSpace = strrpos($text, ' ');
+        
+        if ($lastSpace !== false) {
+            $text = substr($text, 0, $lastSpace);
+        }
+        
+        return $text . '...';
     }
 
     /**
@@ -312,7 +395,7 @@ class EventoController extends Controller
     }
 
     /**
-     * Categorías por defecto si no hay datos
+     * Categorías por defecto
      */
     private function getCategoriasDefault()
     {

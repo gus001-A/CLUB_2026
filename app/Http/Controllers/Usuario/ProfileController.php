@@ -9,7 +9,6 @@ use App\Models\Fotos;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -20,12 +19,9 @@ class ProfileController extends Controller
      */
     public function completar()
     {
-        Log::info('=== INICIO completar perfil ===');
-        
         $user = Auth::user();
         
         if (!$user) {
-            Log::error('Usuario no autenticado en completar perfil');
             return redirect()->route('login');
         }
 
@@ -71,36 +67,30 @@ class ProfileController extends Controller
         
         $perfilData = null;
         if ($perfil) {
+            // OBTENER FOTOS DESDE LA TABLA FOTOS
             $fotosList = [];
-            $fotosQuery = $perfil->fotos()->orderBy('es_principal', 'desc')->get();
+            $fotosQuery = Fotos::where('perfil_id', $perfil->id)
+                ->orderBy('es_principal', 'desc')
+                ->get();
             
             if ($fotosQuery->count() > 0) {
                 foreach ($fotosQuery as $foto) {
+                    $fotoUrl = $this->getUrlFromPath($foto->ruta_foto);
                     $fotosList[] = [
                         'id' => $foto->id,
-                        'url' => $foto->url,
+                        'url' => $fotoUrl,
                         'principal' => (bool) $foto->es_principal,
                         'ruta_foto' => $foto->ruta_foto,
+                        'es_principal' => (bool) $foto->es_principal,
                     ];
                 }
-            }
-            
-            if (empty($fotosList) && !empty($perfil->fotos) && is_array($perfil->fotos)) {
-                $fotosList = collect($perfil->fotos)->map(function($foto) {
-                    return [
-                        'id' => $foto['id'] ?? null,
-                        'url' => $foto['url'] ?? null,
-                        'principal' => $foto['principal'] ?? false,
-                        'ruta_foto' => $foto['ruta_foto'] ?? null,
-                    ];
-                })->toArray();
             }
 
             $perfilData = [
                 'id' => $perfil->id,
                 'tipo' => $perfil->tipo ?? 'personal',
                 'descripcion' => $perfil->descripcion ?? '',
-                'biografia' => $perfil->biografia ?? '',
+                'biografia' => $perfil->descripcion ?? '',
                 'intereses' => $perfil->intereses ?? [],
                 'pasatiempos' => $perfil->pasatiempos ?? [],
                 'fotos' => $fotosList,
@@ -125,15 +115,12 @@ class ProfileController extends Controller
             }
 
         } else {
-            Log::info('Creando nuevo perfil para usuario', ['user_id' => $user->id]);
-            
             $perfil = Perfil::create([
                 'usuario_id' => $user->id,
                 'tipo' => 'personal',
                 'descripcion' => '',
                 'intereses' => [],
                 'pasatiempos' => [],
-                'fotos' => [],
                 'privacidad_fotos' => 'todos',
                 'ubicacion_ciudad' => $user->ciudad ?? '',
                 'metadatos' => [
@@ -175,7 +162,7 @@ class ProfileController extends Controller
         $perfilData['perfil_completo'] = $perfilCompleto;
         $perfilData['usuario_verificado'] = $usuarioVerificado;
 
-        return Inertia::render('Profile/Completar', [
+        return Inertia::render('Usuario/CompletarPerfil', [
             'user' => $userData,
             'perfil' => $perfilData,
             'fechaNacimiento' => $user->fecha_nacimiento ? $user->fecha_nacimiento->format('Y-m-d') : null,
@@ -187,11 +174,16 @@ class ProfileController extends Controller
      */
     public function guardar(Request $request)
     {
-        Log::info('=== INICIO guardar perfil ===');
-        
         $user = Auth::user();
 
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
         try {
+            // ============================================================
+            // VALIDACIÓN
+            // ============================================================
             $validated = $request->validate([
                 'nickname' => 'required|string|min:3|max:20|unique:users,apodo,' . $user->id . '|unique:users,nombre,' . $user->id,
                 'edad' => 'nullable|integer|min:18|max:120',
@@ -207,13 +199,12 @@ class ProfileController extends Controller
                 'intereses' => 'nullable|array',
                 'buscando' => 'nullable|array',
                 'visibilidadFotos' => 'nullable|in:todos,matches,nadie',
-                'fotos' => 'nullable|array',
+                'total_fotos' => 'nullable|integer|min:0|max:8',
             ]);
 
             // ============================================================
             // ACTUALIZAR USUARIO
             // ============================================================
-            
             $userData = [];
             if (isset($validated['nickname']) && !empty($validated['nickname'])) {
                 $userData['nombre'] = $validated['nickname'];
@@ -236,7 +227,6 @@ class ProfileController extends Controller
             // ============================================================
             // PREPARAR METADATOS
             // ============================================================
-            
             $metadatos = [];
             
             if (isset($validated['edad'])) {
@@ -268,7 +258,6 @@ class ProfileController extends Controller
             // ============================================================
             // ACTUALIZAR O CREAR PERFIL
             // ============================================================
-            
             $perfilData = [];
             
             if (isset($validated['tipoPerfil'])) {
@@ -298,107 +287,123 @@ class ProfileController extends Controller
             );
 
             // ============================================================
-            // 🔥 PROCESAR FOTOS
+            // PROCESAR FOTOS
             // ============================================================
-            
-            $fotosEnviadas = $request->input('fotos', []);
+            $totalFotos = $request->input('total_fotos', 0);
             $fotoPrincipalRuta = null;
-            
-            // Obtener IDs de fotos existentes que se mantienen
             $idsAMantener = [];
+            $rutasAMantener = [];
             
-            foreach ($fotosEnviadas as $fotoData) {
-                if (isset($fotoData['vacia']) && $fotoData['vacia'] == '1') {
-                    continue;
-                }
+            // PASO 1: Recopilar IDs y rutas de fotos existentes a mantener
+            for ($i = 0; $i < $totalFotos; $i++) {
+                $tipo = $request->input("foto_{$i}_tipo");
                 
-                if (isset($fotoData['id']) && !empty($fotoData['id'])) {
-                    $idsAMantener[] = $fotoData['id'];
+                if ($tipo === 'existente_id') {
+                    $id = $request->input("foto_{$i}_id");
+                    if ($id) {
+                        $idsAMantener[] = (int)$id;
+                    }
+                } elseif ($tipo === 'existente_ruta') {
+                    $ruta = $request->input("foto_{$i}_ruta");
+                    if ($ruta) {
+                        $rutasAMantener[] = $ruta;
+                    }
                 }
             }
             
-            // ELIMINAR fotos que no están en la lista de mantenimiento
-            $fotosAEliminar = Fotos::where('perfil_id', $perfil->id)
-                ->whereNotIn('id', $idsAMantener)
-                ->get();
-                
+            // PASO 2: Eliminar fotos que no están en las listas
+            $fotosAEliminar = Fotos::where('perfil_id', $perfil->id)->get();
+            
+            $fotosAEliminar = $fotosAEliminar->filter(function($foto) use ($idsAMantener, $rutasAMantener) {
+                $enId = in_array($foto->id, $idsAMantener);
+                $enRuta = in_array($foto->ruta_foto, $rutasAMantener);
+                return !$enId && !$enRuta;
+            });
+            
             foreach ($fotosAEliminar as $foto) {
-                // Eliminar archivo físico
                 if ($foto->ruta_foto && Storage::disk('public')->exists($foto->ruta_foto)) {
                     Storage::disk('public')->delete($foto->ruta_foto);
                 }
                 $foto->delete();
-                Log::info('🗑️ Foto eliminada', ['id' => $foto->id, 'ruta' => $foto->ruta_foto]);
             }
             
-            // Procesar fotos enviadas
-            foreach ($fotosEnviadas as $index => $fotoData) {
-                if (isset($fotoData['vacia']) && $fotoData['vacia'] == '1') {
-                    continue;
-                }
+            // PASO 3: Procesar nuevas fotos y actualizar existentes
+            for ($i = 0; $i < $totalFotos; $i++) {
+                $tipo = $request->input("foto_{$i}_tipo");
+                $principal = $request->input("foto_{$i}_principal", '0');
+                $esPrincipal = $principal === '1' || $principal === true;
                 
-                $esPrincipal = isset($fotoData['principal']) && (
-                    $fotoData['principal'] === true || 
-                    $fotoData['principal'] === '1' || 
-                    $fotoData['principal'] === 1
-                );
-                
-                // Si tiene ID, actualizar
-                if (isset($fotoData['id']) && !empty($fotoData['id'])) {
-                    $foto = Fotos::find($fotoData['id']);
-                    if ($foto) {
-                        $foto->es_principal = $esPrincipal;
-                        $foto->save();
-                        
-                        if ($esPrincipal) {
-                            $fotoPrincipalRuta = $foto->ruta_foto;
+                if ($tipo === 'existente_id') {
+                    $id = $request->input("foto_{$i}_id");
+                    if ($id) {
+                        $foto = Fotos::find((int)$id);
+                        if ($foto) {
+                            if ($esPrincipal) {
+                                Fotos::where('perfil_id', $perfil->id)
+                                    ->where('id', '!=', $foto->id)
+                                    ->update(['es_principal' => false]);
+                            }
+                            
+                            $foto->es_principal = $esPrincipal;
+                            $foto->save();
+                            
+                            if ($esPrincipal) {
+                                $fotoPrincipalRuta = $foto->ruta_foto;
+                            }
                         }
                     }
-                    continue;
-                }
-                
-                // Si es una nueva foto
-                $rutaFoto = null;
-                
-                if (isset($fotoData['file']) && $fotoData['file'] instanceof \Illuminate\Http\UploadedFile) {
-                    $rutaFoto = $fotoData['file']->store('perfil/fotos', 'public');
-                } elseif (isset($fotoData['ruta_foto']) && !empty($fotoData['ruta_foto'])) {
-                    $rutaFoto = ltrim(str_replace('/storage/', '', $fotoData['ruta_foto']), '/');
-                }
-                
-                if (empty($rutaFoto)) {
-                    continue;
-                }
-                
-                $nuevaFoto = Fotos::create([
-                    'perfil_id' => $perfil->id,
-                    'ruta_foto' => $rutaFoto,
-                    'es_principal' => $esPrincipal,
-                    'fecha_subida' => now(),
-                    'permisos' => [$validated['visibilidadFotos'] ?? 'todos'],
-                ]);
-                
-                Log::info('✅ Nueva foto guardada', ['id' => $nuevaFoto->id]);
-                
-                if ($esPrincipal) {
-                    $fotoPrincipalRuta = $rutaFoto;
+                } elseif ($tipo === 'existente_ruta') {
+                    $ruta = $request->input("foto_{$i}_ruta");
+                    if ($ruta) {
+                        $foto = Fotos::where('perfil_id', $perfil->id)
+                            ->where('ruta_foto', $ruta)
+                            ->first();
+                        
+                        if ($foto) {
+                            if ($esPrincipal) {
+                                Fotos::where('perfil_id', $perfil->id)
+                                    ->where('id', '!=', $foto->id)
+                                    ->update(['es_principal' => false]);
+                            }
+                            
+                            $foto->es_principal = $esPrincipal;
+                            $foto->save();
+                            
+                            if ($esPrincipal) {
+                                $fotoPrincipalRuta = $ruta;
+                            }
+                        }
+                    }
+                } elseif ($tipo === 'nueva') {
+                    $file = $request->file("foto_{$i}_file");
+                    
+                    if ($file && $file->isValid()) {
+                        $rutaFoto = $file->store('perfil/fotos', 'public');
+                        
+                        if ($esPrincipal) {
+                            Fotos::where('perfil_id', $perfil->id)->update(['es_principal' => false]);
+                        }
+                        
+                        $nuevaFoto = Fotos::create([
+                            'perfil_id' => $perfil->id,
+                            'ruta_foto' => $rutaFoto,
+                            'es_principal' => $esPrincipal,
+                            'fecha_subida' => now(),
+                            'permisos' => [$validated['visibilidadFotos'] ?? 'todos'],
+                        ]);
+                        
+                        if ($esPrincipal) {
+                            $fotoPrincipalRuta = $rutaFoto;
+                        }
+                    }
                 }
             }
             
-            // ============================================================
-            // 🔥 ACTUALIZAR FOTO PRINCIPAL EN LA TABLA USERS
-            // ============================================================
-            
-            // Si hay una foto principal definida, guardarla en users
+            // PASO 4: Actualizar foto_principal en users
             if ($fotoPrincipalRuta) {
                 $user->foto_principal = $fotoPrincipalRuta;
                 $user->save();
-                Log::info('👤 Foto principal asignada en users', [
-                    'user_id' => $user->id,
-                    'foto_principal' => $fotoPrincipalRuta,
-                ]);
             } else {
-                // Si no se definió una nueva foto principal, verificar si hay alguna
                 $fotoPrincipal = Fotos::where('perfil_id', $perfil->id)
                     ->where('es_principal', true)
                     ->first();
@@ -406,24 +411,11 @@ class ProfileController extends Controller
                 if ($fotoPrincipal) {
                     $user->foto_principal = $fotoPrincipal->ruta_foto;
                     $user->save();
-                    Log::info('👤 Foto principal existente asignada', [
-                        'user_id' => $user->id,
-                        'foto_principal' => $fotoPrincipal->ruta_foto,
-                    ]);
-                } elseif ($user->foto_principal) {
-                    // Mantener la foto principal actual si no se ha cambiado
-                    Log::info('👤 Manteniendo foto principal actual', [
-                        'user_id' => $user->id,
-                        'foto_principal' => $user->foto_principal,
-                    ]);
                 }
             }
 
-            // ============================================================
-            // VERIFICAR SI EL PERFIL ESTÁ COMPLETO
-            // ============================================================
-            
-            $totalFotos = Fotos::where('perfil_id', $perfil->id)->count();
+            // PASO 5: Verificar si el perfil está completo
+            $totalFotosGuardadas = Fotos::where('perfil_id', $perfil->id)->count();
             $tieneFotoPrincipal = !empty($user->foto_principal);
             $interesesCount = count($perfil->intereses ?? []);
             $pasatiemposCount = count($perfil->pasatiempos ?? []);
@@ -431,7 +423,7 @@ class ProfileController extends Controller
             
             $completo = (
                 $tieneFotoPrincipal &&
-                $totalFotos >= 4 &&
+                $totalFotosGuardadas >= 4 &&
                 $interesesCount >= 3 &&
                 $pasatiemposCount >= 2 &&
                 $descripcionLength >= 50 &&
@@ -439,6 +431,7 @@ class ProfileController extends Controller
             );
             
             $metadatos['perfil_completo'] = $completo;
+            $metadatos['fotos_completadas'] = $totalFotosGuardadas >= 4;
             $perfil->metadatos = $metadatos;
             $perfil->save();
             
@@ -446,33 +439,20 @@ class ProfileController extends Controller
                 $user->update([
                     'estado' => 'pendiente',
                 ]);
-                Log::info('👤 Usuario cambiado a estado "pendiente"', ['user_id' => $user->id]);
             }
-
-            Log::info('✅ Perfil guardado exitosamente', [
-                'user_id' => $user->id,
-                'completo' => $completo,
-                'foto_principal_final' => $user->foto_principal,
-                'total_fotos' => $totalFotos,
-            ]);
 
             return redirect()->route('perfil.completar')->with('flash', [
                 'toast' => [
                     'type' => $completo ? 'success' : 'info',
                     'title' => $completo ? '¡Perfil completado!' : 'Perfil guardado',
                     'message' => $completo 
-                        ? '¡Felicidades! Tu perfil está completo. Será revisado por el equipo de Club de Fantasías.'
+                        ? '¡Felicidades! Tu perfil está completo. Será revisado por el equipo.'
                         : 'Tu perfil ha sido guardado. Continúa completando la información.',
                     'duration' => 5000,
                 ]
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('❌ ERROR DE VALIDACIÓN', [
-                'errors' => $e->errors(),
-                'user_id' => $user->id,
-            ]);
-            
             return redirect()->route('perfil.completar')
                 ->withErrors($e->errors())
                 ->with('flash', [
@@ -484,17 +464,11 @@ class ProfileController extends Controller
                     ]
                 ]);
         } catch (\Exception $e) {
-            Log::error('❌ ERROR al guardar perfil', [
-                'message' => $e->getMessage(),
-                'user_id' => $user->id,
-                'trace' => $e->getTraceAsString(),
-            ]);
-
             return redirect()->route('perfil.completar')->with('flash', [
                 'toast' => [
                     'type' => 'error',
-                    'title' => 'Error',
-                    'message' => 'No se pudo guardar el perfil. Por favor, intenta nuevamente.',
+                    'title' => 'Error del sistema',
+                    'message' => 'Ha ocurrido un error inesperado. Por favor, intenta nuevamente.',
                     'duration' => 5000,
                 ]
             ]);
@@ -526,14 +500,22 @@ class ProfileController extends Controller
             return '/images/shared/avatar-default.jpg';
         }
         
+        // Si ya es una URL completa
         if (filter_var($path, FILTER_VALIDATE_URL)) {
             return $path;
         }
         
+        // Si ya tiene /storage/
         if (strpos($path, '/storage/') === 0) {
             return $path;
         }
         
+        // Si tiene storage/ sin slash inicial
+        if (strpos($path, 'storage/') === 0) {
+            return '/' . $path;
+        }
+        
+        // Caso por defecto
         return asset('storage/' . ltrim($path, '/'));
     }
 }

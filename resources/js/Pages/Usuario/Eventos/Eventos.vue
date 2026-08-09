@@ -30,33 +30,36 @@ const props = defineProps({
  * --------------------------------------------------------------- */
 const filtros = reactive({
     busqueda: '',
-    ciudad: 'Todas',
+    ciudad: 'TODAS',
     fecha: '',
-    tipo: 'Todos',
+    tipo: 'TODOS',
 });
 
 const isSearchFocused = ref(false);
 const mostrarSugerencias = ref(false);
+const ordenSeleccionado = ref('proximos');
+const filtrosActivos = ref(false);
 
 /* ---------------------------------------------------------------
- * Datos
+ * Datos - Imágenes de categorías
  * --------------------------------------------------------------- */
-const beneficios = [
-    { icon: 'pi-check-circle', titulo: 'Comunidad verificada', desc: 'Todos los asistentes son perfiles reales y verificados.' },
-    { icon: 'pi-shield', titulo: 'Privacidad garantizada', desc: 'Tu privacidad es nuestra prioridad en cada experiencia.' },
-    { icon: 'pi-lock', titulo: 'Acceso exclusivo', desc: 'Eventos diseñados solo para miembros seleccionados.' },
-    { icon: 'pi-sparkles', titulo: 'Experiencias reales', desc: 'Momentos auténticos que conectan y trascienden.' },
-];
-
 const categoriaImagenes = {
-    'Fiestas privadas': '/images/eventos/fiestas.png',
-    'Jacuzzi': '/images/eventos/jacuzzi.png',
-    'Club nights': '/images/eventos/club.png',
-    'Eventos VIP': '/images/eventos/eventos_vip.png',
-    'Viajes temáticos': '/images/eventos/viajes.png',
-    'Cenas': '/images/eventos/cenas.png',
-    'Cenas exclusivas': '/images/eventos/cenas.png',
-    'Club': '/images/eventos/club.png',
+    'Fiestas privadas': '/images/categorias_eventos/nocturnos.png',
+    'Jacuzzi': '/images/categorias_eventos/nocturnos.png',
+    'Club nights': '/images/categorias_eventos/nocturnos.png',
+    'Eventos VIP': '/images/categorias_eventos/nocturnos.png',
+    'Viajes temáticos': '/images/categorias_eventos/social.png',
+    'Cenas': '/images/categorias_eventos/social.png',
+    'Cenas exclusivas': '/images/categorias_eventos/social.png',
+    'Club': '/images/categorias_eventos/nocturnos.png',
+    'Fiesta': '/images/categorias_eventos/nocturnos.png',
+    'Concierto': '/images/categorias_eventos/nocturnos.png',
+    'After': '/images/categorias_eventos/nocturnos.png',
+    'Deportivo': '/images/categorias_eventos/social.png',
+    'Cultural': '/images/categorias_eventos/social.png',
+    'Social': '/images/categorias_eventos/social.png',
+    'Nocturna': '/images/categorias_eventos/nocturnos.png',
+    'Nocturnos': '/images/categorias_eventos/nocturnos.png',
 };
 
 /* ---------------------------------------------------------------
@@ -74,8 +77,11 @@ function getImageUrl(path) {
 }
 
 function getCategoriaImagen(categoria) {
-    if (!categoria) return '/images/eventos/default.jpg';
-    if (categoriaImagenes[categoria]) return categoriaImagenes[categoria];
+    if (!categoria) return '/images/categorias_eventos/social.png';
+    
+    if (categoriaImagenes[categoria]) {
+        return categoriaImagenes[categoria];
+    }
     
     const categoriaLower = categoria.toLowerCase();
     for (const [key, value] of Object.entries(categoriaImagenes)) {
@@ -83,10 +89,15 @@ function getCategoriaImagen(categoria) {
             return value;
         }
     }
-    return '/images/eventos/default.jpg';
+    
+    return '/images/categorias_eventos/social.png';
 }
 
-// Eventos filtrados
+function toUpperCase(text) {
+    if (!text) return '';
+    return text.toUpperCase();
+}
+
 const eventosFiltrados = computed(() => {
     let filtered = props.eventos;
     
@@ -100,22 +111,32 @@ const eventosFiltrados = computed(() => {
         );
     }
     
-    if (filtros.ciudad !== 'Todas') {
-        filtered = filtered.filter(e => e.ciudad === filtros.ciudad);
+    if (filtros.ciudad !== 'TODAS') {
+        filtered = filtered.filter(e => e.ciudad?.toUpperCase() === filtros.ciudad);
     }
     
     if (filtros.fecha) {
         const fechaSeleccionada = new Date(filtros.fecha);
         filtered = filtered.filter(e => {
-            if (!e.fecha_completa) return false;
-            const fechaEvento = new Date(e.fecha_completa);
+            if (!e.fecha) return false;
+            const fechaEvento = new Date(e.fecha);
             return fechaEvento.toDateString() === fechaSeleccionada.toDateString();
         });
     }
     
-    if (filtros.tipo !== 'Todos') {
-        filtered = filtered.filter(e => e.tipo === filtros.tipo);
+    if (filtros.tipo !== 'TODOS') {
+        filtered = filtered.filter(e => e.tipo?.toUpperCase() === filtros.tipo);
     }
+    
+    if (ordenSeleccionado.value === 'proximos') {
+        filtered = [...filtered].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    } else if (ordenSeleccionado.value === 'populares') {
+        filtered = [...filtered].sort((a, b) => (b.vip ? 1 : 0) - (a.vip ? 1 : 0));
+    } else if (ordenSeleccionado.value === 'precio') {
+        filtered = [...filtered].sort((a, b) => (a.precio || 0) - (b.precio || 0));
+    }
+    
+    filtrosActivos.value = !!(filtros.busqueda || filtros.ciudad !== 'TODAS' || filtros.fecha || filtros.tipo !== 'TODOS');
     
     return filtered;
 });
@@ -126,16 +147,18 @@ const ciudadesUnicas = computed(() => {
     const ciudades = props.eventos
         .map(e => e.ciudad)
         .filter(Boolean)
+        .map(c => c.toUpperCase())
         .filter((value, index, self) => self.indexOf(value) === index);
-    return ['Todas', ...ciudades];
+    return ['TODAS', ...ciudades];
 });
 
 const tiposUnicos = computed(() => {
     const tipos = props.eventos
         .map(e => e.tipo)
         .filter(Boolean)
+        .map(t => t.toUpperCase())
         .filter((value, index, self) => self.indexOf(value) === index);
-    return ['Todos', ...tipos];
+    return ['TODOS', ...tipos];
 });
 
 const sugerencias = computed(() => {
@@ -166,6 +189,15 @@ function seleccionarSugerencia(evento) {
 
 function limpiarFecha() {
     filtros.fecha = '';
+}
+
+function limpiarTodosLosFiltros() {
+    filtros.busqueda = '';
+    filtros.ciudad = 'TODAS';
+    filtros.fecha = '';
+    filtros.tipo = 'TODOS';
+    ordenSeleccionado.value = 'proximos';
+    mostrarSugerencias.value = false;
 }
 
 watch(() => filtros.busqueda, (newVal) => {
@@ -207,11 +239,11 @@ watch(() => filtros.busqueda, (newVal) => {
                     <div class="hero__featured-content">
                         <div class="hero__featured-date">
                             <strong>{{ destacado.dia }}</strong>
-                            <span>{{ destacado.mes }}</span>
+                            <span>{{ destacado.mes?.toUpperCase() }}</span>
                         </div>
                         <div class="hero__featured-info">
                             <h2>{{ destacado.titulo }} <span v-if="destacado.vip" class="vip-tag">VIP</span></h2>
-                            <p><i class="pi pi-map-marker"></i> {{ destacado.ciudad }}</p>
+                            <p><i class="pi pi-map-marker"></i> {{ destacado.ciudad?.toUpperCase() }}</p>
                             <p>{{ destacado.fecha }}</p>
                         </div>
                         <Link :href="`/eventos/${destacado.id}`" class="hero__featured-cta">
@@ -251,8 +283,8 @@ watch(() => filtros.busqueda, (newVal) => {
                         <!-- Sugerencias -->
                         <div v-if="mostrarSugerencias && sugerencias.length > 0" class="search-suggestions">
                             <div class="suggestions-header">
-                                <span>✦ Sugerencias</span>
-                                <span class="suggestions-count">{{ sugerencias.length }} resultados</span>
+                                <span>✦ SUGERENCIAS</span>
+                                <span class="suggestions-count">{{ sugerencias.length }} RESULTADOS</span>
                             </div>
                             <button 
                                 v-for="sug in sugerencias" 
@@ -264,7 +296,7 @@ watch(() => filtros.busqueda, (newVal) => {
                                 <div class="suggestion-info">
                                     <strong>{{ sug.titulo }}</strong>
                                     <span>
-                                        <i class="pi pi-map-marker"></i> {{ sug.ciudad }}
+                                        <i class="pi pi-map-marker"></i> {{ sug.ciudad?.toUpperCase() }}
                                         <span v-if="sug.categoria" class="suggestion-category">
                                             • {{ sug.categoria }}
                                         </span>
@@ -277,14 +309,14 @@ watch(() => filtros.busqueda, (newVal) => {
                     <!-- Filtros -->
                     <div class="filters-group">
                         <div class="filters-bar__select">
-                            <span>Ciudad</span>
+                            <span>CIUDAD</span>
                             <select v-model="filtros.ciudad">
                                 <option v-for="c in ciudadesUnicas" :key="c" :value="c">{{ c }}</option>
                             </select>
                         </div>
 
                         <div class="filters-bar__select filters-bar__select--date">
-                            <span>Fecha</span>
+                            <span>FECHA</span>
                             <div class="date-input-wrapper">
                                 <input 
                                     type="date" 
@@ -304,46 +336,66 @@ watch(() => filtros.busqueda, (newVal) => {
                         </div>
 
                         <div class="filters-bar__select">
-                            <span>Tipo</span>
+                            <span>TIPO</span>
                             <select v-model="filtros.tipo">
                                 <option v-for="t in tiposUnicos" :key="t" :value="t">{{ t }}</option>
                             </select>
                         </div>
+
+                        <div class="filters-bar__select">
+                            <span>ORDENAR</span>
+                            <select v-model="ordenSeleccionado">
+                                <option value="proximos">PRÓXIMOS</option>
+                                <option value="populares">POPULARES</option>
+                                <option value="precio">PRECIO</option>
+                            </select>
+                        </div>
+
+                        <!-- Botón limpiar filtros -->
+                        <button 
+                            v-if="filtrosActivos" 
+                            class="clear-filters-btn"
+                            @click="limpiarTodosLosFiltros"
+                            type="button"
+                        >
+                            <i class="pi pi-times-circle"></i>
+                            LIMPIAR FILTROS
+                        </button>
                     </div>
 
-                    <span class="results-count">{{ eventosCount }} evento{{ eventosCount !== 1 ? 's' : '' }}</span>
-                </div>
-            </section>
-
-            <!-- ============================================================ -->
-            <!-- CATEGORÍAS CON IMÁGENES -->
-            <!-- ============================================================ -->
-            <section v-if="categorias.length > 0" class="section">
-                <div class="section__heading">
-                    <h2>Explora por categoría</h2>
-                    <Link href="/eventos/categorias" class="see-all">
-                        Ver todas las categorías <i class="pi pi-chevron-right"></i>
-                    </Link>
+                    <span class="results-count">{{ eventosCount }} EVENTO{{ eventosCount !== 1 ? 'S' : '' }}</span>
                 </div>
 
-                <div class="category-grid">
-                    <Link 
-                        v-for="cat in categorias" 
-                        :key="cat.titulo" 
-                        :href="`/eventos/categoria/${cat.titulo.toLowerCase().replace(/\s+/g, '-')}`"
-                        class="category-card"
-                    >
-                        <img 
-                            :src="getCategoriaImagen(cat.titulo)" 
-                            :alt="cat.titulo"
-                            @error="(e) => { e.target.src = '/images/eventos/default.jpg' }"
-                        />
-                        <div class="category-card__overlay"></div>
-                        <div class="category-card__content">
-                            <i class="pi" :class="cat.icon || 'pi-tag'"></i>
-                            <span>{{ cat.titulo }}</span>
-                        </div>
-                    </Link>
+                <!-- Filtros activos - badges -->
+                <div v-if="filtrosActivos" class="active-filters">
+                    <span class="active-filters__label">FILTROS ACTIVOS:</span>
+                    <span v-if="filtros.busqueda" class="filter-badge">
+                        <i class="pi pi-search"></i> {{ filtros.busqueda }}
+                        <button @click="limpiarBusqueda" class="filter-badge__remove">
+                            <i class="pi pi-times"></i>
+                        </button>
+                    </span>
+                    <span v-if="filtros.ciudad !== 'TODAS'" class="filter-badge">
+                        <i class="pi pi-map-marker"></i> {{ filtros.ciudad }}
+                        <button @click="filtros.ciudad = 'TODAS'" class="filter-badge__remove">
+                            <i class="pi pi-times"></i>
+                        </button>
+                    </span>
+                    <span v-if="filtros.fecha" class="filter-badge">
+                        <i class="pi pi-calendar"></i> {{ new Date(filtros.fecha).toLocaleDateString('es-ES') }}
+                        <button @click="limpiarFecha" class="filter-badge__remove">
+                            <i class="pi pi-times"></i>
+                        </button>
+                    </span>
+                    <span v-if="filtros.tipo !== 'TODOS'" class="filter-badge">
+                        <i class="pi pi-tag"></i> {{ filtros.tipo }}
+                        <button @click="filtros.tipo = 'TODOS'" class="filter-badge__remove">
+                            <i class="pi pi-times"></i>
+                        </button>
+                    </span>
+                    <button @click="limpiarTodosLosFiltros" class="clear-all-badge">
+                        LIMPIAR TODOS
+                    </button>
                 </div>
             </section>
 
@@ -354,23 +406,18 @@ watch(() => filtros.busqueda, (newVal) => {
                 <div class="events-column">
                     <div class="section__heading section__heading--row">
                         <div class="section__heading-title">
-                            <h2>Todos los eventos</h2>
-                            <span class="section__heading-count">{{ eventosCount }} disponibles</span>
+                            <h2>TODOS LOS EVENTOS</h2>
+                            <span class="section__heading-count">{{ eventosCount }} DISPONIBLES</span>
                         </div>
-                        <label class="sort-select">
-                            Ordenar por:
-                            <select>
-                                <option>Próximos primero</option>
-                                <option>Más populares</option>
-                                <option>Precio</option>
-                            </select>
-                        </label>
                     </div>
 
                     <div v-if="eventosFiltrados.length === 0" class="empty-state">
                         <i class="pi pi-calendar"></i>
-                        <h3>No hay eventos disponibles</h3>
+                        <h3>NO HAY EVENTOS DISPONIBLES</h3>
                         <p>Pronto tendremos nuevos eventos para ti.</p>
+                        <button @click="limpiarTodosLosFiltros" class="empty-state__btn">
+                            LIMPIAR FILTROS
+                        </button>
                     </div>
 
                     <div v-else class="event-grid">
@@ -379,20 +426,21 @@ watch(() => filtros.busqueda, (newVal) => {
                                 <img :src="getImageUrl(e.imagen)" :alt="e.titulo" />
                                 <div class="event-card__date">
                                     <strong>{{ e.dia }}</strong>
-                                    <span>{{ e.mes }}</span>
+                                    <span>{{ e.mes?.toUpperCase() }}</span>
                                 </div>
                                 <span v-if="e.vip" class="event-card__vip-badge">✦ VIP</span>
+                                <span v-else-if="e.tipo" class="event-card__type-badge">{{ e.tipo?.toUpperCase() }}</span>
                             </div>
                             <div class="event-card__body">
                                 <h3>{{ e.titulo }}</h3>
                                 <p class="event-card__meta">
-                                    <i class="pi pi-map-marker"></i> {{ e.ciudad }} &nbsp;
+                                    <i class="pi pi-map-marker"></i> {{ e.ciudad?.toUpperCase() }} &nbsp;
                                     <i class="pi pi-clock"></i> {{ e.hora }}
                                 </p>
                                 <p class="event-card__desc">{{ e.desc }}</p>
                                 <div class="event-card__footer">
                                     <Link :href="`/eventos/${e.id}`" class="event-card__btn">
-                                        Más información
+                                        MÁS INFORMACIÓN
                                     </Link>
                                     <button class="favorite-btn" :class="{ active: e.favorito }" @click="toggleFavorito(e)">
                                         <i class="pi" :class="e.favorito ? 'pi-heart-fill' : 'pi-heart'"></i>
@@ -411,70 +459,51 @@ watch(() => filtros.busqueda, (newVal) => {
 
                 <aside class="sidebar-column">
                     <!-- ============================================================ -->
-                    <!-- PRÓXIMOS EVENTOS - MEJORADO -->
+                    <!-- PRÓXIMOS EVENTOS -->
                     <!-- ============================================================ -->
                     <div class="sidebar-card sidebar-card--proximos">
                         <div class="sidebar-card__header">
                             <div class="sidebar-card__header-title">
-                                <h3>Próximos eventos</h3>
+                                <i class="pi pi-calendar sidebar-card__icon"></i>
+                                <h3>PRÓXIMOS EVENTOS</h3>
                             </div>
                             <Link href="/eventos/recomendados" class="see-all">
-                                Ver todos <i class="pi pi-chevron-right"></i>
+                                VER TODOS <i class="pi pi-chevron-right"></i>
                             </Link>
                         </div>
 
                         <div v-if="proximos.length === 0" class="empty-proximos">
                             <i class="pi pi-calendar-plus"></i>
-                            <span>Pronto tendrás eventos disponibles</span>
+                            <span>PRONTO TENDRÁS EVENTOS DISPONIBLES</span>
                         </div>
 
                         <div v-else class="mini-event-list">
                             <div v-for="(e, index) in proximos" :key="e.id" class="mini-event-item" :style="{ animationDelay: `${index * 0.1}s` }">
                                 <div class="mini-event-item__image">
                                     <img :src="getImageUrl(e.imagen)" :alt="e.titulo" />
-                                    <div class="mini-event-item__status" :class="{ 'status--soon': e.proximo }">
-                                        <span v-if="e.proximo">🔥 Pronto</span>
-                                        <span v-else>📌</span>
-                                    </div>
                                 </div>
                                 
                                 <div class="mini-event-item__date">
                                     <strong>{{ e.dia }}</strong>
-                                    <span>{{ e.mes }}</span>
+                                    <span>{{ e.mes?.toUpperCase() }}</span>
                                 </div>
                                 
                                 <div class="mini-event-item__info">
                                     <strong>{{ e.titulo }}</strong>
                                     <span class="info-location">
-                                        <i class="pi pi-map-marker"></i> {{ e.lugar || e.ciudad }}
+                                        <i class="pi pi-map-marker"></i> {{ e.lugar || e.ciudad?.toUpperCase() }}
                                     </span>
                                     <span class="info-time">
                                         <i class="pi pi-clock"></i> {{ e.hora }}
                                     </span>
-                                    <span v-if="e.categoria" class="info-category">
-                                        <i class="pi pi-tag"></i> {{ e.categoria }}
+                                    <span v-if="e.tipo" class="info-category">
+                                        <i class="pi pi-tag"></i> {{ e.tipo?.toUpperCase() }}
                                     </span>
                                 </div>
                                 
                                 <button class="favorite-btn mini-fav" @click="toggleFavorito(e)">
                                     <i class="pi" :class="e.favorito ? 'pi-heart-fill' : 'pi-heart'"></i>
                                 </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ============================================================ -->
-                    <!-- BENEFICIOS -->
-                    <!-- ============================================================ -->
-                    <div class="sidebar-card">
-                        <h3>✦ Beneficios</h3>
-                        <div class="benefit-list">
-                            <div v-for="b in beneficios" :key="b.titulo" class="benefit-item">
-                                <span class="benefit-item__icon"><i class="pi" :class="b.icon"></i></span>
-                                <div>
-                                    <strong>{{ b.titulo }}</strong>
-                                    <span>{{ b.desc }}</span>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -736,6 +765,7 @@ watch(() => filtros.busqueda, (newVal) => {
     gap: 1rem;
     box-shadow: var(--shadow);
     transition: all 0.3s ease;
+    flex-wrap: wrap;
 }
 
 .filters-bar__wrap:hover {
@@ -849,6 +879,8 @@ watch(() => filtros.busqueda, (newVal) => {
     color: var(--muted);
     font-weight: 600;
     border-bottom: 1px solid var(--line);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .suggestions-count {
@@ -906,25 +938,25 @@ watch(() => filtros.busqueda, (newVal) => {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
 .filters-bar__select {
     display: flex;
     flex-direction: column;
     gap: 0.1rem;
-    font-size: 0.6rem;
+    font-size: 0.55rem;
     color: var(--muted-light);
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
 }
 
 .filters-bar__select select {
     border: 1.5px solid var(--line);
     border-radius: var(--radius-sm);
     padding: 0.3rem 0.8rem 0.3rem 0.8rem;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--ink);
     background: var(--white);
@@ -937,6 +969,7 @@ watch(() => filtros.busqueda, (newVal) => {
     background-repeat: no-repeat;
     background-position: right 10px center;
     padding-right: 32px;
+    text-transform: uppercase;
 }
 
 .filters-bar__select select:focus {
@@ -963,7 +996,7 @@ watch(() => filtros.busqueda, (newVal) => {
     border: 1.5px solid var(--line);
     border-radius: var(--radius-sm);
     padding: 0.3rem 0.8rem 0.3rem 0.8rem;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--ink);
     background: var(--white);
@@ -972,6 +1005,7 @@ watch(() => filtros.busqueda, (newVal) => {
     font-family: var(--font-sans);
     min-width: 130px;
     appearance: none;
+    text-transform: uppercase;
 }
 
 .date-input::-webkit-calendar-picker-indicator {
@@ -1030,8 +1064,38 @@ watch(() => filtros.busqueda, (newVal) => {
     color: var(--ink);
 }
 
+.clear-filters-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--brand);
+    background: var(--brand-soft);
+    border: none;
+    padding: 0.3rem 1rem;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.clear-filters-btn:hover {
+    background: var(--brand);
+    color: var(--white);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(200, 30, 58, 0.2);
+}
+
+.clear-filters-btn i {
+    font-size: 0.7rem;
+}
+
 .results-count {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
     color: var(--brand);
     background: var(--brand-soft);
@@ -1040,6 +1104,84 @@ watch(() => filtros.busqueda, (newVal) => {
     white-space: nowrap;
     flex-shrink: 0;
     border: 1px solid rgba(200, 30, 58, 0.1);
+    letter-spacing: 0.04em;
+}
+
+/* =========================================================================
+   FILTROS ACTIVOS - BADGES
+   ========================================================================= */
+.active-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 0 0 0;
+    margin-top: 0.5rem;
+}
+
+.active-filters__label {
+    font-size: 0.55rem;
+    font-weight: 700;
+    color: var(--muted-light);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.filter-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.5rem 0.2rem 0.7rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-full);
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+}
+
+.filter-badge i {
+    font-size: 0.55rem;
+    color: var(--brand);
+}
+
+.filter-badge__remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: none;
+    background: transparent;
+    color: var(--muted-light);
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    font-size: 0.5rem;
+    padding: 0;
+}
+
+.filter-badge__remove:hover {
+    background: var(--error);
+    color: var(--white);
+}
+
+.clear-all-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--error);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0.1rem 0.5rem;
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.clear-all-badge:hover {
+    background: #FEE8EA;
 }
 
 /* =========================================================================
@@ -1068,6 +1210,7 @@ watch(() => filtros.busqueda, (newVal) => {
     font-family: var(--font-serif);
     font-size: 1.3rem;
     margin: 0;
+    letter-spacing: 0.03em;
 }
 
 .section__heading--row {
@@ -1075,10 +1218,11 @@ watch(() => filtros.busqueda, (newVal) => {
 }
 
 .section__heading-count {
-    font-size: 0.78rem;
+    font-size: 0.7rem;
     color: var(--muted-light);
     margin-left: 0.5rem;
-    font-weight: 400;
+    font-weight: 600;
+    letter-spacing: 0.04em;
 }
 
 .section__heading-title {
@@ -1088,99 +1232,19 @@ watch(() => filtros.busqueda, (newVal) => {
 
 .see-all {
     color: var(--brand);
-    font-size: 0.82rem;
+    font-size: 0.75rem;
     font-weight: 700;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
     transition: all 0.3s ease;
+    letter-spacing: 0.04em;
 }
 
 .see-all:hover {
     color: var(--brand-dark);
     gap: 0.6rem;
-}
-
-/* =========================================================================
-   CATEGORÍAS
-   ========================================================================= */
-.category-grid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 1rem;
-}
-
-@media (max-width: 1024px) {
-    .category-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
-@media (max-width: 640px) {
-    .category-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-.category-card {
-    position: relative;
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    aspect-ratio: 4/5;
-    cursor: pointer;
-    display: block;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    text-decoration: none;
-}
-
-.category-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-}
-
-.category-card img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.6s ease;
-}
-
-.category-card:hover img {
-    transform: scale(1.1);
-}
-
-.category-card__overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(0deg, rgba(0,0,0,0.75) 20%, rgba(0,0,0,0.15) 70%);
-}
-
-.category-card__content {
-    position: relative;
-    z-index: 2;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.4rem;
-    padding: 1.2rem;
-    color: var(--white);
-    text-align: center;
-}
-
-.category-card__content i {
-    font-size: 1.3rem;
-    opacity: 0.8;
-}
-
-.category-card__content span {
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
 }
 
 /* =========================================================================
@@ -1203,32 +1267,6 @@ watch(() => filtros.busqueda, (newVal) => {
     }
 }
 
-.sort-select {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-    color: var(--ink-soft);
-}
-
-.sort-select select {
-    border: 1.5px solid var(--line);
-    border-radius: var(--radius-sm);
-    padding: 0.4rem 0.7rem;
-    font-size: 0.8rem;
-    color: var(--ink);
-    background: var(--white);
-    cursor: pointer;
-    font-family: var(--font-sans);
-    transition: all 0.3s ease;
-}
-
-.sort-select select:focus {
-    outline: none;
-    border-color: var(--brand);
-    box-shadow: 0 0 0 4px rgba(200, 30, 58, 0.08);
-}
-
 .empty-state {
     text-align: center;
     padding: 4rem 1rem;
@@ -1247,11 +1285,32 @@ watch(() => filtros.busqueda, (newVal) => {
     font-size: 1.1rem;
     margin: 0 0 0.5rem;
     color: var(--ink);
+    letter-spacing: 0.04em;
 }
 
 .empty-state p {
     color: var(--muted);
-    margin: 0;
+    margin: 0 0 1rem;
+}
+
+.empty-state__btn {
+    font-weight: 700;
+    font-size: 0.78rem;
+    color: var(--brand);
+    background: var(--brand-soft);
+    border: none;
+    padding: 0.5rem 1.5rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.empty-state__btn:hover {
+    background: var(--brand);
+    color: var(--white);
 }
 
 /* =========================================================================
@@ -1323,7 +1382,7 @@ watch(() => filtros.busqueda, (newVal) => {
 }
 
 .event-card__date span {
-    font-size: 0.62rem;
+    font-size: 0.58rem;
     letter-spacing: 0.05em;
 }
 
@@ -1333,10 +1392,23 @@ watch(() => filtros.busqueda, (newVal) => {
     right: 10px;
     background: linear-gradient(135deg, #FFD700, #FFA500);
     color: #7a5a00;
-    font-size: 0.6rem;
+    font-size: 0.55rem;
     font-weight: 800;
     padding: 0.2rem 0.6rem;
     border-radius: var(--radius-sm);
+}
+
+.event-card__type-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.7);
+    color: var(--white);
+    font-size: 0.5rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.04em;
 }
 
 .event-card__body {
@@ -1374,7 +1446,7 @@ watch(() => filtros.busqueda, (newVal) => {
 
 .event-card__btn {
     flex: 1;
-    font-size: 0.78rem;
+    font-size: 0.7rem;
     font-weight: 700;
     border: 1.5px solid var(--line);
     border-radius: var(--radius-sm);
@@ -1386,6 +1458,8 @@ watch(() => filtros.busqueda, (newVal) => {
     transition: all 0.3s ease;
     font-family: var(--font-sans);
     cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .event-card__btn:hover {
@@ -1438,6 +1512,9 @@ watch(() => filtros.busqueda, (newVal) => {
     transition: all 0.3s ease;
     font-family: var(--font-sans);
     cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.8rem;
 }
 
 .ver-mas-btn:hover {
@@ -1494,13 +1571,15 @@ watch(() => filtros.busqueda, (newVal) => {
 
 .sidebar-card__icon {
     font-size: 1.1rem;
+    color: var(--brand);
 }
 
 .sidebar-card__header h3 {
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-weight: 700;
     margin: 0;
     color: var(--ink);
+    letter-spacing: 0.04em;
 }
 
 .empty-proximos {
@@ -1517,7 +1596,7 @@ watch(() => filtros.busqueda, (newVal) => {
 }
 
 .empty-proximos span {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 
 /* =========================================================================
@@ -1561,7 +1640,6 @@ watch(() => filtros.busqueda, (newVal) => {
 }
 
 .mini-event-item__image {
-    position: relative;
     width: 56px;
     height: 56px;
     border-radius: var(--radius-sm);
@@ -1573,30 +1651,6 @@ watch(() => filtros.busqueda, (newVal) => {
     width: 100%;
     height: 100%;
     object-fit: cover;
-}
-
-.mini-event-item__status {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    background: var(--brand);
-    color: var(--white);
-    font-size: 0.5rem;
-    font-weight: 700;
-    padding: 0.1rem 0.4rem;
-    border-radius: var(--radius-full);
-    border: 2px solid var(--white);
-    white-space: nowrap;
-}
-
-.mini-event-item__status.status--soon {
-    background: linear-gradient(135deg, #FF6B6B, #EE5A24);
-    animation: pulse-badge 2s infinite;
-}
-
-@keyframes pulse-badge {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
 }
 
 .mini-event-item__date {
@@ -1620,7 +1674,7 @@ watch(() => filtros.busqueda, (newVal) => {
 }
 
 .mini-event-item__date span {
-    font-size: 0.58rem;
+    font-size: 0.55rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     font-weight: 600;
@@ -1643,7 +1697,7 @@ watch(() => filtros.busqueda, (newVal) => {
 }
 
 .mini-event-item__info span {
-    font-size: 0.68rem;
+    font-size: 0.65rem;
     color: var(--muted);
     display: flex;
     align-items: center;
@@ -1653,12 +1707,12 @@ watch(() => filtros.busqueda, (newVal) => {
 
 .mini-event-item__info .info-location i {
     color: var(--brand);
-    font-size: 0.6rem;
+    font-size: 0.55rem;
 }
 
 .mini-event-item__info .info-time i {
     color: var(--muted-light);
-    font-size: 0.6rem;
+    font-size: 0.55rem;
 }
 
 .mini-event-item__info .info-category {
@@ -1666,14 +1720,16 @@ watch(() => filtros.busqueda, (newVal) => {
     padding: 0.05rem 0.4rem;
     border-radius: var(--radius-full);
     display: inline-flex;
-    font-size: 0.6rem;
+    font-size: 0.55rem;
     color: var(--muted);
     width: fit-content;
     margin-top: 0.1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
 
 .mini-event-item__info .info-category i {
-    font-size: 0.55rem;
+    font-size: 0.5rem;
 }
 
 .mini-fav {
@@ -1681,51 +1737,6 @@ watch(() => filtros.busqueda, (newVal) => {
     height: 30px;
     align-self: center;
     flex-shrink: 0;
-}
-
-/* =========================================================================
-   BENEFITS
-   ========================================================================= */
-.benefit-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.benefit-item {
-    display: flex;
-    gap: 0.7rem;
-    align-items: flex-start;
-}
-
-.benefit-item__icon {
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-sm);
-    background: var(--brand-soft);
-    color: var(--brand);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    font-size: 0.85rem;
-    transition: all 0.3s ease;
-}
-
-.benefit-item:hover .benefit-item__icon {
-    background: var(--brand);
-    color: var(--white);
-    transform: scale(1.05);
-}
-
-.benefit-item strong {
-    display: block;
-    font-size: 0.85rem;
-}
-
-.benefit-item span {
-    font-size: 0.75rem;
-    color: var(--muted);
 }
 
 /* =========================================================================
@@ -1824,6 +1835,15 @@ watch(() => filtros.busqueda, (newVal) => {
     .mini-event-item__info strong {
         font-size: 0.78rem;
     }
+
+    .active-filters {
+        gap: 0.3rem;
+    }
+    
+    .clear-filters-btn {
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1843,10 +1863,6 @@ watch(() => filtros.busqueda, (newVal) => {
     .hero__featured-cta {
         width: 100%;
         text-align: center;
-    }
-    
-    .category-grid {
-        grid-template-columns: repeat(2, 1fr);
     }
     
     .mini-event-item__date {

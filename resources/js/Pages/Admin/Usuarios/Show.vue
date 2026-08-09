@@ -1,61 +1,17 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-<<<<<<< HEAD
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
-=======
 import { computed } from 'vue';
 import { useFormatters } from '@/composables/useFormatters';
->>>>>>> Gabriel
 
 const props = defineProps({
     usuario: Object,
 });
 
-<<<<<<< HEAD
-// Variable para saber si estamos en desarrollo
-const isDev = import.meta.env.DEV;
-
-const perfil = computed(() => props.usuario.perfil || null);
-const fotos = computed(() => {
-    const fotosArray = perfil.value?.fotos || [];
-    return Array.isArray(fotosArray) ? fotosArray : [];
-});
-
-const fotoPrincipal = computed(() => {
-    const list = fotos.value;
-    if (!list.length) return null;
-    return list.find(f => f.es_principal) || list[0];
-});
-
-// Estado para imágenes con error de carga
-const erroresImagenes = ref({});
-
-function manejarErrorImagen(index) {
-    erroresImagenes.value[index] = true;
-    console.error('Error al cargar imagen:', fotos.value[index]?.url);
-}
-
-function esImagenValida(index) {
-    return !erroresImagenes.value[index];
-}
-=======
 const { formatDate: formatDateBase } = useFormatters();
 const formatDate = (v) => formatDateBase(v, { month: 'long' });
->>>>>>> Gabriel
 
 const perfil = computed(() => props.usuario.perfil || null);
-
-function formatDateTime(v) {
-    if (!v) return '—';
-    return new Date(v).toLocaleString('es-MX', { 
-        day: '2-digit', 
-        month: 'long', 
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
 
 function edad(fechaNacimiento) {
     if (!fechaNacimiento) return null;
@@ -67,6 +23,8 @@ function edad(fechaNacimiento) {
     return e;
 }
 
+// intereses/pasatiempos pueden venir como array (si el modelo ya tiene el cast)
+// o como string JSON crudo (si no) — esto cubre ambos casos sin tronar.
 function comoLista(valor) {
     if (!valor) return [];
     if (Array.isArray(valor)) return valor;
@@ -80,6 +38,7 @@ function comoLista(valor) {
 
 const intereses = computed(() => comoLista(perfil.value?.intereses));
 const pasatiempos = computed(() => comoLista(perfil.value?.pasatiempos));
+const fotos = computed(() => comoLista(perfil.value?.fotos));
 
 const estadoColores = {
     verificado: 'bg-green-100 text-green-700',
@@ -95,51 +54,6 @@ const verificacionColores = {
 };
 
 const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
-
-// Estado para el modal de imágenes
-const modalVisible = ref(false);
-const modalImageIndex = ref(0);
-
-function openModal(index) {
-    if (!fotos.value.length) return;
-    modalImageIndex.value = index;
-    modalVisible.value = true;
-    document.body.style.overflow = 'hidden';
-}
-
-function closeModal() {
-    modalVisible.value = false;
-    document.body.style.overflow = 'auto';
-}
-
-function nextImage() {
-    if (modalImageIndex.value < fotos.value.length - 1) {
-        modalImageIndex.value++;
-    }
-}
-
-function prevImage() {
-    if (modalImageIndex.value > 0) {
-        modalImageIndex.value--;
-    }
-}
-
-function handleKeydown(e) {
-    if (!modalVisible.value) return;
-    if (e.key === 'Escape') closeModal();
-    if (e.key === 'ArrowRight') nextImage();
-    if (e.key === 'ArrowLeft') prevImage();
-}
-
-onMounted(() => {
-    document.addEventListener('keydown', handleKeydown);
-    console.log('Fotos recibidas:', fotos.value);
-});
-
-onBeforeUnmount(() => {
-    document.removeEventListener('keydown', handleKeydown);
-    document.body.style.overflow = 'auto';
-});
 </script>
 
 <template>
@@ -160,12 +74,7 @@ onBeforeUnmount(() => {
                 <div class="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div class="flex items-center gap-4">
                         <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0 font-bold overflow-hidden" style="width:64px;height:64px;font-size:1.5rem">
-                            <img 
-                                v-if="fotoPrincipal && fotoPrincipal.url" 
-                                :src="fotoPrincipal.url" 
-                                class="w-full h-full object-cover" 
-                                @error="manejarErrorImagen(0)"
-                            />
+                            <img v-if="fotos[0]" :src="fotos[0]" class="w-full h-full object-cover" />
                             <span v-else>{{ usuario.nombre?.charAt(0)?.toUpperCase() || 'U' }}</span>
                         </div>
                         <div>
@@ -175,48 +84,27 @@ onBeforeUnmount(() => {
                                 <span v-if="edad(usuario.fecha_nacimiento)"> · {{ edad(usuario.fecha_nacimiento) }} años</span>
                                 <span v-if="perfil?.ubicacion_ciudad"> · {{ perfil.ubicacion_ciudad }}</span>
                             </p>
-                            <div class="flex items-center gap-2 mt-1">
-                                <span v-if="usuario.rol === 'admin'" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Administrador</span>
-                                <span v-else class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{{ usuario.rol }}</span>
-                            </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0 flex-wrap">
-                        <span v-if="perfil" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand/10 text-brand">{{ tipoLabel[perfil.tipo] || 'Personal' }}</span>
+                        <span class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize bg-gray-100 text-gray-600">{{ usuario.rol }}</span>
+                        <span v-if="perfil" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand/10 text-brand">{{ tipoLabel[perfil.tipo] }}</span>
                         <span class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize" :class="estadoColores[usuario.estado]">{{ usuario.estado }}</span>
-                        <span v-if="usuario.email_verificado_en" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-100 text-green-700">
-                            <i class="pi pi-check-circle mr-1"></i> Verificado
-                        </span>
                     </div>
-                </div>
-            </div>
-
-            <!-- Debug info (solo en desarrollo) -->
-            <div v-if="isDev" class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4 text-xs">
-                <p><strong>Debug Fotos:</strong></p>
-                <p>Total fotos: {{ fotos.length }}</p>
-                <p>Foto principal: {{ fotoPrincipal ? 'Si' : 'No' }}</p>
-                <div v-for="(foto, idx) in fotos" :key="idx" class="mt-1">
-                    Foto {{ idx + 1 }}: {{ foto.url }}
                 </div>
             </div>
 
             <div class="flex flex-col lg:flex-row gap-6 items-start w-full">
 
-<<<<<<< HEAD
-                <!-- Columna izquierda -->
-                <div class="w-full lg:w-2/3 flex flex-col gap-6">
-=======
                 <!-- Columna izquierda: datos + perfil -->
                 <div class="w-full lg:w-2/3 min-w-0 flex flex-col gap-6">
->>>>>>> Gabriel
 
-                    <!-- Descripción -->
+                    <!-- Descripción / bio -->
                     <div v-if="perfil?.descripcion" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                         <h2 class="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
                             <i class="pi pi-align-left text-brand text-xs"></i> {{ usuario.nombre }}: Descripción
                         </h2>
-                        <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{{ perfil.descripcion }}</p>
+                        <p class="text-sm text-gray-600 leading-relaxed">{{ perfil.descripcion }}</p>
                     </div>
 
                     <!-- Datos de la cuenta -->
@@ -252,17 +140,17 @@ onBeforeUnmount(() => {
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div style="width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center" class="rounded-lg bg-brand/10 text-brand"><i class="pi pi-clock text-sm"></i></div>
+                                <div style="width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center" class="rounded-lg bg-brand/10 text-brand"><i class="pi pi-ticket text-sm"></i></div>
                                 <div>
-                                    <p class="text-[11px] text-gray-400 uppercase font-medium">Registrado el</p>
-                                    <p class="text-sm font-semibold text-gray-800">{{ formatDateTime(usuario.created_at) }}</p>
+                                    <p class="text-[11px] text-gray-400 uppercase font-medium">Código de invitación</p>
+                                    <p class="text-sm font-semibold text-gray-800">{{ usuario.codigo_invitacion || '—' }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div style="width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center" class="rounded-lg bg-brand/10 text-brand"><i class="pi pi-user text-sm"></i></div>
+                                <div style="width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center" class="rounded-lg bg-brand/10 text-brand"><i class="pi pi-clock text-sm"></i></div>
                                 <div>
-                                    <p class="text-[11px] text-gray-400 uppercase font-medium">Perfil creado</p>
-                                    <p class="text-sm font-semibold text-gray-800">{{ perfil ? formatDateTime(perfil.created_at) : 'No creado' }}</p>
+                                    <p class="text-[11px] text-gray-400 uppercase font-medium">Registrado el</p>
+                                    <p class="text-sm font-semibold text-gray-800">{{ formatDate(usuario.created_at) }}</p>
                                 </div>
                             </div>
                         </div>
@@ -284,12 +172,6 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
                     </div>
-<<<<<<< HEAD
-                </div>
-
-                <!-- Columna derecha -->
-                <div class="w-full lg:w-1/3 flex flex-col gap-6">
-=======
 
                     <!-- Galería -->
                     <div v-if="fotos.length" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -340,7 +222,6 @@ onBeforeUnmount(() => {
 
                 <!-- Columna derecha: estado de verificación + perfil resumen -->
                 <div class="w-full lg:w-1/3 min-w-0 flex flex-col gap-6">
->>>>>>> Gabriel
 
                     <!-- Verificación -->
                     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-center">
@@ -357,7 +238,7 @@ onBeforeUnmount(() => {
                         </div>
                         <p class="text-xs text-gray-400 uppercase font-medium mb-1">Verificación de perfil</p>
                         <p class="text-lg font-bold text-gray-900 capitalize">
-                            {{ perfil ? (perfil.estado_verificacion === 'verificado' ? 'Verificado' : 'Pendiente') : 'Sin perfil creado' }}
+                            {{ perfil ? (perfil.estado_verificacion) : 'Sin perfil creado' }}
                         </p>
                     </div>
 
@@ -367,11 +248,11 @@ onBeforeUnmount(() => {
                         <dl class="space-y-3 text-sm">
                             <div class="flex justify-between">
                                 <dt class="text-gray-400">Tipo de cuenta:</dt>
-                                <dd class="text-gray-800 font-medium">{{ tipoLabel[perfil.tipo] || 'Personal' }}</dd>
+                                <dd class="text-gray-800 font-medium">{{ tipoLabel[perfil.tipo] }}</dd>
                             </div>
                             <div class="flex justify-between">
                                 <dt class="text-gray-400">Privacidad de fotos:</dt>
-                                <dd class="text-gray-800 font-medium capitalize">{{ perfil.privacidad_fotos || 'Todos' }}</dd>
+                                <dd class="text-gray-800 font-medium capitalize">{{ perfil.privacidad_fotos }}</dd>
                             </div>
                             <div class="flex justify-between" v-if="perfil.puntuacion_compatibilidad !== null">
                                 <dt class="text-gray-400">Puntuación de compatibilidad:</dt>
@@ -386,107 +267,9 @@ onBeforeUnmount(() => {
                     <div v-else class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-center text-sm text-gray-400">
                         Este usuario todavía no ha completado su perfil.
                     </div>
-
-                    <!-- Galería de fotos -->
-                    <div v-if="fotos.length" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                        <h2 class="text-sm font-bold text-gray-900 mb-4 flex items-center justify-between">
-                            <span>Fotos ({{ fotos.length }})</span>
-                            <span class="text-xs font-normal text-gray-400">Click para ampliar</span>
-                        </h2>
-                        <div class="grid grid-cols-3 gap-2">
-                            <div 
-                                v-for="(foto, idx) in fotos.slice(0, 6)" 
-                                :key="foto.id || idx" 
-                                class="relative aspect-square rounded-xl overflow-hidden bg-gray-100 cursor-pointer hover:ring-2 hover:ring-brand transition-all"
-                                @click="openModal(idx)"
-                            >
-                                <img 
-                                    :src="foto.url" 
-                                    class="w-full h-full object-cover" 
-                                    :alt="`Foto ${idx + 1}`"
-                                    @error="manejarErrorImagen(idx)"
-                                />
-                                <div v-if="foto.es_principal" class="absolute top-1 right-1 bg-brand text-white text-xs px-1.5 py-0.5 rounded-full">
-                                    <i class="pi pi-star text-[8px]"></i>
-                                </div>
-                                <div v-if="erroresImagenes[idx]" class="absolute inset-0 flex items-center justify-center bg-gray-200 text-gray-500 text-xs">
-                                    Error al cargar
-                                </div>
-                            </div>
-                            <div v-if="fotos.length > 6" 
-                                class="aspect-square rounded-xl bg-gray-200 flex items-center justify-center text-gray-500 font-semibold cursor-pointer hover:bg-gray-300 transition-colors"
-                                @click="openModal(6)"
-                            >
-                                +{{ fotos.length - 6 }} más
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
             </div>
         </div>
-
-        <!-- Modal de imágenes -->
-        <Teleport to="body">
-            <div v-if="modalVisible" class="fixed inset-0 z-50 flex items-center justify-center bg-black/90" @click.self="closeModal">
-                <div class="relative max-w-4xl w-full mx-4">
-                    <button @click="closeModal" class="absolute -top-12 right-0 text-white hover:text-gray-300 text-2xl transition-colors">
-                        <i class="pi pi-times"></i>
-                    </button>
-                    
-                    <div class="relative bg-transparent">
-                        <img 
-                            v-if="fotos[modalImageIndex]?.url && !erroresImagenes[modalImageIndex]"
-                            :src="fotos[modalImageIndex].url" 
-                            class="w-full max-h-[80vh] object-contain rounded-lg"
-                            :alt="`Foto ${modalImageIndex + 1}`"
-                            @error="manejarErrorImagen(modalImageIndex)"
-                        />
-                        <div v-else class="w-full h-96 flex items-center justify-center text-white">
-                            <div class="text-center">
-                                <i class="pi pi-exclamation-triangle text-4xl block mb-2"></i>
-                                <span class="text-sm">No se pudo cargar la imagen</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Navegación -->
-                        <button 
-                            v-if="fotos.length > 1 && modalImageIndex > 0"
-                            @click="prevImage"
-                            class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-colors"
-                        >
-                            <i class="pi pi-chevron-left text-xl"></i>
-                        </button>
-                        <button 
-                            v-if="fotos.length > 1 && modalImageIndex < fotos.length - 1"
-                            @click="nextImage"
-                            class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-colors"
-                        >
-                            <i class="pi pi-chevron-right text-xl"></i>
-                        </button>
-                        
-                        <!-- Indicador -->
-                        <div v-if="fotos.length > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                            <span 
-                                v-for="(_, idx) in fotos" 
-                                :key="idx"
-                                class="w-2 h-2 rounded-full transition-all"
-                                :class="idx === modalImageIndex ? 'bg-white w-4' : 'bg-white/50'"
-                            ></span>
-                        </div>
-                        
-                        <!-- Info de la foto -->
-                        <div class="absolute bottom-4 left-4 text-white text-sm">
-                            <span v-if="fotos[modalImageIndex]?.es_principal" class="bg-brand px-2 py-0.5 rounded-full text-xs font-semibold">
-                                <i class="pi pi-star mr-1"></i> Principal
-                            </span>
-                            <span class="block text-xs text-gray-300 mt-1">
-                                Foto {{ modalImageIndex + 1 }} de {{ fotos.length }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
     </AdminLayout>
 </template>

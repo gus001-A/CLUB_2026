@@ -9,7 +9,6 @@ use App\Models\Fotos;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -63,7 +62,7 @@ class PerfilVerController extends Controller
             foreach ($fotosQuery as $foto) {
                 $fotosList[] = [
                     'id' => $foto->id,
-                    'url' => $foto->url,
+                    'url' => $this->getUrlFromPath($foto->ruta_foto),
                     'principal' => (bool) $foto->es_principal,
                     'ruta_foto' => $foto->ruta_foto,
                 ];
@@ -106,9 +105,14 @@ class PerfilVerController extends Controller
     {
         $user = Auth::user();
         
-        Log::info('=== INICIO actualizar perfil ===', ['user_id' => $user->id]);
+        if (!$user) {
+            return redirect()->route('login');
+        }
 
         try {
+            // ============================================================
+            // VALIDACIÓN
+            // ============================================================
             $validated = $request->validate([
                 'nickname' => 'required|string|min:3|max:20|unique:users,apodo,' . $user->id . '|unique:users,nombre,' . $user->id,
                 'edad' => 'nullable|integer|min:18|max:120',
@@ -124,14 +128,13 @@ class PerfilVerController extends Controller
                 'intereses' => 'nullable|array',
                 'buscando' => 'nullable|array',
                 'visibilidadFotos' => 'nullable|in:todos,matches,nadie',
-                'fotos' => 'nullable|array',
+                'total_fotos' => 'nullable|integer|min:0|max:8',
                 'fotos_eliminar' => 'nullable|array',
             ]);
 
             // ============================================================
             // ACTUALIZAR USUARIO
             // ============================================================
-            
             $userData = [];
             if (isset($validated['nickname']) && !empty($validated['nickname'])) {
                 $userData['nombre'] = $validated['nickname'];
@@ -154,7 +157,6 @@ class PerfilVerController extends Controller
             // ============================================================
             // PREPARAR METADATOS
             // ============================================================
-            
             $perfil = Perfil::where('usuario_id', $user->id)->first();
             $metadatos = $perfil->metadatos ?? [];
             
@@ -181,7 +183,6 @@ class PerfilVerController extends Controller
             // ============================================================
             // ACTUALIZAR PERFIL
             // ============================================================
-            
             $perfilData = [];
             
             if (isset($validated['tipoPerfil'])) {
@@ -211,10 +212,10 @@ class PerfilVerController extends Controller
             );
 
             // ============================================================
-            // PROCESAR FOTOS - CORREGIDO
+            // PROCESAR FOTOS
             // ============================================================
             
-            // 1. ELIMINAR FOTOS
+            // 1. ELIMINAR FOTOS MARCADAS
             $fotosEliminar = $request->input('fotos_eliminar', []);
             $fotosEliminadas = 0;
             
@@ -230,49 +231,49 @@ class PerfilVerController extends Controller
                         }
                         $foto->delete();
                         $fotosEliminadas++;
-                        Log::info('Foto eliminada', ['id' => $fotoId]);
                     }
                 }
             }
 
-            // 2. GUARDAR NUEVAS FOTOS Y ACTUALIZAR EXISTENTES
-            $fotosEnviadas = $request->input('fotos', []);
+            // 2. PROCESAR FOTOS ENVIADAS
+            $totalFotos = (int) $request->input('total_fotos', 0);
             $fotoPrincipalRuta = null;
             $fotosNuevas = 0;
             $idsExistentes = [];
-            
-            // Procesar todas las fotos enviadas
-            foreach ($fotosEnviadas as $fotoData) {
-                // Si tiene ID, es una foto existente
-                if (isset($fotoData['id']) && !empty($fotoData['id'])) {
-                    $foto = Fotos::find($fotoData['id']);
-                    if ($foto) {
-                        $idsExistentes[] = $fotoData['id'];
-                        $esPrincipal = isset($fotoData['principal']) && (
-                            $fotoData['principal'] === true || 
-                            $fotoData['principal'] === '1' || 
-                            $fotoData['principal'] === 1
-                        );
-                        $foto->es_principal = $esPrincipal;
-                        $foto->save();
-                        
-                        if ($esPrincipal) {
-                            $fotoPrincipalRuta = $foto->ruta_foto;
-                        }
-                    }
+            $reglaArchivo = 'image|mimes:jpg,jpeg,png,webp|max:5120';
+
+            for ($i = 0; $i < $totalFotos; $i++) {
+                $tipo = $request->input("foto_{$i}_tipo");
+
+                if (!$tipo) {
                     continue;
                 }
-                
-                // Si es una foto nueva (tiene file)
-                if (isset($fotoData['file']) && $fotoData['file'] instanceof \Illuminate\Http\UploadedFile) {
-                    $esPrincipal = isset($fotoData['principal']) && (
-                        $fotoData['principal'] === true || 
-                        $fotoData['principal'] === '1' || 
-                        $fotoData['principal'] === 1
+
+                $esPrincipal = $request->input("foto_{$i}_principal") === '1';
+
+                // FOTO NUEVA
+                if ($tipo === 'nueva') {
+                    $file = $request->file("foto_{$i}_file");
+
+                    if (!$file || !$file->isValid()) {
+                        continue;
+                    }
+
+                    $validator = \Illuminate\Support\Facades\Validator::make(
+                        ['archivo' => $file],
+                        ['archivo' => $reglaArchivo]
                     );
-                    
-                    $rutaFoto = $fotoData['file']->store('perfil/fotos', 'public');
-                    
+
+                    if ($validator->fails()) {
+                        continue;
+                    }
+
+                    $rutaFoto = $file->store('perfil/fotos', 'public');
+
+                    if ($esPrincipal) {
+                        Fotos::where('perfil_id', $perfil->id)->update(['es_principal' => false]);
+                    }
+
                     $nuevaFoto = Fotos::create([
                         'perfil_id' => $perfil->id,
                         'ruta_foto' => $rutaFoto,
@@ -280,40 +281,139 @@ class PerfilVerController extends Controller
                         'fecha_subida' => now(),
                         'permisos' => [$validated['visibilidadFotos'] ?? 'todos'],
                     ]);
-                    
+
+                    $idsExistentes[] = $nuevaFoto->id;
                     $fotosNuevas++;
-                    Log::info('Nueva foto guardada', ['id' => $nuevaFoto->id, 'ruta' => $rutaFoto]);
-                    
+
                     if ($esPrincipal) {
                         $fotoPrincipalRuta = $rutaFoto;
                     }
+
+                    continue;
                 }
-            }
-            
-            // Eliminar fotos que no están en la lista de existentes
-            $fotosAEliminar = Fotos::where('perfil_id', $perfil->id)
-                ->whereNotIn('id', $idsExistentes)
-                ->get();
-                
-            foreach ($fotosAEliminar as $foto) {
-                if ($foto->ruta_foto && Storage::disk('public')->exists($foto->ruta_foto)) {
-                    Storage::disk('public')->delete($foto->ruta_foto);
+
+                // REEMPLAZO: misma foto, nuevo archivo
+                if ($tipo === 'reemplazo') {
+                    $fotoId = $request->input("foto_{$i}_id");
+                    $file = $request->file("foto_{$i}_file");
+                    $foto = $fotoId ? Fotos::where('perfil_id', $perfil->id)->where('id', $fotoId)->first() : null;
+
+                    if (!$foto || !$file || !$file->isValid()) {
+                        continue;
+                    }
+
+                    $validator = \Illuminate\Support\Facades\Validator::make(
+                        ['archivo' => $file],
+                        ['archivo' => $reglaArchivo]
+                    );
+
+                    if ($validator->fails()) {
+                        $idsExistentes[] = $foto->id;
+                        continue;
+                    }
+
+                    $rutaAnterior = $foto->ruta_foto;
+                    $rutaNueva = $file->store('perfil/fotos', 'public');
+
+                    if ($esPrincipal) {
+                        Fotos::where('perfil_id', $perfil->id)
+                            ->where('id', '!=', $foto->id)
+                            ->update(['es_principal' => false]);
+                    }
+
+                    $foto->ruta_foto = $rutaNueva;
+                    $foto->es_principal = $esPrincipal;
+                    $foto->fecha_subida = now();
+                    $foto->save();
+
+                    if ($rutaAnterior && $rutaAnterior !== $rutaNueva && Storage::disk('public')->exists($rutaAnterior)) {
+                        Storage::disk('public')->delete($rutaAnterior);
+                    }
+
+                    $idsExistentes[] = $foto->id;
+
+                    if ($esPrincipal) {
+                        $fotoPrincipalRuta = $rutaNueva;
+                    }
+
+                    continue;
                 }
-                $foto->delete();
-                $fotosEliminadas++;
-                Log::info('Foto eliminada (no enviada)', ['id' => $foto->id]);
+
+                // FOTO EXISTENTE (solo cambia si es principal)
+                if ($tipo === 'existente_id') {
+                    $fotoId = $request->input("foto_{$i}_id");
+                    $foto = $fotoId ? Fotos::where('perfil_id', $perfil->id)->where('id', $fotoId)->first() : null;
+
+                    if (!$foto) {
+                        continue;
+                    }
+
+                    $idsExistentes[] = $foto->id;
+
+                    if ($esPrincipal) {
+                        Fotos::where('perfil_id', $perfil->id)
+                            ->where('id', '!=', $foto->id)
+                            ->update(['es_principal' => false]);
+                    }
+
+                    $foto->es_principal = $esPrincipal;
+                    $foto->save();
+
+                    if ($esPrincipal) {
+                        $fotoPrincipalRuta = $foto->ruta_foto;
+                    }
+
+                    continue;
+                }
+
+                // FOTO EXISTENTE sin id (fallback por ruta)
+                if ($tipo === 'existente_ruta') {
+                    $ruta = $request->input("foto_{$i}_ruta");
+                    $foto = $ruta ? Fotos::where('perfil_id', $perfil->id)->where('ruta_foto', $ruta)->first() : null;
+
+                    if (!$foto) {
+                        continue;
+                    }
+
+                    $idsExistentes[] = $foto->id;
+
+                    if ($esPrincipal) {
+                        Fotos::where('perfil_id', $perfil->id)
+                            ->where('id', '!=', $foto->id)
+                            ->update(['es_principal' => false]);
+                    }
+
+                    $foto->es_principal = $esPrincipal;
+                    $foto->save();
+
+                    if ($esPrincipal) {
+                        $fotoPrincipalRuta = $foto->ruta_foto;
+                    }
+                }
             }
 
-            // ============================================================
-            // ACTUALIZAR FOTO PRINCIPAL EN USERS
-            // ============================================================
-            
+            // 3. ELIMINAR FOTOS HUÉRFANAS
+            if (!empty($idsExistentes)) {
+                $fotosOrfanas = Fotos::where('perfil_id', $perfil->id)
+                    ->whereNotIn('id', $idsExistentes)
+                    ->get();
+                    
+                foreach ($fotosOrfanas as $foto) {
+                    if (!in_array($foto->id, $fotosEliminar)) {
+                        if ($foto->ruta_foto && Storage::disk('public')->exists($foto->ruta_foto)) {
+                            Storage::disk('public')->delete($foto->ruta_foto);
+                        }
+                        $foto->delete();
+                        $fotosEliminadas++;
+                    }
+                }
+            }
+
+            // 4. ACTUALIZAR FOTO PRINCIPAL EN USERS
             if ($fotoPrincipalRuta) {
                 $user->foto_principal = $fotoPrincipalRuta;
                 $user->save();
-                Log::info('Foto principal actualizada', ['ruta' => $fotoPrincipalRuta]);
             } else {
-                // Buscar si hay alguna foto principal
                 $fotoPrincipal = Fotos::where('perfil_id', $perfil->id)
                     ->where('es_principal', true)
                     ->first();
@@ -321,27 +421,16 @@ class PerfilVerController extends Controller
                 if ($fotoPrincipal) {
                     $user->foto_principal = $fotoPrincipal->ruta_foto;
                     $user->save();
-                    Log::info('Foto principal encontrada y asignada', ['id' => $fotoPrincipal->id]);
-                } elseif ($user->foto_principal) {
-                    // Verificar que la foto principal aún existe
-                    $fotoExiste = Fotos::where('perfil_id', $perfil->id)
-                        ->where('ruta_foto', $user->foto_principal)
-                        ->exists();
-                        
-                    if (!$fotoExiste) {
-                        // Si no existe, buscar la primera foto
-                        $primeraFoto = Fotos::where('perfil_id', $perfil->id)->first();
-                        if ($primeraFoto) {
-                            $primeraFoto->es_principal = true;
-                            $primeraFoto->save();
-                            $user->foto_principal = $primeraFoto->ruta_foto;
-                            $user->save();
-                            Log::info('Primera foto asignada como principal');
-                        } else {
-                            $user->foto_principal = null;
-                            $user->save();
-                            Log::info('No hay fotos, foto_principal eliminada');
-                        }
+                } else {
+                    $primeraFoto = Fotos::where('perfil_id', $perfil->id)->first();
+                    if ($primeraFoto) {
+                        $primeraFoto->es_principal = true;
+                        $primeraFoto->save();
+                        $user->foto_principal = $primeraFoto->ruta_foto;
+                        $user->save();
+                    } else {
+                        $user->foto_principal = null;
+                        $user->save();
                     }
                 }
             }
@@ -349,7 +438,6 @@ class PerfilVerController extends Controller
             // ============================================================
             // VERIFICAR PERFIL COMPLETO
             // ============================================================
-            
             $totalFotos = Fotos::where('perfil_id', $perfil->id)->count();
             $tieneFotoPrincipal = !empty($user->foto_principal);
             $interesesCount = count($perfil->intereses ?? []);
@@ -372,7 +460,6 @@ class PerfilVerController extends Controller
             // ============================================================
             // MENSAJES DE TOAST
             // ============================================================
-            
             $mensajes = [];
             $mensajePrincipal = 'Tu perfil ha sido actualizado correctamente.';
             
@@ -394,15 +481,6 @@ class PerfilVerController extends Controller
                 $mensajeFinal = implode(' ', $mensajes);
             }
 
-            Log::info('Perfil actualizado exitosamente', [
-                'user_id' => $user->id,
-                'completo' => $completo,
-                'total_fotos' => $totalFotos,
-                'fotos_nuevas' => $fotosNuevas,
-                'fotos_eliminadas' => $fotosEliminadas,
-                'foto_principal' => $user->foto_principal,
-            ]);
-
             return redirect()->route('perfil.ver')->with('flash', [
                 'toast' => [
                     'type' => 'success',
@@ -413,11 +491,6 @@ class PerfilVerController extends Controller
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('ERROR DE VALIDACION', [
-                'errors' => $e->errors(),
-                'user_id' => $user->id,
-            ]);
-
             $errors = $e->errors();
             $firstError = reset($errors)[0] ?? 'Error de validación';
             $field = key($errors);
@@ -450,12 +523,6 @@ class PerfilVerController extends Controller
                 ]);
             
         } catch (\Exception $e) {
-            Log::error('ERROR al actualizar perfil', [
-                'message' => $e->getMessage(),
-                'user_id' => $user->id,
-                'trace' => $e->getTraceAsString(),
-            ]);
-
             return redirect()->route('perfil.ver')->with('flash', [
                 'toast' => [
                     'type' => 'error',
