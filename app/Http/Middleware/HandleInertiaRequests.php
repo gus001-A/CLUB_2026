@@ -6,6 +6,7 @@ use App\Models\CodigoInvitacion;
 use App\Models\Transaccion;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Illuminate\Support\Facades\Log;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -37,14 +38,192 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Obtener datos de la sesión
+        $flash = session('flash', []);
+        $toast = session('toast');
+        $errors = session('errors');
+        
+        // Obtener usuario autenticado con su perfil
+        $user = $request->user();
+        $userData = null;
+        
+        if ($user) {
+            // Cargar el perfil con sus relaciones
+            $user->load(['perfil.fotoPrincipal']);
+            
+            // Determinar el avatar
+            $avatar = '/images/shared/avatar-default.jpg';
+            $found = false; // Bandera para saber si ya encontramos el avatar
+            
+            // 🔥 1. Si tiene foto_principal directamente en el usuario
+            if (!$found && $user->foto_principal) {
+                // Verificar si es una URL completa o una ruta
+                if (str_starts_with($user->foto_principal, 'http') || str_starts_with($user->foto_principal, '/')) {
+                    $avatar = $user->foto_principal;
+                    $found = true;
+                } else {
+                    $avatar = asset('storage/' . $user->foto_principal);
+                    $found = true;
+                }
+            } 
+            
+            // 🔥 2. Si el perfil tiene fotoPrincipal (relación con tabla Fotos)
+            if (!$found && $user->perfil && $user->perfil->fotoPrincipal) {
+                $foto = $user->perfil->fotoPrincipal;
+                
+                // Verificar si es un objeto o un string
+                if (is_object($foto)) {
+                    if (isset($foto->url) && !empty($foto->url)) {
+                        $avatar = $foto->url;
+                        $found = true;
+                    } elseif (isset($foto->ruta_foto) && !empty($foto->ruta_foto)) {
+                        $avatar = asset('storage/' . $foto->ruta_foto);
+                        $found = true;
+                    }
+                } elseif (is_string($foto)) {
+                    // Si es un string, es la URL o ruta directamente
+                    if (str_starts_with($foto, 'http') || str_starts_with($foto, '/')) {
+                        $avatar = $foto;
+                    } else {
+                        $avatar = asset('storage/' . $foto);
+                    }
+                    $found = true;
+                }
+            }
+            
+            // 🔥 3. Si el perfil tiene fotos en el campo JSON
+            if (!$found && $user->perfil && $user->perfil->fotos) {
+                $fotos = is_string($user->perfil->fotos) 
+                    ? json_decode($user->perfil->fotos, true) 
+                    : $user->perfil->fotos;
+                
+                if (is_array($fotos) && count($fotos) > 0) {
+                    // Buscar foto principal
+                    foreach ($fotos as $foto) {
+                        if (isset($foto['principal']) && $foto['principal'] === true) {
+                            if (isset($foto['url']) && !empty($foto['url'])) {
+                                $avatar = $foto['url'];
+                                $found = true;
+                                break;
+                            } elseif (isset($foto['ruta_foto']) && !empty($foto['ruta_foto'])) {
+                                $avatar = asset('storage/' . $foto['ruta_foto']);
+                                $found = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Si no hay principal, usar la primera
+                    if (!$found && isset($fotos[0])) {
+                        if (isset($fotos[0]['url']) && !empty($fotos[0]['url'])) {
+                            $avatar = $fotos[0]['url'];
+                            $found = true;
+                        } elseif (isset($fotos[0]['ruta_foto']) && !empty($fotos[0]['ruta_foto'])) {
+                            $avatar = asset('storage/' . $fotos[0]['ruta_foto']);
+                            $found = true;
+                        }
+                    }
+                }
+            }
+            
+            // 🔥 4. Verificar si el perfil tiene fotoPrincipalId (pero no está cargada la relación)
+            if (!$found && $user->perfil && $user->perfil->fotoPrincipalId) {
+                // Si la relación no está cargada como objeto, podríamos intentar obtenerla
+                // Pero mejor dejamos que se maneje en el frontend
+            }
+            
+            // 🔥 LOG para debug
+            Log::info('👤 Usuario autenticado en HandleInertiaRequests:', [
+                'user_id' => $user->id,
+                'nombre' => $user->nombre,
+                'avatar_final' => $avatar,
+                'tiene_perfil' => !is_null($user->perfil),
+                'tiene_foto_principal' => !is_null($user->foto_principal),
+                'perfil_foto_principal' => $user->perfil ? $user->perfil->fotoPrincipal : null,
+                'perfil_foto_principal_type' => $user->perfil ? gettype($user->perfil->fotoPrincipal) : 'null',
+            ]);
+
+            // 🔥 CONSTRUIR DATOS DEL PERFIL DE FORMA SEGURA
+            $perfilData = null;
+            if ($user->perfil) {
+                $perfilData = [
+                    'id' => $user->perfil->id,
+                    'tipo' => $user->perfil->tipo ?? 'personal',
+                    'fotos' => $user->perfil->fotos ?? [],
+                    'biografia' => $user->perfil->biografia ?? '',
+                    'descripcion' => $user->perfil->descripcion ?? '',
+                    'intereses' => $user->perfil->intereses ?? [],
+                    'pasatiempos' => $user->perfil->pasatiempos ?? [],
+                    'privacidad_fotos' => $user->perfil->privacidad_fotos ?? 'todos',
+                    'ubicacion_ciudad' => $user->perfil->ubicacion_ciudad ?? '',
+                    'esta_verificado' => $user->perfil->esta_verificado ?? false,
+                    'puntuacion_compatibilidad' => $user->perfil->puntuacion_compatibilidad ?? 0,
+                    'metadatos' => $user->perfil->metadatos ?? [],
+                    'fotoPrincipalId' => $user->perfil->fotoPrincipalId ?? null,
+                ];
+                
+                // 🔥 Agregar fotoPrincipal SOLO si es un objeto
+                if ($user->perfil->fotoPrincipal && is_object($user->perfil->fotoPrincipal)) {
+                    $perfilData['fotoPrincipal'] = [
+                        'id' => $user->perfil->fotoPrincipal->id ?? null,
+                        'url' => $user->perfil->fotoPrincipal->url ?? null,
+                        'ruta_foto' => $user->perfil->fotoPrincipal->ruta_foto ?? null,
+                    ];
+                } elseif ($user->perfil->fotoPrincipal && is_string($user->perfil->fotoPrincipal)) {
+                    // Si es un string, lo pasamos como está
+                    $perfilData['fotoPrincipal'] = $user->perfil->fotoPrincipal;
+                } else {
+                    $perfilData['fotoPrincipal'] = null;
+                }
+            }
+
+            $userData = [
+                'id' => $user->id,
+                'nombre' => $user->nombre,
+                'apodo' => $user->apodo,
+                'email' => $user->email,
+                'rol' => $user->rol,
+                'estado' => $user->estado,
+                'foto_principal' => $user->foto_principal,
+                'avatar' => $avatar,
+                'verificado' => $user->estado === 'verificado' || $user->email_verificado_en !== null,
+                'email_verificado_en' => $user->email_verificado_en,
+                'created_at' => $user->created_at,
+                'perfil' => $perfilData,
+            ];
+        }
+        
+        // LOG para debug
+        Log::info('📦 HandleInertiaRequests - Share:', [
+            'flash' => $flash,
+            'toast' => $toast,
+            'has_errors' => !is_null($errors),
+            'session_id' => session()->getId(),
+            'user_type' => $request->user() ? 'web' : ($request->user('admin') ? 'admin' : 'guest'),
+            'user_id' => $userData ? $userData['id'] : null,
+            'user_avatar' => $userData ? $userData['avatar'] : null,
+        ]);
+        
         return [
             ...parent::share($request),
+            
+            // Compartir flash messages (para usuarios web)
+            'flash' => $flash,
+            
+            // Compartir toast directamente (para compatibilidad)
+            'toast' => $toast,
+            
+            // Compartir errores de validación
+            'errors' => $errors ? $errors->getBag('default')->getMessages() : (object) [],
+            
+            // Compartir usuario autenticado (web) con todos sus datos
             'auth' => [
-                'admin' => $request->user('admin'),
+                'user' => $userData,
             ],
-            'flash' => [
-                'success' => fn () => $request->session()->get('success'),
-                'error' => fn () => $request->session()->get('error'),
+            
+            // Compartir admin autenticado
+            'admin' => [
+                'user' => $request->user('admin'),
             ],
             'badges' => fn () => $this->badges($request),
             'notificaciones' => fn () => $this->notificaciones($request),
@@ -57,25 +236,22 @@ class HandleInertiaRequests extends Middleware
      */
     private function badges(Request $request): array
     {
-        if (! $request->user('admin')) {
+        // Si no hay admin autenticado, retornar ceros
+        if (!$request->user('admin')) {
             return [
                 'invitacionesPendientes' => 0,
-                'pagosPendientes'        => 0,
-                'notificaciones'         => 0,
+                'pagosPendientes' => 0,
+                'notificaciones' => 0,
             ];
         }
 
+        // Contar pagos pendientes
         $pagosPendientes = Transaccion::where('estado', 'pendiente')->count();
 
-        // NOTIFICACIONES Y BADGES PARA EL ADMIN:
-        // 1. "invitacionesPendientes" en 0 para que no te alerte por invitaciones que tú mismo enviaste.
-        //    (Aquí podrás contar solo las solicitudes o respuestas cuando las configures en la BD).
-        // 2. "notificaciones" de la campana solo incluye pagos/eventos pendientes recibidos.
-
         return [
-            'invitacionesPendientes' => 0, 
-            'pagosPendientes'        => $pagosPendientes,
-            'notificaciones'         => $pagosPendientes,
+            'invitacionesPendientes' => 0,
+            'pagosPendientes' => $pagosPendientes,
+            'notificaciones' => $pagosPendientes,
         ];
     }
 

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\Hash;
+use App\Models\CodigoInvitacion;
 
 class Administrador extends Authenticatable
 {
@@ -15,13 +17,14 @@ class Administrador extends Authenticatable
 
     protected $fillable = [
         'nombre',
+        'nickname', 
         'email',
         'password',
-        'rol',
         'esta_activo',
         'ultimo_acceso_en',
         'ultimo_acceso_ip',
         'telefono',
+        'email_verificado_en', 
     ];
 
     protected $hidden = [
@@ -93,7 +96,23 @@ class Administrador extends Authenticatable
     public function setPasswordAttribute($valor)
     {
         if (!empty($valor)) {
-            $this->attributes['password'] = bcrypt($valor);
+            $this->attributes['password'] = Hash::needsRehash($valor) ? Hash::make($valor) : $valor;
         }
+    }
+
+    /**
+     * Accessor para obtener el nombre mostrado
+     */
+    public function getNombreMostradoAttribute()
+    {
+        return $this->nombre ?? $this->nickname ?? $this->email;
+    }
+
+    /**
+     * Relaciones
+     */
+    public function perfil()
+    {
+        return $this->hasOne(Perfil::class, 'usuario_id');
     }
 }

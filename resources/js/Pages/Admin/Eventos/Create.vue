@@ -3,8 +3,15 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useToast } from '@/composables/useToast';
+import { ref, watch } from 'vue';
 
 const toast = useToast();
+
+// Estado para la previsualización de imágenes
+const imagenPrincipalPreview = ref(null);
+const fotosAdicionalesPreview = ref([]);
+const imagenPrincipalFile = ref(null);
+const fotosAdicionalesFiles = ref([]);
 
 const form = useForm({
     nombre: '',
@@ -50,6 +57,16 @@ function submit() {
     }
 
     form.post(route('admin.eventos.store'), { forceFormData: true });
+}
+
+// Resetear formulario si es necesario
+function resetForm() {
+    form.reset();
+    imagenPrincipalPreview.value = null;
+    imagenPrincipalFile.value = null;
+    fotosAdicionalesPreview.value = [];
+    fotosAdicionalesFiles.value = [];
+    form.fotos = [];
 }
 </script>
 
@@ -161,7 +178,12 @@ function submit() {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Precio (MXN) *</label>
+<<<<<<< HEAD
                         <input v-model.number="form.precio" type="number" min="0" step="0.01" class="admin-input px-3 py-2.5" />
+=======
+                        <input v-model.number="form.precio" type="number" min="0" step="0.01" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                        <p v-if="form.errors.precio" class="text-red-600 text-xs mt-1">{{ form.errors.precio }}</p>
+>>>>>>> origin/main
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Capacidad (opcional)</label>
@@ -173,6 +195,7 @@ function submit() {
                             <option value="general">General</option>
                             <option value="vip">VIP</option>
                         </select>
+                        <p v-if="form.errors.tipo" class="text-red-600 text-xs mt-1">{{ form.errors.tipo }}</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Estado *</label>
@@ -182,7 +205,11 @@ function submit() {
                             <option value="cancelado">Cancelado</option>
                             <option value="completo">Completado</option>
                         </select>
+<<<<<<< HEAD
                         <p class="text-xs text-gray-400 mt-1">Cambia a "Completado" manualmente cuando el evento termine.</p>
+=======
+                        <p v-if="form.errors.estado" class="text-red-600 text-xs mt-1">{{ form.errors.estado }}</p>
+>>>>>>> origin/main
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Categoría</label>
@@ -195,6 +222,7 @@ function submit() {
                 </div>
             </div>
 
+<<<<<<< HEAD
             <!-- Sección 4: Presentación -->
             <div class="p-6 bg-gray-50/50 border-t border-gray-100">
                 <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
@@ -239,6 +267,113 @@ function submit() {
                 </div>
             </div>
 
+=======
+            <!-- Imagen Principal -->
+            <div class="p-6 border-t border-gray-100">
+                <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
+                    <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:48px;height:48px">
+                        <i class="pi pi-image text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-semibold text-gray-800">Imagen principal</h2>
+                        <p class="text-xs text-gray-400">Imagen destacada del evento (recomendado 1200x800px)</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-6 hover:border-brand transition-colors" :class="{'border-brand': imagenPrincipalPreview}">
+                    <div v-if="imagenPrincipalPreview" class="relative w-full max-w-md mx-auto">
+                        <img :src="imagenPrincipalPreview" alt="Imagen principal" class="w-full h-auto rounded-lg object-cover max-h-64" />
+                        <button 
+                            type="button"
+                            @click="eliminarImagenPrincipal"
+                            class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
+                        >
+                            <i class="pi pi-times"></i>
+                        </button>
+                    </div>
+                    <div v-else class="text-center py-8">
+                        <i class="pi pi-cloud-upload text-5xl text-gray-300"></i>
+                        <p class="mt-4 text-sm text-gray-500">Arrastra y suelta una imagen o haz clic para seleccionar</p>
+                        <p class="text-xs text-gray-400 mt-1">PNG, JPG, WEBP (máx. 2MB)</p>
+                        <input 
+                            id="imagen_principal"
+                            type="file"
+                            accept="image/*"
+                            @change="handleImagenPrincipal"
+                            class="hidden"
+                        />
+                        <button 
+                            type="button"
+                            @click="document.getElementById('imagen_principal').click()"
+                            class="mt-4 bg-brand text-white px-6 py-2 rounded-lg text-sm hover:bg-brand-dark transition-colors"
+                        >
+                            Seleccionar imagen
+                        </button>
+                    </div>
+                    <p v-if="form.errors.imagen" class="text-red-600 text-xs mt-2">{{ form.errors.imagen }}</p>
+                </div>
+            </div>
+
+            <!-- Fotos adicionales -->
+            <div class="p-6 border-t border-gray-100">
+                <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
+                    <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:48px;height:48px">
+                        <i class="pi pi-images text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-semibold text-gray-800">Fotos adicionales</h2>
+                        <p class="text-xs text-gray-400">Agrega hasta 5 fotos más (máx. 2MB cada una)</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
+                    <div v-for="(foto, index) in fotosAdicionalesPreview" :key="index" class="relative group">
+                        <img :src="foto.url" :alt="foto.nombre" class="w-full h-32 object-cover rounded-lg border border-gray-200" />
+                        <button 
+                            type="button"
+                            @click="eliminarFotoAdicional(index)"
+                            class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                            <i class="pi pi-times text-xs"></i>
+                        </button>
+                        <p class="text-xs text-gray-500 mt-1 truncate">{{ foto.nombre }}</p>
+                    </div>
+                    <div v-if="fotosAdicionalesPreview.length < 5" class="border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center h-32 hover:border-brand transition-colors cursor-pointer">
+                        <div class="text-center">
+                            <i class="pi pi-plus text-2xl text-gray-400"></i>
+                            <p class="text-xs text-gray-500 mt-1">Agregar foto</p>
+                            <input 
+                                id="fotos_adicionales"
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                @change="handleFotosAdicionales"
+                                class="hidden"
+                            />
+                            <button 
+                                type="button"
+                                @click="document.getElementById('fotos_adicionales').click()"
+                                class="mt-2 text-xs text-brand hover:underline"
+                            >
+                                Seleccionar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="fotosAdicionalesPreview.length > 0" class="flex justify-end">
+                    <button 
+                        type="button"
+                        @click="limpiarFotosAdicionales"
+                        class="text-sm text-red-500 hover:text-red-600"
+                    >
+                        <i class="pi pi-trash mr-1"></i> Limpiar todas
+                    </button>
+                </div>
+                <p v-if="form.errors.fotos" class="text-red-600 text-xs mt-2">{{ form.errors.fotos }}</p>
+            </div>
+
+>>>>>>> origin/main
             <!-- Acciones -->
             <div class="p-6 border-t border-gray-100 flex items-center gap-3">
                 <button type="submit" :disabled="form.processing" class="admin-btn-primary disabled:opacity-50">
@@ -253,3 +388,13 @@ function submit() {
         </div>
     </AdminLayout>
 </template>
+
+<style scoped>
+input[type="file"] {
+    cursor: pointer;
+}
+
+img {
+    pointer-events: none;
+}
+</style>

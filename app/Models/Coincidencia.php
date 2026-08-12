@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Matches extends Model
+class Coincidencia extends Model
 {
     use SoftDeletes;
 

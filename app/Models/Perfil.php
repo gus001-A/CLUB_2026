@@ -17,7 +17,6 @@ class Perfil extends Model
         'descripcion',
         'intereses',
         'pasatiempos',
-        'fotos',
         'privacidad_fotos',
         'estado_verificacion',
         'esta_verificado',
@@ -31,7 +30,6 @@ class Perfil extends Model
     protected $casts = [
         'intereses' => 'array',
         'pasatiempos' => 'array',
-        'fotos' => 'array',
         'esta_verificado' => 'boolean',
         'puntuacion_compatibilidad' => 'integer',
         'ubicacion_lat' => 'decimal:8',
@@ -48,6 +46,18 @@ class Perfil extends Model
         return $this->belongsTo(User::class, 'usuario_id');
     }
 
+    // Relación con fotos
+    public function fotos()
+    {
+        return $this->hasMany(Fotos::class, 'perfil_id');
+    }
+
+    // Obtener la foto principal
+    public function fotoPrincipal()
+    {
+        return $this->hasOne(Fotos::class, 'perfil_id')->where('es_principal', true);
+    }
+
     // Scopes
     public function scopeVerificado($query)
     {
@@ -59,10 +69,20 @@ class Perfil extends Model
         return $query->where('tipo', $tipo);
     }
 
-    // Accesor para obtener la primera foto
+    // Accesor para obtener la primera foto (de la relación)
     public function getFotoPrincipalAttribute()
     {
-        return $this->fotos ? $this->fotos[0] : null;
+        if ($this->fotos && is_array($this->fotos) && count($this->fotos) > 0) {
+            return $this->fotos[0];
+        }
+        
+        // Buscar en la nueva relación
+        $foto = $this->fotos()->where('es_principal', true)->first();
+        if ($foto) {
+            return $foto->url;
+        }
+        
+        return null;
     }
 
     // Accesor para obtener ubicación formateada

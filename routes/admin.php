@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\CobroController;
 use App\Http\Controllers\Admin\ContenidoController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -10,19 +9,23 @@ use App\Http\Controllers\Admin\ReporteController;
 use App\Http\Controllers\Admin\SeguridadController;
 use App\Http\Controllers\Admin\ShopController;
 use App\Http\Controllers\Admin\UsuarioController;
+use App\Http\Controllers\Auth\LoginController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->group(function () {
 
     // Invitados (no autenticados como admin)
     Route::middleware('guest:admin')->group(function () {
-        Route::get('/login', [AdminAuthController::class, 'showLogin'])->name('login');
-        Route::post('/login', [AdminAuthController::class, 'login'])->name('login.attempt');
+        // Redirigir al login unificado con parámetro type=admin
+        Route::get('/login', function () {
+            return redirect()->route('login', ['type' => 'admin']);
+        })->name('login');
     });
 
     // Protegidas (solo admin autenticado)
     Route::middleware('auth:admin')->group(function () {
-        Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
+        // Logout de admin usando el controlador unificado
+        Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 

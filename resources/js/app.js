@@ -2,6 +2,8 @@
 import '../css/app.css';
 import './bootstrap';
 
+import 'primeicons/primeicons.css';
+
 import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
@@ -11,14 +13,11 @@ import PrimeVue from 'primevue/config';
 import Aura from '@primevue/themes/aura';
 import 'primeflex/primeflex.css';
 
-
 import Button from 'primevue/button';
 import Card from 'primevue/card';
 import Avatar from 'primevue/avatar';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
-// ⚠️ Comment en PrimeVue 4.x se llama 'Comment' pero puede no existir
-// import Comment from 'primevue/comment'; // ❌ ESTO CAUSA EL ERROR
 import Divider from 'primevue/divider';
 import Galleria from 'primevue/galleria';
 import Chip from 'primevue/chip';
@@ -44,7 +43,6 @@ createInertiaApp({
     setup({ el, App, props, plugin }) {
         const app = createApp({ render: () => h(App, props) });
         
-        // ========== CONFIGURAR PRIMEVUE 4.x ==========
         app.use(plugin);
         app.use(ZiggyVue);
         app.use(PrimeVue, {
@@ -64,7 +62,6 @@ createInertiaApp({
         app.component('PvAvatar', Avatar);
         app.component('PvInputText', InputText);
         app.component('PvTextarea', Textarea);
-        // app.component('PvComment', Comment); // ❌ Comentado porque no existe en 4.x
         app.component('PvDivider', Divider);
         app.component('PvGalleria', Galleria);
         app.component('PvChip', Chip);

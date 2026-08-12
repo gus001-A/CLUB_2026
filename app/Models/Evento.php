@@ -56,6 +56,31 @@ class Evento extends Model
         return $this->hasMany(Reserva::class, 'evento_id');
     }
 
+    // ========== NUEVAS RELACIONES CON FotosEvento ==========
+    public function fotos()
+    {
+        return $this->hasMany(FotosEvento::class, 'evento_id');
+    }
+
+    public function fotosRecientes()
+    {
+        return $this->hasMany(FotosEvento::class, 'evento_id')
+                    ->orderBy('fecha_subida', 'desc');
+    }
+
+    public function fotoPrincipal()
+    {
+        return $this->hasOne(FotosEvento::class, 'evento_id')
+                    ->orderBy('fecha_subida', 'asc');
+    }
+
+    public function fotosAprobadas()
+    {
+        return $this->hasMany(FotosEvento::class, 'evento_id')
+                    ->where('estado', 'aprobada');
+    }
+    // ========== FIN NUEVAS RELACIONES ==========
+
     // Scopes
     public function scopePublicados($query)
     {
@@ -75,6 +100,24 @@ class Evento extends Model
     public function scopeEnCiudad($query, $ciudad)
     {
         return $query->where('ciudad', $ciudad);
+    }
+
+    public function scopePorTipo($query, $tipo)
+    {
+        return $query->where('tipo', $tipo);
+    }
+
+    public function scopePorCategoria($query, $categoria)
+    {
+        return $query->where('categoria', $categoria);
+    }
+
+    public function scopeConCapacidadDisponible($query)
+    {
+        return $query->where(function($q) {
+            $q->whereNull('capacidad')
+              ->orWhere('capacidad', '>', 0);
+        });
     }
 
     // Accesors
