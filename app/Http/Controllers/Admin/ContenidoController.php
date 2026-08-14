@@ -14,6 +14,14 @@ class ContenidoController extends Controller
 {
     public function index(Request $request): Response
     {
+        // Salvavidas: si un contenido "programado" ya pasó su fecha/hora y
+        // nadie lo ha visto, lo publicamos aquí. Esto NO sustituye un
+        // scheduler real — solo cubre cuando un admin entra al panel. Si el
+        // sitio público depende de que esto pase puntual sin que nadie abra
+        // el admin, hace falta un comando con schedule:everyMinute() en
+        // routes/console.php (o el Kernel, según tu versión de Laravel).
+        $this->promoverProgramados();
+
         $total = Contenido::count();
         $publicados = Contenido::where('estado', 'publicado')->count();
         $borradores = Contenido::where('estado', 'borrador')->count();
@@ -36,7 +44,8 @@ class ContenidoController extends Controller
             $query->where('estado', $estado);
         }
 
-        $contenidos = $query->latest()->paginate(5)->withQueryString();
+        $contenidos = $query->withCount(['interacciones as vistas' => fn ($q) => $q->where('tipo', 'vista')])
+            ->latest()->paginate(5)->withQueryString();
         $contenidos->through(fn ($c) => [
             'id' => $c->id,
             'titulo' => $c->titulo ?: 'Sin título',
@@ -44,7 +53,7 @@ class ContenidoController extends Controller
             'categoria' => $c->categoria,
             'estado' => $c->estado,
             'created_at' => $c->created_at,
-            'vistas' => $c->interacciones()->where('tipo', 'vista')->count(),
+            'vistas' => $c->vistas,
             'imagen' => $this->resolverUrl($c->archivos[0] ?? null),
         ]);
 
@@ -79,11 +88,13 @@ class ContenidoController extends Controller
             'contenidos' => $contenidos,
             'filtros' => $request->only(['q', 'tipo', 'estado', 'periodo_stats']),
             'tiposContenido' => [
+                'foto' => $tiposContenido['foto'] ?? 0,
                 'video' => $tiposContenido['video'] ?? 0,
-                'articulo' => $tiposContenido['articulo'] ?? 0,
                 'galeria' => $tiposContenido['galeria'] ?? 0,
                 'audio' => $tiposContenido['audio'] ?? 0,
+                'articulo' => $tiposContenido['articulo'] ?? 0,
                 'documento' => $tiposContenido['documento'] ?? 0,
+                'exclusivo' => $tiposContenido['exclusivo'] ?? 0,
             ],
             'contenidoReciente' => Contenido::latest()->take(4)->get()->map(fn ($c) => [
                 'id' => $c->id,
@@ -115,6 +126,14 @@ class ContenidoController extends Controller
         };
     }
 
+    /** Publica el contenido programado cuya fecha/hora ya se cumplió. */
+    private function promoverProgramados(): void
+    {
+        Contenido::where('estado', 'programado')
+            ->where('programado_en', '<=', now())
+            ->update(['estado' => 'publicado']);
+    }
+
     public function create(Request $request): Response
     {
         return Inertia::render('Admin/Contenido/Create', [
@@ -144,7 +163,7 @@ class ContenidoController extends Controller
             ],
             'archivos.*' => [
                 'file', 'max:1048576',
-                'mimes:jpg,jpeg,png,gif,webp,mp4,mov,webm,avi,mp3,wav,ogg,m4a,pdf,doc,docx,xls,xlsx,ppt,pptx,txt',
+                'mimes:jpg,jpeg,png,gif,webp,mp4,mov,webm,avi,mp3,wav,ogg,m4a,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip,rar,7z',
             ],
             'etiquetas' => ['nullable', 'array'],
             'etiquetas.*' => ['string', 'max:50'],
@@ -209,7 +228,7 @@ class ContenidoController extends Controller
             'archivos_nuevos' => ['nullable', 'array'],
             'archivos_nuevos.*' => [
                 'file', 'max:1048576',
-                'mimes:jpg,jpeg,png,gif,webp,mp4,mov,webm,avi,mp3,wav,ogg,m4a,pdf,doc,docx,xls,xlsx,ppt,pptx,txt',
+                'mimes:jpg,jpeg,png,gif,webp,mp4,mov,webm,avi,mp3,wav,ogg,m4a,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip,rar,7z',
             ],
             'etiquetas' => ['nullable', 'array'],
             'etiquetas.*' => ['string', 'max:50'],

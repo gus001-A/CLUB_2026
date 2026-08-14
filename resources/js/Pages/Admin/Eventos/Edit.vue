@@ -59,7 +59,14 @@ function submit() {
         return;
     }
 
-    form.patch(route('admin.eventos.update', props.evento.id), { forceFormData: true });
+    form.transform((data) => ({
+        ...data,
+        _method: 'patch',
+    })).post(route('admin.eventos.update', props.evento.id), {
+        forceFormData: true,
+        onSuccess: () => toast.success('Evento actualizado correctamente.'),
+        onError: () => toast.error('Revisa los datos del formulario.'),
+    });
 }
 </script>
 
@@ -217,9 +224,9 @@ function submit() {
                     </div>
                 </div>
 
-                <div class="space-y-4">
+                <div class="space-y-5 admin-file-input">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Imagen</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Imagen principal</label>
 
                         <!-- Ya guardada -->
                         <div v-if="imagenExistente && !preview" class="mb-3">

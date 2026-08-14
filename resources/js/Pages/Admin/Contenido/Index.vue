@@ -54,9 +54,6 @@ function cambiarPeriodoEstadisticas() {
     }, { preserveState: true, preserveScroll: true, replace: true });
 }
 
-const tiposIconos = { video: 'pi-video', articulo: 'pi-file-edit', galeria: 'pi-images', audio: 'pi-volume-up', documento: 'pi-file' };
-const tiposNombres = { video: 'Videos', articulo: 'Artículos', galeria: 'Galerías', audio: 'Audios', documento: 'Documentos' };
-
 const lineData = computed(() => ({
     labels: props.estadisticas.vistasPorDia.map((d) => new Date(d.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })),
     datasets: [{
@@ -152,19 +149,16 @@ async function eliminarContenido(c) {
             <div class="admin-contenido-main-grid gap-6 mb-6 w-full">
 
                 <!-- Gestión de Contenido -->
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between" style="grid-area:gestion">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:gestion">
                     <div class="flex flex-col flex-1">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-900">Gestión de Contenido</h2>
-                                <p class="text-xs text-gray-500 mt-0.5">Administra el contenido publicado en la plataforma.</p>
-                            </div>
-                            <Link :href="route('admin.contenido.create')"
-                                class="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 transition flex-none shadow-sm">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-play text-brand"></i> Gestión de Contenido</span>
+                            <Link :href="route('admin.contenido.create')" class="admin-btn-primary flex-none" style="padding:0.4rem 0.85rem;font-size:0.75rem">
                                 <i class="pi pi-plus text-xs"></i>
                                 Nuevo Contenido
                             </Link>
                         </div>
+                        <p class="text-xs px-6 pt-4" style="color:var(--muted)">Administra el contenido publicado en la plataforma.</p>
 
                         <!-- Filtros -->
                         <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 px-6 py-4">
@@ -269,13 +263,15 @@ async function eliminarContenido(c) {
                 </div>
 
                 <!-- Tipos de Contenido -->
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6" style="grid-area:tipos">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Tipos de Contenido</h2>
-                    <ul class="space-y-3">
+                <div class="min-w-0 admin-card overflow-hidden" style="grid-area:tipos">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-th-large text-brand"></i> Tipos de Contenido</span>
+                    </div>
+                    <ul class="space-y-3 p-6">
                         <li v-for="(cantidad, key) in tiposContenido" :key="key" class="flex items-center justify-between text-sm">
                             <span class="flex items-center gap-2 text-gray-600">
-                                <i class="pi text-brand" :class="tiposIconos[key]"></i>
-                                {{ tiposNombres[key] }}
+                                <i class="pi text-brand" :class="tipoIcono[key]"></i>
+                                {{ tipoLabel[key] }}
                             </span>
                             <span class="font-semibold text-gray-800">{{ cantidad }}</span>
                         </li>
@@ -283,21 +279,21 @@ async function eliminarContenido(c) {
                 </div>
 
                 <!-- Acciones Rápidas -->
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col justify-between" style="grid-area:acciones">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4 px-2 pt-2">Acciones Rápidas</h2>
-                        <div class="space-y-3">
-                            <button v-for="a in accionesRapidas" :key="a.label" type="button" @click="irA(a)"
-                                class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group text-left">
-                                <div class="rounded-full bg-red-50 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                                    <i class="pi text-sm" :class="a.icon"></i>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">{{ a.label }}</p>
-                                    <p class="text-xs text-gray-400">{{ a.desc }}</p>
-                                </div>
-                            </button>
-                        </div>
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:acciones">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-bolt text-brand"></i> Acciones Rápidas</span>
+                    </div>
+                    <div class="space-y-3 p-4">
+                        <button v-for="a in accionesRapidas" :key="a.label" type="button" @click="irA(a)"
+                            class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group text-left">
+                            <div class="admin-icon-circle" style="width:44px;height:44px">
+                                <i class="pi text-sm" :class="a.icon"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">{{ a.label }}</p>
+                                <p class="text-xs text-gray-400">{{ a.desc }}</p>
+                            </div>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -306,13 +302,13 @@ async function eliminarContenido(c) {
             <div class="admin-contenido-reciente-grid gap-6 w-full">
 
                 <!-- Contenido Reciente -->
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:reciente">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:reciente">
                     <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <h2 class="font-semibold text-gray-900 text-lg">Contenido Reciente</h2>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-clock text-brand"></i> Contenido Reciente</span>
                             <Link :href="route('admin.contenido.index')" class="text-xs font-semibold text-brand hover:underline">Ver todos</Link>
                         </div>
-                        <ul class="space-y-3.5">
+                        <ul class="space-y-3.5 p-6">
                             <li v-for="c in contenidoReciente" :key="c.id" class="flex items-center gap-3">
                                 <div class="rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 overflow-hidden" style="width:36px;height:36px">
                                     <img v-if="c.imagen && (c.tipo === 'foto' || c.tipo === 'galeria')" :src="c.imagen" class="w-full h-full object-cover" />
@@ -332,24 +328,24 @@ async function eliminarContenido(c) {
                 </div>
 
                 <!-- Estadísticas de Contenido -->
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:estadisticas">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:estadisticas">
                     <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <h2 class="font-semibold text-gray-900 text-lg">Estadísticas de Contenido</h2>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-chart-line text-brand"></i> Estadísticas de Contenido</span>
                             <select v-model="periodoEstadisticas" @change="cambiarPeriodoEstadisticas"
-                                class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-500 focus:outline-none focus:border-brand">
+                                class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-500 bg-white focus:outline-none focus:border-brand">
                                 <option value="semana">Esta semana</option>
                                 <option value="mes">Este mes</option>
                                 <option value="anio">Este año</option>
                             </select>
                         </div>
-                        <div class="flex flex-col sm:flex-row gap-4">
+                        <div class="flex flex-col sm:flex-row gap-4 p-6">
                             <div class="flex-1" style="height:240px">
                                 <Line :data="lineData" :options="lineOptions" />
                             </div>
                             <div class="flex sm:flex-col gap-4 sm:w-44 justify-between">
                                 <div class="flex items-center gap-3">
-                                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:36px;height:36px">
+                                    <div class="admin-icon-circle" style="width:36px;height:36px">
                                         <i class="pi pi-eye text-sm"></i>
                                     </div>
                                     <div>
@@ -358,7 +354,7 @@ async function eliminarContenido(c) {
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-3">
-                                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:36px;height:36px">
+                                    <div class="admin-icon-circle" style="width:36px;height:36px">
                                         <i class="pi pi-users text-sm"></i>
                                     </div>
                                     <div>
@@ -367,7 +363,7 @@ async function eliminarContenido(c) {
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-3">
-                                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:36px;height:36px">
+                                    <div class="admin-icon-circle" style="width:36px;height:36px">
                                         <i class="pi pi-heart text-sm"></i>
                                     </div>
                                     <div>

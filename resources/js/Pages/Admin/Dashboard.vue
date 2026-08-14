@@ -3,7 +3,7 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import KpiCard from '@/Components/KpiCard.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useToast } from '@/composables/useToast';
 import { useFormatters } from '@/composables/useFormatters';
 import { useUsuarioAcciones } from '@/composables/useUsuarioAcciones';
@@ -41,6 +41,20 @@ function aplicarFiltros() {
 
 watch([q, rol, estado], aplicarFiltros);
 
+function varianzaHint(valor, sinDatosTexto) {
+    if (valor === null || valor === undefined) return sinDatosTexto;
+    return `${valor >= 0 ? '+' : ''}${valor}% vs mes anterior`;
+}
+function varianzaColor(valor) {
+    if (valor === null || valor === undefined) return 'text-gray-400';
+    return valor >= 0 ? 'text-green-600' : 'text-red-600';
+}
+
+const ingresosHint = computed(() => varianzaHint(props.stats?.ingresosVariacion, 'Sin movimientos recientes'));
+const ingresosHintColor = computed(() => varianzaColor(props.stats?.ingresosVariacion));
+const ventasHint = computed(() => varianzaHint(props.stats?.ventasVariacion, 'Sin ventas registradas'));
+const ventasHintColor = computed(() => varianzaColor(props.stats?.ventasVariacion));
+
 const eventoEstadosColores = {
     publicado: 'bg-green-100 text-green-700 border border-green-200',
     cancelado: 'bg-red-100 text-red-700 border border-red-200',
@@ -66,7 +80,7 @@ const eventoEstadosColores = {
                 </div>
                 <div class="min-w-0">
                     <KpiCard label="Ingresos Totales" :value="money(stats?.ingresosTotales ?? 0)" icon="pi-dollar"
-                        hint="Sin movimientos recientes" hint-color="text-gray-400" />
+                        :hint="ingresosHint" :hint-color="ingresosHintColor" />
                 </div>
                 <div class="min-w-0">
                     <KpiCard label="Suscripciones Activas" :value="stats?.suscripcionesActivas ?? 0" icon="pi-crown"
@@ -74,26 +88,24 @@ const eventoEstadosColores = {
                 </div>
                 <div class="min-w-0">
                     <KpiCard label="Ventas en Shop" :value="money(stats?.ventasShop ?? 0)" icon="pi-shopping-bag"
-                        hint="Sin ventas registradas" hint-color="text-gray-400" />
+                        :hint="ventasHint" :hint-color="ventasHintColor" />
                 </div>
             </div>
 
             <!-- Fila 2: Gestión de Usuarios + Acciones Rápidas + Cobros + Eventos + Actividad -->
             <div class="admin-dashboard-grid gap-6 mb-6 w-full">
                 <!-- Gestión de Usuarios -->
-                <div class="min-w-0 admin-card flex flex-col justify-between" style="grid-area:tabla">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:tabla">
                     <div>
                         <!-- Encabezado -->
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-900">Gestión de Usuarios</h2>
-                                <p class="text-xs text-gray-500 mt-0.5">Administra los usuarios registrados.</p>
-                            </div>
-                            <Link :href="route('admin.usuarios.create', { from: 'dashboard' })" class="admin-btn-primary flex-none">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-users text-brand"></i> Gestión de Usuarios</span>
+                            <Link :href="route('admin.usuarios.create', { from: 'dashboard' })" class="admin-btn-primary flex-none" style="padding:0.4rem 0.85rem;font-size:0.75rem">
                                 <i class="pi pi-plus text-xs"></i>
                                 Agregar Usuario
                             </Link>
                         </div>
+                        <p class="text-xs px-6 pt-4" style="color:var(--muted)">Administra los usuarios registrados.</p>
 
                         <!-- Filtros -->
                         <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 px-6 py-4">
@@ -124,7 +136,7 @@ const eventoEstadosColores = {
                         <div class="overflow-x-auto w-full">
                             <table class="w-full text-left text-sm min-w-[650px]">
                                 <thead>
-                                    <tr class="border-y border-gray-100 bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider">
+                                    <tr class="border-y text-xs uppercase tracking-wider" style="border-color:var(--line);background:var(--surface);color:var(--muted)">
                                         <th class="pl-6 pr-4 py-3 font-semibold">Usuario</th>
                                         <th class="px-3 py-3 font-semibold">Correo</th>
                                         <th class="px-3 py-3 font-semibold">Rol</th>
@@ -137,7 +149,7 @@ const eventoEstadosColores = {
                                     <tr v-for="u in gestionUsuarios.data" :key="u.id" class="hover:bg-gray-50/50 transition">
                                         <td class="pl-6 pr-4 py-3.5 whitespace-nowrap">
                                             <div class="flex items-center gap-3">
-                                                <div class="w-9 h-9 min-w-[36px] max-w-[36px] min-h-[36px] max-h-[36px] flex-none rounded-full bg-brand/10 text-brand flex items-center justify-center font-semibold text-sm">
+                                                <div class="w-9 h-9 min-w-[36px] max-w-[36px] min-h-[36px] max-h-[36px] flex-none rounded-full flex items-center justify-center font-semibold text-sm" style="background:var(--brand-soft);color:var(--brand)">
                                                     {{ u.nombre ? u.nombre.charAt(0).toUpperCase() : 'U' }}
                                                 </div>
                                                 <div class="min-w-0">
@@ -201,53 +213,55 @@ const eventoEstadosColores = {
                 </div>
 
                 <!-- Acciones Rápidas -->
-                <div class="min-w-0 admin-card p-4 flex flex-col justify-between" style="grid-area:acciones">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:acciones">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h2>
-                        <div class="space-y-3">
-                            <Link :href="route('admin.usuarios.index')" class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-100 hover:bg-gray-50 transition group">
-                                <div class="admin-icon-circle bg-red-50 flex items-center justify-center" style="width:40px;height:40px">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-bolt text-brand"></i> Acciones Rápidas</span>
+                        </div>
+                        <div class="space-y-3 p-4">
+                            <Link :href="route('admin.usuarios.index')" class="flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:bg-gray-50 transition group" style="border-color:var(--line)">
+                                <div class="admin-icon-circle" style="width:40px;height:40px">
                                     <i class="pi pi-lock text-sm"></i>
                                 </div>
                                 <div>
-                                    <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">Bloquear Usuario</p>
-                                    <p class="text-xs text-gray-400">Restringe el acceso de un usuario</p>
+                                    <p class="text-sm font-semibold group-hover:text-brand transition" style="color:var(--ink)">Bloquear Usuario</p>
+                                    <p class="text-xs" style="color:var(--muted)">Restringe el acceso de un usuario</p>
                                 </div>
                             </Link>
-                            <Link :href="route('admin.usuarios.index')" class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-100 hover:bg-gray-50 transition group">
-                                <div class="admin-icon-circle bg-red-50 flex items-center justify-center" style="width:40px;height:40px">
+                            <Link :href="route('admin.usuarios.index')" class="flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:bg-gray-50 transition group" style="border-color:var(--line)">
+                                <div class="admin-icon-circle" style="width:40px;height:40px">
                                     <i class="pi pi-users text-sm"></i>
                                 </div>
                                 <div>
-                                    <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">Ver Usuarios</p>
-                                    <p class="text-xs text-gray-400">Consulta todos los usuarios registrados</p>
+                                    <p class="text-sm font-semibold group-hover:text-brand transition" style="color:var(--ink)">Ver Usuarios</p>
+                                    <p class="text-xs" style="color:var(--muted)">Consulta todos los usuarios registrados</p>
                                 </div>
                             </Link>
-                            <Link :href="route('admin.cobros.index')" class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-100 hover:bg-gray-50 transition group">
-                                <div class="admin-icon-circle bg-red-50 flex items-center justify-center" style="width:40px;height:40px">
+                            <Link :href="route('admin.cobros.index')" class="flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:bg-gray-50 transition group" style="border-color:var(--line)">
+                                <div class="admin-icon-circle" style="width:40px;height:40px">
                                     <i class="pi pi-dollar text-sm"></i>
                                 </div>
                                 <div>
-                                    <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">Ver Cobros</p>
-                                    <p class="text-xs text-gray-400">Revisa pagos y transacciones</p>
+                                    <p class="text-sm font-semibold group-hover:text-brand transition" style="color:var(--ink)">Ver Cobros</p>
+                                    <p class="text-xs" style="color:var(--muted)">Revisa pagos y transacciones</p>
                                 </div>
                             </Link>
-                            <Link :href="route('admin.eventos.create')" class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-100 hover:bg-gray-50 transition group">
-                                <div class="admin-icon-circle bg-red-50 flex items-center justify-center" style="width:40px;height:40px">
+                            <Link :href="route('admin.eventos.create')" class="flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:bg-gray-50 transition group" style="border-color:var(--line)">
+                                <div class="admin-icon-circle" style="width:40px;height:40px">
                                     <i class="pi pi-calendar text-sm"></i>
                                 </div>
                                 <div>
-                                    <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">Crear Evento</p>
-                                    <p class="text-xs text-gray-400">Organiza un nuevo evento</p>
+                                    <p class="text-sm font-semibold group-hover:text-brand transition" style="color:var(--ink)">Crear Evento</p>
+                                    <p class="text-xs" style="color:var(--muted)">Organiza un nuevo evento</p>
                                 </div>
                             </Link>
-                            <Link :href="route('admin.invitaciones.create')" class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-100 hover:bg-gray-50 transition group">
-                                <div class="admin-icon-circle bg-red-50 flex items-center justify-center" style="width:40px;height:40px">
+                            <Link :href="route('admin.invitaciones.create')" class="flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:bg-gray-50 transition group" style="border-color:var(--line)">
+                                <div class="admin-icon-circle" style="width:40px;height:40px">
                                     <i class="pi pi-envelope text-sm"></i>
                                 </div>
                                 <div>
-                                    <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">Enviar Invitación</p>
-                                    <p class="text-xs text-gray-400">Invita usuarios a la plataforma</p>
+                                    <p class="text-sm font-semibold group-hover:text-brand transition" style="color:var(--ink)">Enviar Invitación</p>
+                                    <p class="text-xs" style="color:var(--muted)">Invita usuarios a la plataforma</p>
                                 </div>
                             </Link>
                         </div>
@@ -255,29 +269,29 @@ const eventoEstadosColores = {
                 </div>
 
                 <!-- Cobros Recientes -->
-                <div class="min-w-0 admin-card p-6 flex flex-col justify-between" style="grid-area:cobros">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:cobros">
                     <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <h2 class="font-semibold text-gray-900 text-lg">Cobros Recientes</h2>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-dollar text-brand"></i> Cobros Recientes</span>
                             <Link :href="route('admin.cobros.index')" class="text-xs font-semibold text-brand hover:underline">Ver todos</Link>
                         </div>
-                        <div class="space-y-4">
+                        <div class="space-y-4 p-6">
                             <div v-for="c in (cobrosRecientes || [])" :key="c.id" class="flex items-center justify-between text-sm py-1">
                                 <div class="flex items-center gap-3 min-w-0">
                                     <div class="admin-icon-circle text-xs" style="width:36px;height:36px">
                                         <i class="pi pi-dollar"></i>
                                     </div>
                                     <div class="min-w-0">
-                                        <p class="font-semibold text-gray-800 text-xs truncate">@{{ c.usuario?.apodo }}</p>
-                                        <p class="text-[11px] text-gray-400 truncate">{{ c.concepto }}</p>
+                                        <p class="font-semibold text-xs truncate" style="color:var(--ink)">@{{ c.usuario?.apodo }}</p>
+                                        <p class="text-[11px] truncate" style="color:var(--muted)">{{ c.concepto }}</p>
                                     </div>
                                 </div>
                                 <div class="text-right shrink-0 ml-2">
-                                    <p class="font-bold text-gray-800 text-xs">{{ money(c.monto) }}</p>
-                                    <p class="text-[10px] text-gray-400">{{ c.tiempo }}</p>
+                                    <p class="font-bold text-xs" style="color:var(--ink)">{{ money(c.monto) }}</p>
+                                    <p class="text-[10px]" style="color:var(--muted)">{{ c.tiempo }}</p>
                                 </div>
                             </div>
-                            <div v-if="!(cobrosRecientes || []).length" class="text-center py-8 text-gray-400 text-xs">
+                            <div v-if="!(cobrosRecientes || []).length" class="text-center py-8 text-xs" style="color:var(--muted)">
                                 No hay cobros registrados aún.
                             </div>
                         </div>
@@ -285,21 +299,21 @@ const eventoEstadosColores = {
                 </div>
 
                 <!-- Eventos Próximos -->
-                <div class="min-w-0 admin-card p-6 flex flex-col justify-between" style="grid-area:eventos">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:eventos">
                     <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <h2 class="font-semibold text-gray-900 text-lg">Eventos Próximos</h2>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-calendar text-brand"></i> Eventos Próximos</span>
                             <Link :href="route('admin.eventos.index')" class="text-xs font-semibold text-brand hover:underline">Ver todos</Link>
                         </div>
-                        <div class="space-y-3">
+                        <div class="space-y-3 p-6">
                             <div v-for="e in (eventosProximos || [])" :key="e.id" class="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition">
                                 <div class="flex items-center gap-3 min-w-0">
-                                    <div class="w-10 h-10 min-w-[40px] max-w-[40px] min-h-[40px] max-h-[40px] rounded-xl overflow-hidden shrink-0 bg-gray-100 border border-gray-100">
+                                    <div class="w-10 h-10 min-w-[40px] max-w-[40px] min-h-[40px] max-h-[40px] rounded-xl overflow-hidden shrink-0 bg-gray-100 border" style="border-color:var(--line)">
                                         <img :src="e.imagen || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80'" alt="" class="w-full h-full object-cover">
                                     </div>
                                     <div class="min-w-0">
-                                        <p class="font-semibold text-gray-800 text-xs truncate">{{ e.titulo }}</p>
-                                        <p class="text-[10px] text-gray-400 mt-0.5">{{ e.fecha }}</p>
+                                        <p class="font-semibold text-xs truncate" style="color:var(--ink)">{{ e.titulo }}</p>
+                                        <p class="text-[10px] mt-0.5" style="color:var(--muted)">{{ e.fecha }}</p>
                                     </div>
                                 </div>
                                 <span class="px-2.5 py-1 rounded-md text-[10px] font-semibold whitespace-nowrap ml-2"
@@ -307,7 +321,7 @@ const eventoEstadosColores = {
                                     {{ e.estado }}
                                 </span>
                             </div>
-                            <div v-if="!(eventosProximos || []).length" class="text-center py-6 text-gray-400 text-xs">
+                            <div v-if="!(eventosProximos || []).length" class="text-center py-6 text-xs" style="color:var(--muted)">
                                 No hay eventos próximos.
                             </div>
                         </div>
@@ -315,33 +329,33 @@ const eventoEstadosColores = {
                 </div>
 
                 <!-- Actividad Reciente -->
-                <div class="min-w-0 admin-card p-6 flex flex-col justify-between" style="grid-area:actividad">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:actividad">
                     <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <h2 class="font-semibold text-gray-900 text-lg">Actividad Reciente</h2>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-history text-brand"></i> Actividad Reciente</span>
                         </div>
-                        <div class="space-y-3.5">
+                        <div class="space-y-3.5 p-6">
                             <div v-for="(act, i) in actividadReciente" :key="i" class="flex items-start gap-3">
                                 <div class="admin-icon-circle text-xs" style="width:36px;height:36px;min-width:36px">
                                     <i class="pi text-xs font-semibold" :class="act.icon || 'pi-bell'"></i>
                                 </div>
                                 <div class="text-xs">
-                                    <p class="text-gray-800 leading-snug">
+                                    <p class="leading-snug" style="color:var(--ink)">
                                         <span>{{ act.titulo || act.texto }}</span>
                                         <span v-if="act.destacado" class="font-semibold text-brand ml-1">{{ act.destacado }}</span>
                                     </p>
-                                    <p class="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+                                    <p class="text-[10px] mt-0.5 flex items-center gap-1" style="color:var(--muted)">
                                         <span>{{ act.hace_cuanto || formatDate(act.fecha) }}</span>
                                         <span v-if="act.fecha">• {{ formatTime(act.fecha) }}</span>
                                     </p>
                                 </div>
                             </div>
-                            <div v-if="!actividadReciente?.length" class="text-gray-400 text-xs py-6 text-center">
+                            <div v-if="!actividadReciente?.length" class="text-xs py-6 text-center" style="color:var(--muted)">
                                 Sin actividad todavía.
                             </div>
                         </div>
                     </div>
-                    <div v-if="actividadReciente?.length" class="border-t border-gray-100 pt-3 mt-4 text-center">
+                    <div v-if="actividadReciente?.length" class="border-t px-6 pt-3 mt-4 pb-4 text-center" style="border-color:var(--line)">
                         <button class="text-xs font-semibold text-brand hover:underline">Ver toda la actividad</button>
                     </div>
                 </div>

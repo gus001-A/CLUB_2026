@@ -74,10 +74,10 @@ function copiarCodigo(valor) {
 }
 
 const doughnutData = computed(() => ({
-    labels: ['Aceptadas', 'Pendientes', 'Expiradas'],
+    labels: ['Aceptadas', 'Pendientes', 'Expiradas', 'Utilizadas'],
     datasets: [{
-        data: [props.stats.aceptadas, props.stats.pendientes, props.stats.expiradas],
-        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
+        data: [props.stats.aceptadas, props.stats.pendientes, props.stats.expiradas, props.stats.utilizadas],
+        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444', '#3b82f6'],
         borderWidth: 0,
     }],
 }));
@@ -133,18 +133,15 @@ function irA(a) {
             <div class="admin-invitaciones-main-grid gap-6 w-full">
 
                 <!-- Gestión de Invitaciones -->
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col" style="grid-area:gestion">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
-                        <div>
-                            <h2 class="text-xl font-semibold text-gray-900">Gestión de Invitaciones</h2>
-                            <p class="text-xs text-gray-500 mt-0.5">Administra las invitaciones enviadas.</p>
-                        </div>
-                        <Link :href="route('admin.invitaciones.create')"
-                            class="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 transition flex-none shadow-sm">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col" style="grid-area:gestion">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-envelope text-brand"></i> Gestión de Invitaciones</span>
+                        <Link :href="route('admin.invitaciones.create')" class="admin-btn-primary flex-none" style="padding:0.4rem 0.85rem;font-size:0.75rem">
                             <i class="pi pi-plus text-xs"></i>
                             Nueva Invitación
                         </Link>
                     </div>
+                    <p class="text-xs px-6 pt-4" style="color:var(--muted)">Administra las invitaciones enviadas.</p>
 
                     <!-- Filtros -->
                     <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 px-6 py-4">
@@ -213,12 +210,10 @@ function irA(a) {
                                     </td>
                                     <td class="pl-2 pr-6 py-3.5 whitespace-nowrap">
                                         <div class="flex justify-center items-center gap-1.5">
-                                            <button @click="copiarCodigo(inv.codigo)" title="Copiar código"
-                                                class="w-8 h-8 min-w-[32px] max-w-[32px] rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
+                                            <button @click="copiarCodigo(inv.codigo)" title="Copiar código" class="admin-table-action text-gray-600">
                                                 <i class="pi pi-copy text-xs"></i>
                                             </button>
-                                            <button v-if="inv.estado !== 'aceptada'" @click="desactivar(inv)" title="Desactivar"
-                                                class="w-8 h-8 min-w-[32px] max-w-[32px] rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 transition flex items-center justify-center">
+                                            <button v-if="inv.estado !== 'aceptada'" @click="desactivar(inv)" title="Desactivar" class="admin-table-action text-red-600 hover:bg-red-50">
                                                 <i class="pi pi-trash text-xs"></i>
                                             </button>
                                         </div>
@@ -243,10 +238,12 @@ function irA(a) {
                 </div>
 
                 <!-- Enlaces de Invitación Activos -->
-                <div id="enlaces" class="min-w-0 bg-white rounded-2xl border border-gray-200/80 shadow-sm px-6 py-6 flex flex-col justify-between" style="grid-area:enlaces">
+                <div id="enlaces" class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:enlaces">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Enlaces de Invitación Activos</h2>
-                        <div class="overflow-x-auto w-full">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-link text-brand"></i> Enlaces de Invitación Activos</span>
+                        </div>
+                        <div class="overflow-x-auto w-full p-6">
                             <table class="w-full text-left text-sm min-w-[600px]">
                                 <thead>
                                     <tr class="border-y border-gray-100 bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider">
@@ -276,12 +273,10 @@ function irA(a) {
                                         </td>
                                         <td class="pl-2 pr-2 py-3.5">
                                             <div class="flex justify-center items-center gap-1.5">
-                                                <button @click="copiarCodigo(e.url)" title="Copiar enlace"
-                                                    class="w-8 h-8 min-w-[32px] max-w-[32px] rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
+                                                <button @click="copiarCodigo(e.url)" title="Copiar enlace" class="admin-table-action text-gray-600">
                                                     <i class="pi pi-copy text-xs"></i>
                                                 </button>
-                                                <button v-if="e.activo" @click="desactivar(e)" title="Desactivar"
-                                                    class="w-8 h-8 min-w-[32px] max-w-[32px] rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 transition flex items-center justify-center">
+                                                <button v-if="e.activo" @click="desactivar(e)" title="Desactivar" class="admin-table-action text-red-600 hover:bg-red-50">
                                                     <i class="pi pi-trash text-xs"></i>
                                                 </button>
                                             </div>
@@ -297,12 +292,14 @@ function irA(a) {
                 </div>
 
                 <!-- Acciones Rápidas -->
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-4" style="grid-area:acciones">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4 px-2 pt-2">Acciones Rápidas</h2>
-                    <div class="space-y-3">
+                <div class="min-w-0 admin-card overflow-hidden" style="grid-area:acciones">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-bolt text-brand"></i> Acciones Rápidas</span>
+                    </div>
+                    <div class="space-y-3 p-4">
                         <button v-for="a in accionesRapidas" :key="a.label" type="button" @click="irA(a)"
                             class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group text-left">
-                            <div class="rounded-full bg-red-50 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
+                            <div class="admin-icon-circle" style="width:44px;height:44px">
                                 <i class="pi text-sm" :class="a.icon"></i>
                             </div>
                             <div class="min-w-0">
@@ -314,36 +311,43 @@ function irA(a) {
                 </div>
 
                 <!-- Resumen de Invitaciones -->
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:resumen">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:resumen">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900 mb-5">Resumen de Invitaciones</h2>
-
-                        <div v-if="stats.enviadas" class="relative mx-auto" style="height:180px;width:180px">
-                            <Doughnut :data="doughnutData" :options="{ maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '70%' }" />
-                            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wider">Total</p>
-                                <p class="font-bold text-gray-800 text-base">{{ stats.enviadas }}</p>
-                            </div>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-chart-pie text-brand"></i> Resumen de Invitaciones</span>
                         </div>
-                        <p v-else class="text-gray-400 text-sm text-center py-10">Aún no hay invitaciones.</p>
+                        <div class="p-6">
+                            <div v-if="stats.enviadas" class="relative mx-auto" style="height:180px;width:180px">
+                                <Doughnut :data="doughnutData" :options="{ maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '70%' }" />
+                                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wider">Total</p>
+                                    <p class="font-bold text-gray-800 text-base">{{ stats.enviadas }}</p>
+                                </div>
+                            </div>
+                            <p v-else class="text-gray-400 text-sm text-center py-10">Aún no hay invitaciones.</p>
 
-                        <ul class="mt-5 space-y-2 text-xs">
-                            <li class="flex items-center justify-between">
-                                <span class="flex items-center gap-1.5 text-gray-600"><span class="rounded-full bg-green-500" style="width:8px;height:8px"></span> Aceptadas</span>
-                                <span class="text-gray-800 font-semibold">{{ stats.aceptadas }}</span>
-                            </li>
-                            <li class="flex items-center justify-between">
-                                <span class="flex items-center gap-1.5 text-gray-600"><span class="rounded-full bg-amber-500" style="width:8px;height:8px"></span> Pendientes</span>
-                                <span class="text-gray-800 font-semibold">{{ stats.pendientes }}</span>
-                            </li>
-                            <li class="flex items-center justify-between">
-                                <span class="flex items-center gap-1.5 text-gray-600"><span class="rounded-full bg-red-500" style="width:8px;height:8px"></span> Expiradas</span>
-                                <span class="text-gray-800 font-semibold">{{ stats.expiradas }}</span>
-                            </li>
-                        </ul>
+                            <ul class="mt-5 space-y-2 text-xs">
+                                <li class="flex items-center justify-between">
+                                    <span class="flex items-center gap-1.5 text-gray-600"><span class="rounded-full bg-green-500" style="width:8px;height:8px"></span> Aceptadas</span>
+                                    <span class="text-gray-800 font-semibold">{{ stats.aceptadas }}</span>
+                                </li>
+                                <li class="flex items-center justify-between">
+                                    <span class="flex items-center gap-1.5 text-gray-600"><span class="rounded-full bg-amber-500" style="width:8px;height:8px"></span> Pendientes</span>
+                                    <span class="text-gray-800 font-semibold">{{ stats.pendientes }}</span>
+                                </li>
+                                <li class="flex items-center justify-between">
+                                    <span class="flex items-center gap-1.5 text-gray-600"><span class="rounded-full bg-red-500" style="width:8px;height:8px"></span> Expiradas</span>
+                                    <span class="text-gray-800 font-semibold">{{ stats.expiradas }}</span>
+                                </li>
+                                <li class="flex items-center justify-between">
+                                    <span class="flex items-center gap-1.5 text-gray-600"><span class="rounded-full bg-blue-500" style="width:8px;height:8px"></span> Utilizadas</span>
+                                    <span class="text-gray-800 font-semibold">{{ stats.utilizadas }}</span>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
 
-                    <div class="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
+                    <div class="mx-6 mb-6 pt-4 border-t border-gray-100 flex items-center justify-between">
                         <span class="text-sm text-gray-500">Tasa de Aceptación</span>
                         <span class="font-bold text-brand">{{ stats.tasaAceptacion }}%</span>
                     </div>

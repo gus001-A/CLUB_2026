@@ -1,32 +1,49 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { Head, useForm, router } from '@inertiajs/vue3';
+import { Head, useForm, router, usePage } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
 import { useToast } from '@/composables/useToast';
 import { useConfirm } from '@/composables/useConfirm';
 
 const props = defineProps({
-    perfil: Object,
+    cuenta: Object,
     esSuperAdmin: Boolean,
     administradores: Array,
     sesionesActivas: Array,
     registroActividad: Array,
-    notificaciones: Object,
-    permisosRoles: Object, // { roles: ['admin','moderador','soporte'], permisos: [{ nombre: 'Usuarios', clave: 'usuarios' }, ...], matriz: { admin: { usuarios: true, ... }, moderador: {...} } }
+    permisosRoles: Object, // { roles: [...], permisos: [{ nombre, clave }], matriz: { rol: { clave: true } } }
 });
 
 const toast = useToast();
 const { confirm } = useConfirm();
+const page = usePage();
 
-const perfilForm = useForm({
-    nombre: props.perfil.nombre,
-    email: props.perfil.email,
-    telefono: props.perfil.telefono || '',
-});
-
-function guardarPerfil() {
-    perfilForm.patch(route('admin.seguridad.perfil'));
+function formatDate(v) {
+    if (!v) return 'Nunca';
+    return new Date(v).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+/* ---------------------------------------------------------------
+ * Correo electrónico
+ * --------------------------------------------------------------- */
+const emailForm = useForm({
+    email: props.cuenta.email,
+    password_actual: '',
+});
+
+function guardarEmail() {
+    emailForm.patch(route('admin.seguridad.email'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            emailForm.password_actual = '';
+            toast.success('Correo actualizado correctamente.');
+        },
+    });
+}
+
+/* ---------------------------------------------------------------
+ * Contraseña
+ * --------------------------------------------------------------- */
 const passwordForm = useForm({
     password_actual: '',
     password_nueva: '',
@@ -44,28 +61,17 @@ function cambiarPassword() {
     }
 
     passwordForm.patch(route('admin.seguridad.password'), {
-        onSuccess: () => passwordForm.reset(),
-    });
-}
-
-const notificacionesForm = useForm({
-    alerta_login_nuevo: props.notificaciones?.alerta_login_nuevo ?? true,
-    alerta_intentos_fallidos: props.notificaciones?.alerta_intentos_fallidos ?? true,
-    resumen_semanal: props.notificaciones?.resumen_semanal ?? false,
-});
-
-function guardarNotificaciones() {
-    notificacionesForm.patch(route('admin.seguridad.notificaciones'), {
         preserveScroll: true,
-        onSuccess: () => toast.success('Preferencias de notificación actualizadas.'),
+        onSuccess: () => {
+            passwordForm.reset();
+            toast.success('Contraseña actualizada correctamente.');
+        },
     });
 }
 
-function formatDate(v) {
-    if (!v) return 'Nunca';
-    return new Date(v).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
+/* ---------------------------------------------------------------
+ * Administradores (solo super_admin)
+ * --------------------------------------------------------------- */
 const rolLabel = { super_admin: 'Super Admin', admin: 'Admin', moderador: 'Moderador', soporte: 'Soporte' };
 
 async function toggleActivo(admin) {
@@ -79,7 +85,9 @@ async function toggleActivo(admin) {
     router.post(route('admin.seguridad.toggle-activo', admin.id), {}, { preserveScroll: true });
 }
 
-// --- Sesiones activas ---
+/* ---------------------------------------------------------------
+ * Sesiones activas / Registro de actividad
+ * --------------------------------------------------------------- */
 const dispositivoIconos = { desktop: 'pi-desktop', mobile: 'pi-mobile', tablet: 'pi-tablet' };
 
 async function cerrarSesion(s) {
@@ -102,7 +110,6 @@ async function cerrarTodasSesiones() {
     router.post(route('admin.seguridad.sesiones.destroy-all'), {}, { preserveScroll: true });
 }
 
-// --- Registro de actividad ---
 const accionIconos = {
     usuario_eliminado: 'pi-user-minus',
     usuario_bloqueado: 'pi-lock',
@@ -113,7 +120,6 @@ const accionIconos = {
     perfil_actualizado: 'pi-user-edit',
 };
 
-// --- Permisos y roles ---
 const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soporte: 'text-gray-600' };
 </script>
 
@@ -126,80 +132,72 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
 
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
-            <!-- Fila 1: Mi cuenta | Contraseña | Notificaciones de Seguridad -->
+            <!-- Fila 1: Correo | Contraseña -->
             <div class="admin-two-col-grid gap-6 mb-6 w-full">
 
-                <!-- Mi cuenta -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
-                        <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                            <i class="pi pi-user text-lg"></i>
-                        </div>
-                        <div>
-                            <h2 class="font-semibold text-gray-900">Mi cuenta</h2>
-                            <p class="text-xs text-gray-400">{{ rolLabel[perfil.rol] ?? perfil.rol }}</p>
-                        </div>
+                <!-- Correo electrónico -->
+                <div class="admin-card overflow-hidden">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-envelope text-brand"></i> Correo electrónico</span>
+                        <span class="text-xs" style="color:var(--muted)">{{ rolLabel[cuenta.rol] ?? cuenta.rol }}</span>
                     </div>
 
-                    <form @submit.prevent="guardarPerfil" class="space-y-4">
+                    <form @submit.prevent="guardarEmail" class="space-y-4 p-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Nombre</label>
-                            <input v-model="perfilForm.nombre" type="text" class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand" />
-                            <p v-if="perfilForm.errors.nombre" class="text-red-600 text-xs mt-1">{{ perfilForm.errors.nombre }}</p>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Correo</label>
+                            <input v-model="emailForm.email" type="email" class="admin-input px-3 py-2.5" />
+                            <p v-if="emailForm.errors.email" class="text-red-600 text-xs mt-1">{{ emailForm.errors.email }}</p>
+                            <p v-if="!cuenta.email_verificado_en" class="text-amber-600 text-xs mt-1 flex items-center gap-1">
+                                <i class="pi pi-exclamation-triangle"></i> Correo sin verificar
+                            </p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico</label>
-                            <input v-model="perfilForm.email" type="email" class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand" />
-                            <p v-if="perfilForm.errors.email" class="text-red-600 text-xs mt-1">{{ perfilForm.errors.email }}</p>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Confirma tu contraseña actual</label>
+                            <input v-model="emailForm.password_actual" type="password" class="admin-input px-3 py-2.5" />
+                            <p v-if="emailForm.errors.password_actual" class="text-red-600 text-xs mt-1">{{ emailForm.errors.password_actual }}</p>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Teléfono</label>
-                            <input v-model="perfilForm.telefono" type="text" class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand" />
-                        </div>
-                        <button type="submit" :disabled="perfilForm.processing" class="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-5 py-2.5 rounded-xl disabled:opacity-50 shadow-sm">
-                            Guardar cambios
+                        <button type="submit" :disabled="emailForm.processing" class="admin-btn-primary disabled:opacity-50">
+                            Guardar correo
                         </button>
                     </form>
 
-                    <div class="mt-5 pt-4 border-t border-gray-100 text-sm space-y-1.5">
+                    <div class="mx-6 mb-6 pt-4 border-t border-gray-100 text-sm space-y-1.5">
                         <div class="flex justify-between">
                             <span class="text-gray-400">Último acceso</span>
-                            <span class="text-gray-700">{{ formatDate(perfil.ultimo_acceso_en) }}</span>
+                            <span class="text-gray-700">{{ formatDate(cuenta.ultimo_acceso_en) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Última IP</span>
+                            <span class="text-gray-700">{{ cuenta.ultimo_acceso_ip || '—' }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-400">Cuenta creada</span>
-                            <span class="text-gray-700">{{ formatDate(perfil.created_at) }}</span>
+                            <span class="text-gray-700">{{ formatDate(cuenta.created_at) }}</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Contraseña -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
-                        <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                            <i class="pi pi-lock text-lg"></i>
-                        </div>
-                        <div>
-                            <h2 class="font-semibold text-gray-900">Contraseña</h2>
-                            <p class="text-xs text-gray-400">Actualiza tu clave de acceso</p>
-                        </div>
+                <div class="admin-card overflow-hidden">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-lock text-brand"></i> Contraseña</span>
                     </div>
 
-                    <form @submit.prevent="cambiarPassword" class="space-y-4">
+                    <form @submit.prevent="cambiarPassword" class="space-y-4 p-6">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Contraseña actual</label>
-                            <input v-model="passwordForm.password_actual" type="password" class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand" />
+                            <input v-model="passwordForm.password_actual" type="password" class="admin-input px-3 py-2.5" />
                             <p v-if="passwordForm.errors.password_actual" class="text-red-600 text-xs mt-1">{{ passwordForm.errors.password_actual }}</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Contraseña nueva</label>
-                            <input v-model="passwordForm.password_nueva" type="password" placeholder="Mínimo 8 caracteres" class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand" />
+                            <input v-model="passwordForm.password_nueva" type="password" placeholder="Mínimo 8 caracteres" class="admin-input px-3 py-2.5" />
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Confirmar contraseña nueva</label>
-                            <input v-model="passwordForm.password_nueva_confirmation" type="password" class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand" />
+                            <input v-model="passwordForm.password_nueva_confirmation" type="password" class="admin-input px-3 py-2.5" />
                         </div>
-                        <button type="submit" :disabled="passwordForm.processing" class="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-5 py-2.5 rounded-xl disabled:opacity-50 shadow-sm">
+                        <button type="submit" :disabled="passwordForm.processing" class="admin-btn-primary disabled:opacity-50">
                             Actualizar contraseña
                         </button>
                     </form>
@@ -210,28 +208,21 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
             <div class="admin-two-col-grid gap-6 mb-6 w-full">
 
                 <!-- Sesiones Activas -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="admin-card overflow-hidden flex flex-col justify-between">
                     <div>
-                        <div class="flex items-center justify-between mb-5">
-                            <div class="flex items-center gap-3">
-                                <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                                    <i class="pi pi-desktop text-lg"></i>
-                                </div>
-                                <div>
-                                    <h2 class="font-semibold text-gray-900">Sesiones Activas</h2>
-                                    <p class="text-xs text-gray-400">{{ sesionesActivas?.length || 0 }} dispositivos conectados</p>
-                                </div>
-                            </div>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-desktop text-brand"></i> Sesiones Activas</span>
                             <button v-if="sesionesActivas?.length > 1" @click="cerrarTodasSesiones" type="button"
-                                class="text-xs font-semibold text-red-600 hover:underline shrink-0">
+                                class="text-xs font-semibold text-brand hover:underline shrink-0">
                                 Cerrar todas
                             </button>
                         </div>
+                        <p class="text-xs px-6 pt-4" style="color:var(--muted)">{{ sesionesActivas?.length || 0 }} dispositivos conectados</p>
 
-                        <ul class="space-y-3">
+                        <ul class="space-y-3 p-6">
                             <li v-for="s in sesionesActivas" :key="s.id" class="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-100">
                                 <div class="flex items-center gap-3 min-w-0">
-                                    <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:40px;height:40px">
+                                    <div class="admin-icon-circle" style="width:40px;height:40px">
                                         <i class="pi" :class="dispositivoIconos[s.tipo] || 'pi-desktop'"></i>
                                     </div>
                                     <div class="min-w-0">
@@ -243,8 +234,7 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
                                         <p class="text-[11px] text-gray-400">Activo: {{ formatDate(s.ultima_actividad) }}</p>
                                     </div>
                                 </div>
-                                <button v-if="!s.es_actual" @click="cerrarSesion(s)" title="Cerrar sesión"
-                                    class="w-8 h-8 min-w-[32px] max-w-[32px] rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 transition flex items-center justify-center shrink-0">
+                                <button v-if="!s.es_actual" @click="cerrarSesion(s)" title="Cerrar sesión" class="admin-table-action text-red-600 hover:bg-red-50 shrink-0">
                                     <i class="pi pi-times text-xs"></i>
                                 </button>
                             </li>
@@ -256,21 +246,16 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
                 </div>
 
                 <!-- Registro de Actividad -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="admin-card overflow-hidden flex flex-col justify-between">
                     <div>
-                        <div class="flex items-center gap-3 mb-5">
-                            <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                                <i class="pi pi-history text-lg"></i>
-                            </div>
-                            <div>
-                                <h2 class="font-semibold text-gray-900">Registro de Actividad</h2>
-                                <p class="text-xs text-gray-400">Últimas acciones realizadas en el panel</p>
-                            </div>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-history text-brand"></i> Registro de Actividad</span>
                         </div>
+                        <p class="text-xs px-6 pt-4" style="color:var(--muted)">Últimas acciones realizadas en el panel</p>
 
-                        <ul class="space-y-3.5">
+                        <ul class="space-y-3.5 p-6">
                             <li v-for="r in registroActividad" :key="r.id" class="flex items-start gap-3">
-                                <div class="rounded-full bg-red-50 text-brand flex items-center justify-center shrink-0 text-xs" style="width:36px;height:36px;min-width:36px">
+                                <div class="admin-icon-circle text-xs" style="width:36px;height:36px;min-width:36px">
                                     <i class="pi" :class="accionIconos[r.tipo] || 'pi-bolt'"></i>
                                 </div>
                                 <div class="text-xs">
@@ -292,18 +277,13 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
             <div v-if="esSuperAdmin" class="admin-two-col-grid gap-6 w-full">
 
                 <!-- Administradores -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex items-center gap-3 pb-4 mb-4 border-b border-gray-100">
-                        <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                            <i class="pi pi-shield text-lg"></i>
-                        </div>
-                        <div>
-                            <h2 class="font-semibold text-gray-900">Administradores</h2>
-                            <p class="text-xs text-gray-400">{{ administradores.length }} cuentas</p>
-                        </div>
+                <div class="admin-card overflow-hidden">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-users text-brand"></i> Administradores</span>
+                        <span class="text-xs" style="color:var(--muted)">{{ administradores.length }} cuentas</span>
                     </div>
 
-                    <ul class="space-y-3">
+                    <ul class="space-y-3 p-6">
                         <li v-for="a in administradores" :key="a.id" class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
                                 <p class="text-sm font-medium text-gray-800 truncate">{{ a.nombre }}</p>
@@ -319,18 +299,12 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
                 </div>
 
                 <!-- Permisos y Roles -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex items-center gap-3 pb-4 mb-4 border-b border-gray-100">
-                        <div class="rounded-xl bg-gradient-to-br from-brand to-brand-dark text-white flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                            <i class="pi pi-sitemap text-lg"></i>
-                        </div>
-                        <div>
-                            <h2 class="font-semibold text-gray-900">Permisos y Roles</h2>
-                            <p class="text-xs text-gray-400">Qué puede hacer cada rol en el panel</p>
-                        </div>
+                <div class="admin-card overflow-hidden">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-sitemap text-brand"></i> Permisos y Roles</span>
                     </div>
 
-                    <div class="overflow-x-auto" v-if="permisosRoles?.permisos?.length">
+                    <div class="overflow-x-auto p-6" v-if="permisosRoles?.permisos?.length">
                         <table class="w-full text-sm min-w-[420px]">
                             <thead>
                                 <tr class="text-left text-gray-400 border-b border-gray-100 text-xs uppercase tracking-wider">

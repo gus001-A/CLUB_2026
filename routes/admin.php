@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\CobroController;
+use App\Http\Controllers\Admin\ConfiguracionController;
 use App\Http\Controllers\Admin\ContenidoController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EventoController;
@@ -86,15 +87,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/reportes/{reporte}/bloquear', [ReporteController::class, 'bloquearReportado'])->name('reportes.bloquear');
         Route::delete('/reportes/{reporte}', [ReporteController::class, 'destroy'])->name('reportes.destroy');
 
-        // --- Modulares / Coming Soon ---
-        Route::get('/mensajes', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Mensajes']))->name('mensajes.index');
-        Route::get('/configuracion', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Configuración']))->name('configuracion.index');
-        Route::get('/soporte', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Soporte']))->name('soporte.index');
-
         // --- Seguridad ---
         Route::get('/seguridad', [SeguridadController::class, 'index'])->name('seguridad.index');
-        Route::patch('/seguridad/perfil', [SeguridadController::class, 'actualizarPerfil'])->name('seguridad.perfil');
+        Route::patch('/seguridad/email', [SeguridadController::class, 'actualizarEmail'])->name('seguridad.email');
         Route::patch('/seguridad/password', [SeguridadController::class, 'actualizarPassword'])->name('seguridad.password');
-        Route::post('/seguridad/{administrador}/toggle-activo', [SeguridadController::class, 'toggleActivo'])->name('seguridad.toggle-activo');
+        Route::post('/seguridad/administradores/{administrador}/toggle', [SeguridadController::class, 'toggleActivo'])->name('seguridad.toggle-activo');
+
+        // --- Configuración ---
+        Route::get('/configuracion', [ConfiguracionController::class, 'index'])->name('configuracion.index');
+        Route::patch('/configuracion', [ConfiguracionController::class, 'actualizar'])->name('configuracion.actualizar');
+
+        // --- Modulares / Coming Soon ---
+        Route::get('/mensajes', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Mensajes']))->name('mensajes.index');
+        Route::get('/soporte', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Soporte']))->name('soporte.index');
     });
 });

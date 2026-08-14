@@ -54,18 +54,17 @@ class ReporteController extends Controller
 
         // --- Usuarios más reportados (para detectar problemas rápido) ---
         $masReportados = Reporte::selectRaw('reportado_id, COUNT(*) as cantidad')
-            ->whereNotNull('reportado_id')
+            ->whereHas('reportado') // excluye usuarios ya eliminados ANTES de limitar a 5,
+            // así el top-5 no se queda corto cuando alguno de los más reportados ya no existe
             ->groupBy('reportado_id')
             ->orderByDesc('cantidad')
             ->take(5)
             ->with('reportado:id,nombre,apodo,estado')
             ->get()
-            ->filter(fn ($r) => $r->reportado) // por si el usuario fue eliminado
             ->map(fn ($r) => [
                 'usuario' => $r->reportado,
                 'cantidad' => $r->cantidad,
-            ])
-            ->values();
+            ]);
 
         // --- Actividad reciente de moderación ---
         $actividadModeracion = Reporte::whereIn('estado', ['revisado', 'resuelto'])

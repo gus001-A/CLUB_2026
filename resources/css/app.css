@@ -13,6 +13,24 @@
 }
 
 /* ============================================================
+   Paleta del sitio público (misma que usa tu compañero en
+   Comunidad/Eventos/Inicio/Match/Mensajes/Shop.vue) — la usamos
+   también en el admin para que los dos lados se vean como un
+   mismo producto.
+   ============================================================ */
+:root {
+    --brand-soft: #FBEAEC;
+    --ink: #171412;
+    --ink-soft: #4B4744;
+    --muted: #8A8481;
+    --muted-light: #B7B2AF;
+    --line: #ECE9E7;
+    --surface: #FAF8F7;
+    --success: #1fbf5c;
+    --success-soft: #E8F5E9;
+}
+
+/* ============================================================
    Clases reutilizables del Panel de Administrador.
    Úsalas en vez de repetir "bg-white rounded-2xl border..."
    en cada página nueva.
@@ -39,17 +57,26 @@
 
     /* Tarjeta blanca base (KPIs, listas, formularios, etc.) */
     .admin-card {
-        @apply bg-white rounded-2xl border border-gray-200 shadow-sm;
+        background: #fff;
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
     }
 
     /* Tarjeta de KPI (número grande + icono a la derecha) */
     .admin-kpi-card {
-        @apply bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between;
+        background: #fff;
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+        @apply px-6 py-5 min-h-[120px] flex items-center justify-between;
     }
 
     /* Círculo de icono (KPIs, listas, acciones rápidas) */
     .admin-icon-circle {
-        @apply rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0;
+        background: var(--brand-soft);
+        color: var(--brand);
+        @apply rounded-full flex items-center justify-center shrink-0;
     }
 
     /* Botón principal (rojo, para "Crear/Agregar/Guardar") */
@@ -59,18 +86,22 @@
 
     /* Botón secundario (borde gris, para "Cancelar/Volver") */
     .admin-btn-secondary {
-        @apply text-gray-500 hover:text-gray-700 border border-gray-300 rounded-xl px-4 py-2.5 text-sm transition;
+        color: var(--ink-soft);
+        border: 1px solid var(--line);
+        @apply hover:text-gray-900 rounded-xl px-4 py-2.5 text-sm transition;
     }
 
     /* Input/select de filtros */
     .admin-input {
-        @apply w-full rounded-xl border-gray-300 text-sm focus:border-brand focus:ring-brand;
+        border-color: var(--line);
+        @apply w-full rounded-xl text-sm focus:border-brand focus:ring-brand;
     }
 
     /* Botón de acción pequeño en tablas (ver/editar/bloquear/eliminar)
        36px, igual que en Cobros/Index.vue */
     .admin-table-action {
-        @apply w-9 h-9 rounded-lg border border-gray-200 hover:bg-gray-100 transition flex items-center justify-center shrink-0;
+        border-color: var(--line);
+        @apply w-9 h-9 rounded-lg border hover:bg-gray-100 transition flex items-center justify-center shrink-0;
     }
 
     /* Icono degradado de encabezado de sección (formularios: Crear/Editar) */
@@ -155,6 +186,25 @@
         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     }
 
+    /* Fila principal de Cobros/Show.vue: Detalle de la transacción | Usuario + Creador + Acciones */
+    .admin-cobros-show-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "detalle" "usuario" "creador" "acciones";
+    }
+    @media (min-width: 640px) {
+        .admin-cobros-show-grid {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas: "detalle detalle" "usuario creador" "acciones acciones";
+        }
+    }
+    @media (min-width: 1536px) {
+        .admin-cobros-show-grid {
+            grid-template-columns: 2fr 1fr;
+            grid-template-areas: "detalle usuario" "detalle creador" "detalle acciones";
+        }
+    }
+
     /* Fila principal de Invitaciones/Index.vue: Gestión + Enlaces | Acciones Rápidas + Resumen */
     .admin-invitaciones-main-grid {
         display: grid;
@@ -191,7 +241,7 @@
             grid-template-columns: repeat(12, 1fr);
             grid-template-areas:
                 "tabla tabla tabla tabla tabla tabla tabla tabla calendario calendario calendario calendario"
-                "proximos proximos proximos estadisticas estadisticas estadisticas estadisticas estadisticas estadisticas acciones acciones acciones";
+                "proximos proximos proximos proximos estadisticas estadisticas estadisticas estadisticas acciones acciones acciones acciones";
         }
     }
 
@@ -270,6 +320,32 @@
         }
     }
 
+    /* Fila principal de Eventos/Show.vue: Descripción+Detalles | Estado+Acciones */
+    .admin-evento-show-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "izquierda" "derecha";
+    }
+    @media (min-width: 1536px) {
+        .admin-evento-show-grid {
+            grid-template-columns: 2fr 1fr;
+            grid-template-areas: "izquierda derecha";
+        }
+    }
+
+    /* Fila principal de Contenido/Show.vue: mismo patrón que Eventos/Show.vue */
+    .admin-contenido-show-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "izquierda" "derecha";
+    }
+    @media (min-width: 1536px) {
+        .admin-contenido-show-grid {
+            grid-template-columns: 2fr 1fr;
+            grid-template-areas: "izquierda derecha";
+        }
+    }
+
     /* Fila de Shop/Show.vue: Proceso + Resumen + Acciones del Pedido */
     .admin-pedido-resumen-grid {
         display: grid;
@@ -300,5 +376,154 @@
             grid-template-columns: 2fr 1fr;
             grid-template-areas: "cola tipo";
         }
+    }
+
+    /* ============================================================
+       ESTILO V2 — franja de encabezado tipo "sección" (ícono + título
+       sobre fondo crema), inspirado en el diseño del lado público.
+       Se usa DENTRO de .admin-card (que ya trae fondo blanco, borde y
+       rounded-2xl); agrega overflow-hidden a la tarjeta para que las
+       esquinas de la franja se vean limpias.
+       ============================================================ */
+    .admin-card-header {
+        background: var(--brand-soft);
+        border-bottom: 1px solid var(--line);
+        @apply flex items-center justify-between gap-3 px-5 py-3;
+    }
+
+    .admin-card-header-title {
+        color: var(--ink);
+        @apply flex items-center gap-2 font-semibold text-sm;
+    }
+
+    /* ============================================================
+       ADMINLAYOUT — mismo lenguaje visual que el AppLayout del lado
+       público (header con blur, chips tipo píldora, dropdowns con
+       flechita, transiciones cubic-bezier). El sidebar se conserva
+       tal cual porque el admin tiene muchas más secciones de las
+       que caben en una barra horizontal.
+       ============================================================ */
+
+    /* Header superior: sticky + blur, igual que .cf-header */
+    .admin-topbar {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-color: var(--line);
+        @apply sticky top-0 z-30 border-b flex items-center justify-between;
+    }
+
+    /* Botón circular de icono (campana de notificaciones), igual que .icon-btn */
+    .admin-icon-btn {
+        color: var(--muted);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        @apply relative rounded-full flex items-center justify-center;
+    }
+    .admin-icon-btn:hover {
+        background: var(--surface);
+        color: var(--brand);
+        transform: translateY(-2px);
+        @apply shadow-sm;
+    }
+    .admin-icon-btn:active {
+        transform: scale(0.92);
+    }
+
+    /* Badge numérico con gradiente sobre el icon-btn, igual que .icon-badge */
+    .admin-icon-badge {
+        border: 2px solid #fff;
+        @apply absolute bg-gradient-to-br from-brand to-brand-dark text-white font-bold rounded-full flex items-center justify-center shadow-sm;
+    }
+
+    /* Chip de usuario (trigger del dropdown de perfil), igual que .user-chip */
+    .admin-user-chip {
+        border: 1px solid transparent;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        @apply flex items-center gap-2.5 rounded-full cursor-pointer select-none;
+    }
+    .admin-user-chip:hover {
+        background: var(--surface);
+        border-color: var(--line);
+        transform: translateY(-1px);
+        @apply shadow-sm;
+    }
+    .admin-user-chip:active {
+        transform: scale(0.97);
+    }
+
+    /* Menú desplegable (notificaciones y perfil), igual que .user-dropdown,
+       incluyendo la flechita triangular apuntando al trigger */
+    .admin-dropdown {
+        background: #fff;
+        border: 1px solid var(--line);
+        @apply absolute right-0 top-full mt-3 rounded-2xl shadow-xl overflow-hidden z-40;
+    }
+    .admin-dropdown::before {
+        content: '';
+        position: absolute;
+        top: -8px;
+        right: 24px;
+        width: 16px;
+        height: 16px;
+        background: #fff;
+        border-left: 1px solid var(--line);
+        border-top: 1px solid var(--line);
+        transform: rotate(45deg);
+        border-radius: 2px 0 0 0;
+    }
+
+    .admin-dropdown-header {
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+        @apply flex items-center gap-4 px-5 py-5;
+    }
+
+    .admin-dropdown-item {
+        color: var(--ink);
+        transition: all 0.2s ease;
+        @apply flex items-center gap-3 px-5 py-2.5 text-sm font-medium w-full text-left;
+    }
+    .admin-dropdown-item:hover {
+        background: var(--surface);
+        color: var(--brand);
+    }
+    .admin-dropdown-item i {
+        color: var(--muted-light);
+        transition: all 0.2s ease;
+    }
+    .admin-dropdown-item:hover i {
+        color: var(--brand);
+        transform: translateX(2px);
+    }
+    .admin-dropdown-item--danger {
+        color: var(--brand);
+    }
+    .admin-dropdown-item--danger:hover {
+        background: rgba(200, 30, 58, 0.06);
+    }
+
+    /* Transición del dropdown (usada por <Transition name="admin-dropdown">) */
+    .admin-dropdown-enter-active,
+    .admin-dropdown-leave-active {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .admin-dropdown-enter-from,
+    .admin-dropdown-leave-to {
+        opacity: 0;
+        transform: translateY(-16px) scale(0.95);
+    }
+    .admin-dropdown-enter-to,
+    .admin-dropdown-leave-from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+
+    /* Input de archivo (Eventos/Create.vue y Eventos/Edit.vue): cursor de mano,
+       y la vista previa de imagen no debe capturar clics */
+    .admin-file-input input[type="file"] {
+        cursor: pointer;
+    }
+    .admin-file-input img {
+        pointer-events: none;
     }
 }

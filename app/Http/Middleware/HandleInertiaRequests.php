@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\CodigoInvitacion;
 use App\Models\Transaccion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 use Illuminate\Support\Facades\Log;
 
@@ -46,8 +47,12 @@ class HandleInertiaRequests extends Middleware
         // Obtener usuario autenticado con su perfil
         $user = $request->user();
         $userData = null;
-        
-        if ($user) {
+
+        // OJO: cuando solo hay sesión de admin activa, $request->user() (guard
+        // por defecto) puede regresar el Administrador en vez de null — todo
+        // este bloque asume un User de citas (perfil, fotos, etc.), así que
+        // hay que descartarlo explícitamente si en realidad es un admin.
+        if ($user && ! $user instanceof \App\Models\Administrador) {
             // Cargar el perfil con sus relaciones
             $user->load(['perfil.fotoPrincipal']);
             
@@ -192,6 +197,26 @@ class HandleInertiaRequests extends Middleware
                 'perfil' => $perfilData,
             ];
         }
+
+        // Admin autenticado (guard "admin") — separado del usuario normal de
+        // arriba. AdminLayout.vue lee esto en `page.props.auth.admin`, así
+        // que la clave tiene que vivir ahí adentro (antes se compartía en
+        // `page.props.admin.user`, una ruta distinta que el layout nunca leía).
+        $adminUser = $request->user('admin');
+        $adminData = null;
+
+        if ($adminUser) {
+            $adminData = [
+                'id' => $adminUser->id,
+                'nombre' => $adminUser->nombre,
+                'nickname' => $adminUser->nickname,
+                'email' => $adminUser->email,
+                'telefono' => $adminUser->telefono,
+                'rol' => $adminUser->rol,
+                'foto_perfil_url' => $this->resolverUrlAdmin($adminUser->foto_perfil_url),
+                'doble_factor_habilitado' => (bool) $adminUser->autenticacion_doble_habilitada,
+            ];
+        }
         
         // LOG para debug
         Log::info('📦 HandleInertiaRequests - Share:', [
@@ -216,18 +241,36 @@ class HandleInertiaRequests extends Middleware
             // Compartir errores de validación
             'errors' => $errors ? $errors->getBag('default')->getMessages() : (object) [],
             
-            // Compartir usuario autenticado (web) con todos sus datos
+            // Compartir usuario autenticado (web) y admin (guard admin) juntos
+            // bajo "auth", que es lo que leen las vistas.
             'auth' => [
                 'user' => $userData,
+                'admin' => $adminData,
             ],
             
-            // Compartir admin autenticado
+            // Se deja por compatibilidad con cualquier otro lugar que ya
+            // dependiera de esta ruta — el modelo completo ya no expone el
+            // secreto/códigos de 2FA porque están en $hidden en el modelo.
             'admin' => [
-                'user' => $request->user('admin'),
+                'user' => $adminUser,
             ],
             'badges' => fn () => $this->badges($request),
             'notificaciones' => fn () => $this->notificaciones($request),
         ];
+    }
+
+    /** Misma lógica que ya usan Eventos/Contenido: URL externa igual, ruta interna resuelta al disco público. */
+    private function resolverUrlAdmin(?string $ruta): ?string
+    {
+        if (! $ruta) {
+            return null;
+        }
+
+        if (str_starts_with($ruta, 'http://') || str_starts_with($ruta, 'https://')) {
+            return $ruta;
+        }
+
+        return Storage::disk('public')->url($ruta);
     }
 
     /**

@@ -51,7 +51,7 @@ async function eliminar() {
 
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
-            <Link :href="route('admin.eventos.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 mb-4">
+            <Link :href="route('admin.eventos.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
                 <i class="pi pi-arrow-left text-xs"></i> Volver a Eventos
             </Link>
 
@@ -106,74 +106,76 @@ async function eliminar() {
                 </template>
             </div>
 
-            <div class="flex flex-col lg:flex-row gap-6 items-start w-full">
+            <div class="admin-evento-show-grid gap-6 w-full">
 
                 <!-- Columna izquierda: detalles -->
-                <div class="w-full lg:w-2/3 min-w-0 flex flex-col gap-6">
+                <div class="min-w-0 flex flex-col gap-6" style="grid-area:izquierda">
 
                     <!-- Descripción -->
-                    <div v-if="evento.descripcion" class="admin-card p-6">
-                        <h2 class="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                            <i class="pi pi-align-left text-red-600 text-xs"></i> {{ evento.nombre }}: Descripción
-                        </h2>
-                        <p class="text-sm text-gray-600 leading-relaxed">{{ evento.descripcion }}</p>
+                    <div v-if="evento.descripcion" class="admin-card overflow-hidden">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-align-left text-brand"></i> Descripción</span>
+                        </div>
+                        <p class="text-sm text-gray-600 leading-relaxed p-6">{{ evento.descripcion }}</p>
                     </div>
 
                     <!-- Info en tarjetas -->
-                    <div class="admin-card p-6">
-                        <h2 class="text-sm font-bold text-gray-900 mb-4">Detalles del evento</h2>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="admin-card overflow-hidden">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-info-circle text-brand"></i> Detalles del evento</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6">
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div class="admin-icon-circle bg-red-50 text-red-600" style="width:40px;height:40px"><i class="pi pi-calendar text-sm"></i></div>
+                                <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-calendar text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Fecha</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ formatDate(evento.fecha, { month: 'long' }) }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div class="admin-icon-circle bg-red-50 text-red-600" style="width:40px;height:40px"><i class="pi pi-clock text-sm"></i></div>
+                                <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-clock text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Hora</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ evento.hora?.slice(0, 5) }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div class="admin-icon-circle bg-red-50 text-red-600" style="width:40px;height:40px"><i class="pi pi-map-marker text-sm"></i></div>
+                                <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-map-marker text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Ciudad</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ evento.ciudad }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div class="admin-icon-circle bg-red-50 text-red-600" style="width:40px;height:40px"><i class="pi pi-map text-sm"></i></div>
+                                <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-map text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Zona / lugar</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ evento.zona_ubicacion || '—' }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div class="admin-icon-circle bg-red-50 text-red-600" style="width:40px;height:40px"><i class="pi pi-ticket text-sm"></i></div>
+                                <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-ticket text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Precio</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ money(evento.precio) }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div class="admin-icon-circle bg-red-50 text-red-600" style="width:40px;height:40px"><i class="pi pi-users text-sm"></i></div>
+                                <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-users text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Capacidad</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ evento.capacidad || 'Ilimitada' }}</p>
                                 </div>
                             </div>
                             <div v-if="evento.codigo_vestimenta" class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div class="admin-icon-circle bg-red-50 text-red-600" style="width:40px;height:40px"><i class="pi pi-star text-sm"></i></div>
+                                <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-star text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Código de vestimenta</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ evento.codigo_vestimenta }}</p>
                                 </div>
                             </div>
                             <div v-if="evento.organizador" class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div class="admin-icon-circle bg-red-50 text-red-600" style="width:40px;height:40px"><i class="pi pi-user text-sm"></i></div>
+                                <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-user text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Organizado por</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ evento.organizador.nombre }}</p>
@@ -184,38 +186,44 @@ async function eliminar() {
                 </div>
 
                 <!-- Columna derecha: estado + acciones -->
-                <div class="w-full lg:w-1/3 min-w-0 flex flex-col gap-6">
+                <div class="min-w-0 flex flex-col gap-6" style="grid-area:derecha">
 
                     <!-- Estado destacado -->
-                    <div class="admin-card p-6 text-center">
-                        <div
-                            class="mx-auto mb-3 rounded-full flex items-center justify-center"
-                            :class="estadoColores[evento.estado_display]"
-                            style="width:64px;height:64px"
-                        >
-                            <i
-                                class="pi"
-                                style="font-size:1.5rem"
-                                :class="{
-                                    'pi-wifi': evento.estado_display === 'en_vivo',
-                                    'pi-clock': evento.estado_display === 'programado',
-                                    'pi-check-circle': evento.estado_display === 'completado',
-                                    'pi-ban': evento.estado_display === 'cancelado',
-                                    'pi-file': evento.estado_display === 'borrador',
-                                }"
-                            ></i>
+                    <div class="admin-card overflow-hidden">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-info-circle text-brand"></i> Estado actual</span>
                         </div>
-                        <p class="text-xs text-gray-400 uppercase font-medium mb-1">Estado actual</p>
-                        <p class="text-lg font-bold text-gray-900">{{ estadoLabel[evento.estado_display] }}</p>
-                        <p v-if="evento.estado_display === 'en_vivo'" class="text-xs text-red-500 mt-1">Este evento está en curso ahora mismo</p>
-                        <p v-else-if="evento.estado_display === 'programado'" class="text-xs text-gray-400 mt-1">Aún no llega la hora de inicio</p>
+                        <div class="p-6 text-center">
+                            <div
+                                class="mx-auto mb-3 rounded-full flex items-center justify-center"
+                                :class="estadoColores[evento.estado_display]"
+                                style="width:64px;height:64px"
+                            >
+                                <i
+                                    class="pi"
+                                    style="font-size:1.5rem"
+                                    :class="{
+                                        'pi-wifi': evento.estado_display === 'en_vivo',
+                                        'pi-clock': evento.estado_display === 'programado',
+                                        'pi-check-circle': evento.estado_display === 'completado',
+                                        'pi-ban': evento.estado_display === 'cancelado',
+                                        'pi-file': evento.estado_display === 'borrador',
+                                    }"
+                                ></i>
+                            </div>
+                            <p class="text-lg font-bold text-gray-900">{{ estadoLabel[evento.estado_display] }}</p>
+                            <p v-if="evento.estado_display === 'en_vivo'" class="text-xs text-red-500 mt-1">Este evento está en curso ahora mismo</p>
+                            <p v-else-if="evento.estado_display === 'programado'" class="text-xs text-gray-400 mt-1">Aún no llega la hora de inicio</p>
+                        </div>
                     </div>
 
                     <!-- Acciones -->
-                    <div class="admin-card p-6">
-                        <h2 class="text-sm font-bold text-gray-900 mb-4">Acciones</h2>
-                        <div class="flex flex-col gap-2.5">
-                            <Link :href="route('admin.eventos.edit', evento.id)" class="admin-btn-primary bg-red-600 hover:bg-red-700">
+                    <div class="admin-card overflow-hidden">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-bolt text-brand"></i> Acciones</span>
+                        </div>
+                        <div class="flex flex-col gap-2.5 p-6">
+                            <Link :href="route('admin.eventos.edit', evento.id)" class="admin-btn-primary">
                                 <i class="pi pi-pencil text-xs"></i> Editar evento
                             </Link>
                             <button @click="eliminar" class="border border-red-200 text-red-600 hover:bg-red-50 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2">

@@ -44,16 +44,13 @@ watch([q, rol, estado], buscar);
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
             <div class="admin-card overflow-hidden">
                 <!-- Encabezado Principal -->
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 border-b border-gray-100">
-                    <div>
-                        <h2 class="text-xl font-semibold text-gray-900">Gestión de Usuarios</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Administra todos los usuarios registrados en la plataforma.</p>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <span class="text-xs font-medium text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg">
-                            Total: <strong class="text-gray-700">{{ usuarios.total }}</strong>
+                <div class="admin-card-header py-4">
+                    <span class="admin-card-header-title text-base"><i class="pi pi-users text-brand"></i> Gestión de Usuarios</span>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-medium px-3 py-1.5 rounded-lg" style="color:var(--ink-soft);background:#fff">
+                            Total: <strong style="color:var(--ink)">{{ usuarios.total }}</strong>
                         </span>
-                        <Link :href="route('admin.usuarios.create')" class="admin-btn-primary flex items-center gap-2 text-xs">
+                        <Link :href="route('admin.usuarios.create')" class="admin-btn-primary flex items-center gap-2 text-xs" style="padding:0.5rem 0.9rem">
                             <i class="pi pi-plus text-xs"></i>
                             <span>Agregar Usuario</span>
                         </Link>
@@ -61,7 +58,8 @@ watch([q, rol, estado], buscar);
                 </div>
 
                 <!-- Filtros -->
-                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 p-6 bg-gray-50/50 border-b border-gray-100">
+                <p class="text-xs px-6 pt-4" style="color:var(--muted)">Administra todos los usuarios registrados en la plataforma.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 p-6 border-b" style="background:var(--surface);border-color:var(--line)">
                     <div class="sm:col-span-6 xl:col-span-6 relative">
                         <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                         <input
@@ -94,7 +92,7 @@ watch([q, rol, estado], buscar);
                 <div class="overflow-x-auto w-full">
                     <table class="w-full text-left text-sm min-w-[700px]">
                         <thead>
-                            <tr class="border-b border-gray-100 bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider">
+                            <tr class="border-b text-xs uppercase tracking-wider" style="border-color:var(--line);background:var(--surface);color:var(--muted)">
                                 <th class="pl-6 pr-4 py-3.5 font-semibold">Usuario</th>
                                 <th class="px-4 py-3.5 font-semibold">Correo</th>
                                 <th class="px-4 py-3.5 font-semibold">Rol</th>
@@ -108,12 +106,12 @@ watch([q, rol, estado], buscar);
                                 <!-- Usuario con Avatar -->
                                 <td class="pl-6 pr-4 py-3.5 whitespace-nowrap">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-9 h-9 min-w-[36px] max-w-[36px] min-h-[36px] max-h-[36px] flex-none rounded-full bg-brand/10 text-brand flex items-center justify-center font-semibold text-sm">
+                                        <div class="w-9 h-9 min-w-[36px] max-w-[36px] min-h-[36px] max-h-[36px] flex-none rounded-full flex items-center justify-center font-semibold text-sm" style="background:var(--brand-soft);color:var(--brand)">
                                             {{ u.nombre ? u.nombre.charAt(0).toUpperCase() : 'U' }}
                                         </div>
                                         <div class="min-w-0">
-                                            <p class="font-semibold text-gray-800 text-sm leading-tight truncate">{{ u.nombre }}</p>
-                                            <p class="text-xs text-gray-400 truncate">@{{ u.apodo }}</p>
+                                            <p class="font-semibold text-sm leading-tight truncate" style="color:var(--ink)">{{ u.nombre }}</p>
+                                            <p class="text-xs truncate" style="color:var(--muted)">@{{ u.apodo }}</p>
                                         </div>
                                     </div>
                                 </td>

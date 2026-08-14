@@ -5,6 +5,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import { useFormatters } from '@/composables/useFormatters';
 import { useConfirm } from '@/composables/useConfirm';
+import { useToast } from '@/composables/useToast';
 
 const props = defineProps({
     eventos: Object,
@@ -16,6 +17,7 @@ const props = defineProps({
 
 const { money, formatDateTime } = useFormatters();
 const { confirm } = useConfirm();
+const toast = useToast();
 
 const q = ref(props.filtros.q || '');
 const estado = ref(props.filtros.estado || '');
@@ -72,7 +74,11 @@ async function eliminarEvento(evento) {
         danger: true,
     });
     if (!ok) return;
-    router.delete(route('admin.eventos.destroy', evento.id), { preserveScroll: true });
+    router.delete(route('admin.eventos.destroy', evento.id), {
+        preserveScroll: true,
+        onSuccess: () => toast.success(`Evento "${evento.nombre}" eliminado correctamente.`),
+        onError: () => toast.error('No se pudo eliminar el evento.'),
+    });
 }
 </script>
 
@@ -94,14 +100,14 @@ async function eliminarEvento(evento) {
             </div>
 
             <!-- Encabezado + total general -->
-            <div class="admin-card p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 class="text-xl font-semibold text-gray-900">Todos los Eventos</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">{{ totalGeneral }} eventos registrados en total</p>
+            <div class="admin-card overflow-hidden mb-6">
+                <div class="admin-card-header">
+                    <span class="admin-card-header-title"><i class="pi pi-calendar text-brand"></i> Todos los Eventos</span>
+                    <Link :href="route('admin.eventos.create')" class="admin-btn-primary" style="padding:0.4rem 0.85rem;font-size:0.75rem">
+                        <i class="pi pi-plus text-xs"></i> Crear Evento
+                    </Link>
                 </div>
-                <Link :href="route('admin.eventos.create')" class="admin-btn-primary bg-red-600 hover:bg-red-700 self-start sm:self-auto">
-                    <i class="pi pi-plus text-xs"></i> Crear Evento
-                </Link>
+                <p class="text-sm px-6 py-4" style="color:var(--muted)">{{ totalGeneral }} eventos registrados en total</p>
             </div>
 
             <!-- Desglose por estado -->
@@ -118,9 +124,11 @@ async function eliminarEvento(evento) {
             </div>
 
             <!-- Desglose por tipo -->
-            <div class="admin-card p-6 mb-6">
-                <h2 class="text-sm font-semibold text-gray-900 mb-4">Desglose por tipo</h2>
-                <div class="grid grid-cols-2 gap-4">
+            <div class="admin-card overflow-hidden mb-6">
+                <div class="admin-card-header">
+                    <span class="admin-card-header-title"><i class="pi pi-chart-bar text-brand"></i> Desglose por tipo</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4 p-6">
                     <div v-for="t in porTipo" :key="t.tipo">
                         <p class="text-xs text-gray-400 mb-1">{{ t.label }}</p>
                         <p class="text-base font-bold text-gray-900">{{ t.cantidad }} eventos</p>
@@ -129,10 +137,10 @@ async function eliminarEvento(evento) {
             </div>
 
             <!-- Tabla completa -->
-            <div class="admin-card flex flex-col justify-between">
+            <div class="admin-card overflow-hidden flex flex-col justify-between">
                 <div class="flex flex-col flex-1">
-                    <div class="px-6 pt-6">
-                        <h2 class="text-lg font-semibold text-gray-900">Historial completo</h2>
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-list text-brand"></i> Historial completo</span>
                     </div>
 
                     <!-- Filtros -->

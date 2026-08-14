@@ -98,6 +98,7 @@ function cerrarSidebarMovil() {
 
 function toggleNotificaciones() {
     notificacionesAbiertas.value = !notificacionesAbiertas.value;
+    perfilAbierto.value = false;
 }
 
 function cerrarNotificaciones() {
@@ -106,6 +107,7 @@ function cerrarNotificaciones() {
 
 function togglePerfil() {
     perfilAbierto.value = !perfilAbierto.value;
+    notificacionesAbiertas.value = false;
 }
 
 function cerrarPerfil() {
@@ -136,11 +138,7 @@ function logout() {
         >
             <div class="px-6 py-5 flex items-center justify-between gap-2 border-b border-gray-100">
                 <div class="flex items-center gap-2">
-                    <span class="text-brand text-3xl leading-none">♥</span>
-                    <div class="leading-tight">
-                        <p class="font-serif font-semibold text-gray-800 text-lg">Club de</p>
-                        <p class="font-serif font-semibold text-brand text-lg italic -mt-1">Fantasías</p>
-                    </div>
+                    <img src="/images/LOGO.png" alt="Club de Fantasías" style="height:48px;width:auto;object-fit:contain" />
                 </div>
                 <button @click="sidebarAbierto = false" class="lg:hidden text-gray-400 hover:text-gray-600">
                     <i class="pi pi-times text-lg"></i>
@@ -154,9 +152,9 @@ function logout() {
                         v-if="!link.children"
                         :href="route(link.route)"
                         @click="cerrarSidebarMovil"
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
                         :class="isActive(link.route)
-                            ? 'bg-brand text-white'
+                            ? 'bg-gradient-to-br from-brand to-brand-dark text-white shadow-sm'
                             : 'text-gray-600 hover:bg-gray-100'"
                     >
                         <i class="pi text-base" :class="link.icon"></i>
@@ -175,9 +173,9 @@ function logout() {
                         <button
                             type="button"
                             @click="toggleGrupo(link)"
-                            class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                            class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
                             :class="grupoActivo(link) && !estaAbierto(link)
-                                ? 'bg-brand text-white'
+                                ? 'bg-gradient-to-br from-brand to-brand-dark text-white shadow-sm'
                                 : 'text-gray-600 hover:bg-gray-100'"
                         >
                             <i class="pi text-base" :class="link.icon"></i>
@@ -198,7 +196,7 @@ function logout() {
                                 :key="child.name"
                                 :href="child.url || route(child.route)"
                                 @click="cerrarSidebarMovil"
-                                class="block px-3 py-2 rounded-lg text-sm transition-colors"
+                                class="block px-3 py-2 rounded-xl text-sm transition-colors"
                                 :class="(child.url || isActive(child.route))
                                     ? 'text-brand font-semibold bg-brand/5'
                                     : 'text-gray-500 hover:bg-gray-100'"
@@ -213,7 +211,7 @@ function logout() {
             <div class="p-3 border-t border-gray-100">
                 <button
                     @click="logout"
-                    class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-brand border border-brand/40 hover:bg-brand/5"
+                    class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-brand border border-brand/40 hover:bg-brand/5 transition-colors"
                 >
                     <i class="pi pi-sign-out"></i>
                     Cerrar sesión
@@ -224,7 +222,7 @@ function logout() {
         <!-- Contenido -->
         <div class="flex-1 flex flex-col min-w-0">
             <!-- Topbar -->
-            <header class="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex items-center justify-between">
+            <header class="admin-topbar px-4 sm:px-8 py-4">
                 <div class="flex items-center gap-3 min-w-0">
                     <button @click="sidebarAbierto = true" class="lg:hidden text-gray-500 hover:text-gray-700 shrink-0">
                         <i class="pi pi-bars text-xl"></i>
@@ -244,12 +242,15 @@ function logout() {
                     <div class="relative">
                         <button
                             @click="toggleNotificaciones"
-                            class="relative text-gray-400 hover:text-gray-600"
+                            title="Notificaciones"
+                            class="admin-icon-btn"
+                            style="width:42px;height:42px;font-size:1.15rem"
                         >
-                            <i class="pi pi-bell text-xl"></i>
+                            <i class="pi pi-bell"></i>
                             <span
                                 v-if="badges.notificaciones > 0"
-                                class="absolute -top-1.5 -right-1.5 bg-brand text-white text-[10px] font-semibold rounded-full w-4.5 h-4.5 min-w-[18px] min-h-[18px] flex items-center justify-center"
+                                class="admin-icon-badge text-[10px]"
+                                style="width:18px;height:18px;top:-2px;right:-2px"
                             >
                                 {{ badges.notificaciones }}
                             </span>
@@ -259,102 +260,112 @@ function logout() {
                         <div
                             v-if="notificacionesAbiertas"
                             @click="cerrarNotificaciones"
-                            class="fixed inset-0 z-40"
+                            class="fixed inset-0 z-30"
                         ></div>
 
                         <!-- Panel de notificaciones -->
-                        <div
-                            v-if="notificacionesAbiertas"
-                            class="absolute right-0 top-full mt-3 w-80 bg-white rounded-2xl border border-gray-100 shadow-lg z-50 overflow-hidden"
-                        >
-                            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                                <h3 class="font-serif font-semibold text-gray-800">Notificaciones</h3>
-                                <span
-                                    class="text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                                    :class="badges.notificaciones > 0 ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-400'"
-                                >
-                                    {{ badges.notificaciones }} nuevas
-                                </span>
-                            </div>
+                        <Transition name="admin-dropdown">
+                            <div v-if="notificacionesAbiertas" class="admin-dropdown" style="width:320px">
+                                <div class="admin-dropdown-header">
+                                    <div class="min-w-0">
+                                        <h3 class="font-serif font-semibold text-gray-800">Notificaciones</h3>
+                                        <span
+                                            class="inline-block mt-1 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                                            :class="badges.notificaciones > 0 ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-400'"
+                                        >
+                                            {{ badges.notificaciones }} nuevas
+                                        </span>
+                                    </div>
+                                </div>
 
-                            <!-- Estado vacío -->
-                            <div
-                                v-if="!notificaciones.length"
-                                class="flex flex-col items-center justify-center py-12 px-6 text-center"
-                            >
-                                <i class="pi pi-bell-slash text-gray-300" style="font-size: 2.25rem"></i>
-                                <p class="text-gray-400 text-sm mt-3">No tienes notificaciones pendientes</p>
-                            </div>
-
-                            <!-- Lista de notificaciones -->
-                            <div v-else class="max-h-80 overflow-y-auto divide-y divide-gray-50">
-                                <Link
-                                    v-for="n in notificaciones"
-                                    :key="n.id"
-                                    :href="n.route ? route(n.route) : '#'"
-                                    @click="cerrarNotificaciones"
-                                    class="block px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                                <!-- Estado vacío -->
+                                <div
+                                    v-if="!notificaciones.length"
+                                    class="flex flex-col items-center justify-center py-12 px-6 text-center"
                                 >
-                                    <p class="text-sm text-gray-700 font-medium">{{ n.titulo }}</p>
-                                    <p class="text-xs text-gray-400 mt-0.5">{{ n.mensaje }}</p>
-                                    <p class="text-[11px] text-gray-300 mt-1">{{ n.fecha }}</p>
-                                </Link>
+                                    <i class="pi pi-bell-slash text-gray-300" style="font-size: 2.25rem"></i>
+                                    <p class="text-gray-400 text-sm mt-3">No tienes notificaciones pendientes</p>
+                                </div>
+
+                                <!-- Lista de notificaciones -->
+                                <div v-else class="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                                    <Link
+                                        v-for="n in notificaciones"
+                                        :key="n.id"
+                                        :href="n.route ? route(n.route) : '#'"
+                                        @click="cerrarNotificaciones"
+                                        class="block px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                                    >
+                                        <p class="text-sm text-gray-700 font-medium">{{ n.titulo }}</p>
+                                        <p class="text-xs text-gray-400 mt-0.5">{{ n.mensaje }}</p>
+                                        <p class="text-[11px] text-gray-300 mt-1">{{ n.fecha }}</p>
+                                    </Link>
+                                </div>
                             </div>
-                        </div>
+                        </Transition>
                     </div>
 
                     <!-- Perfil -->
                     <div class="relative">
-                        <button type="button" @click="togglePerfil" class="flex items-center gap-2.5">
-                            <div class="rounded-full bg-brand/10 flex items-center justify-center text-brand shrink-0" style="width:40px;height:40px">
-                                <i class="pi pi-user text-lg"></i>
+                        <button type="button" @click="togglePerfil" class="admin-user-chip" style="padding:0.25rem 0.8rem 0.25rem 0.25rem">
+                            <div class="relative shrink-0">
+                                <div class="rounded-full bg-brand/10 flex items-center justify-center text-brand overflow-hidden" style="width:40px;height:40px">
+                                    <img v-if="admin?.foto_perfil_url" :src="admin.foto_perfil_url" class="w-full h-full object-cover" />
+                                    <i v-else class="pi pi-user text-lg"></i>
+                                </div>
+                                <span
+                                    class="absolute rounded-full flex items-center justify-center text-white"
+                                    style="left:26px;bottom:-2px;width:16px;height:16px;font-size:0.55rem;background:linear-gradient(135deg,#1fbf5c 0%,#34d399 100%);border:2px solid #fff"
+                                >
+                                    <i class="pi pi-check"></i>
+                                </span>
                             </div>
                             <div class="text-sm leading-tight hidden sm:block text-left">
-                                <p class="font-semibold text-gray-800">{{ admin?.nombre || 'Administrador' }}</p>
-                                <p class="text-brand text-xs font-medium">{{ admin?.rol === 'super_admin' ? 'Super Admin' : 'Admin' }}</p>
+                                <p class="font-bold text-gray-800" style="letter-spacing:-0.01em">{{ admin?.nombre || 'Administrador' }}</p>
+                                <p class="text-brand font-medium" style="font-size:0.65rem">{{ admin?.rol === 'super_admin' ? 'Super Admin' : 'Admin' }}</p>
                             </div>
                             <i class="pi text-gray-300 text-xs ml-1 hidden sm:inline transition-transform" :class="perfilAbierto ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
                         </button>
 
                         <!-- Overlay para cerrar al hacer click fuera -->
-                        <div v-if="perfilAbierto" @click="cerrarPerfil" class="fixed inset-0 z-40"></div>
+                        <div v-if="perfilAbierto" @click="cerrarPerfil" class="fixed inset-0 z-30"></div>
 
                         <!-- Menú desplegable -->
-                        <div v-if="perfilAbierto" class="absolute right-0 top-full mt-3 w-64 bg-white rounded-2xl border border-gray-100 shadow-lg z-50 overflow-hidden">
-                            <div class="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-                                <div class="rounded-full bg-brand/10 flex items-center justify-center text-brand shrink-0" style="width:40px;height:40px">
-                                    <i class="pi pi-user text-lg"></i>
+                        <Transition name="admin-dropdown">
+                            <div v-if="perfilAbierto" class="admin-dropdown" style="width:280px">
+                                <div class="admin-dropdown-header">
+                                    <div class="rounded-full bg-brand/10 flex items-center justify-center text-brand shrink-0 overflow-hidden" style="width:48px;height:48px">
+                                        <img v-if="admin?.foto_perfil_url" :src="admin.foto_perfil_url" class="w-full h-full object-cover" />
+                                        <i v-else class="pi pi-user text-xl"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="font-bold text-gray-900 text-sm truncate" style="letter-spacing:-0.01em">{{ admin?.nombre || 'Administrador' }}</p>
+                                        <p class="text-xs text-gray-400 mt-0.5">{{ admin?.email }}</p>
+                                        <span class="inline-flex items-center gap-1 text-[11px] font-semibold mt-1" style="color:var(--success)">
+                                            <i class="pi pi-check-circle" style="font-size:0.7rem"></i> {{ admin?.rol === 'super_admin' ? 'Super Admin' : 'Admin' }}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div class="min-w-0">
-                                    <p class="font-semibold text-gray-800 truncate">{{ admin?.nombre || 'Administrador' }}</p>
-                                    <p class="text-xs text-green-600 flex items-center gap-1">
-                                        <i class="pi pi-check-circle text-[10px]"></i> {{ admin?.rol === 'super_admin' ? 'Super Admin' : 'Admin' }}
-                                    </p>
+
+                                <div class="py-1.5">
+                                    <Link :href="route('admin.seguridad.index')" @click="cerrarPerfil" class="admin-dropdown-item">
+                                        <i class="pi pi-user text-sm"></i>
+                                        Mi perfil
+                                    </Link>
+                                    <Link :href="route('admin.configuracion.index')" @click="cerrarPerfil" class="admin-dropdown-item">
+                                        <i class="pi pi-cog text-sm"></i>
+                                        Configuración
+                                    </Link>
+                                </div>
+
+                                <div class="border-t py-1.5" style="border-color:var(--line)">
+                                    <button type="button" @click="logout" class="admin-dropdown-item admin-dropdown-item--danger">
+                                        <i class="pi pi-sign-out text-sm"></i>
+                                        Cerrar sesión
+                                    </button>
                                 </div>
                             </div>
-
-                            <div class="py-1.5">
-                                <Link href="#" @click="cerrarPerfil" class="flex items-center gap-3 px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                                    <i class="pi pi-id-card text-sm text-gray-400"></i>
-                                    Mi perfil de creador
-                                </Link>
-                                <Link href="#" @click="cerrarPerfil" class="flex items-center gap-3 px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                                    <i class="pi pi-user text-sm text-gray-400"></i>
-                                    Mi perfil
-                                </Link>
-                                <Link :href="route('admin.configuracion.index')" @click="cerrarPerfil" class="flex items-center gap-3 px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                                    <i class="pi pi-cog text-sm text-gray-400"></i>
-                                    Configuración
-                                </Link>
-                            </div>
-
-                            <div class="border-t border-gray-100 py-1.5">
-                                <button type="button" @click="logout" class="w-full flex items-center gap-3 px-5 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                                    <i class="pi pi-sign-out text-sm"></i>
-                                    Cerrar sesión
-                                </button>
-                            </div>
-                        </div>
+                        </Transition>
                     </div>
                 </div>
             </header>

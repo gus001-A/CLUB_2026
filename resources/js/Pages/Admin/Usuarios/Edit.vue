@@ -63,12 +63,12 @@ function submit() {
                 <i class="pi pi-arrow-left text-xs"></i> Volver a Usuarios
             </Link>
 
-            <form @submit.prevent="submit" class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <form @submit.prevent="submit" class="admin-card overflow-hidden">
                 <div style="height:6px;background:linear-gradient(90deg,#C81E3A,#E85C74)"></div>
 
                 <!-- Sección: Datos personales -->
                 <div class="p-6">
-                    <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
+                    <div class="flex items-center gap-3 pb-4 mb-5 border-b" style="border-color:var(--line)">
                         <div class="admin-icon-gradient shrink-0" style="width:48px;height:48px">
                             <i class="pi pi-user text-lg"></i>
                         </div>
@@ -84,7 +84,7 @@ function submit() {
                                 <i class="pi pi-user text-brand text-xs"></i> Nombre completo <span class="text-red-500">*</span>
                             </label>
                             <div class="relative">
-                                <input v-model="form.nombre" type="text" placeholder="Ej: Juan Pérez García" class="w-full rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                                <input v-model="form.nombre" type="text" placeholder="Ej: Juan Pérez García" class="admin-input pl-3 pr-9 py-2.5" />
                                 <i class="pi pi-user absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
                             </div>
                             <p v-if="form.errors.nombre" class="text-red-600 text-xs mt-1">{{ form.errors.nombre }}</p>
@@ -96,7 +96,7 @@ function submit() {
                                     <i class="pi pi-at text-brand text-xs"></i> Nombre de usuario <span class="text-red-500">*</span>
                                 </label>
                                 <div class="relative">
-                                    <input v-model="form.apodo" type="text" placeholder="Ej: jperez" class="w-full rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                                    <input v-model="form.apodo" type="text" placeholder="Ej: jperez" class="admin-input pl-3 pr-9 py-2.5" />
                                     <i class="pi pi-at absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
                                 </div>
                                 <p v-if="form.errors.apodo" class="text-red-600 text-xs mt-1">{{ form.errors.apodo }}</p>
@@ -106,7 +106,7 @@ function submit() {
                                     <i class="pi pi-envelope text-brand text-xs"></i> Correo electrónico <span class="text-red-500">*</span>
                                 </label>
                                 <div class="relative">
-                                    <input v-model="form.email" type="email" placeholder="usuario@correo.com" class="w-full rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                                    <input v-model="form.email" type="email" placeholder="usuario@correo.com" class="admin-input pl-3 pr-9 py-2.5" />
                                     <i class="pi pi-envelope absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
                                 </div>
                                 <p v-if="form.errors.email" class="text-red-600 text-xs mt-1">{{ form.errors.email }}</p>
@@ -119,7 +119,7 @@ function submit() {
                                     <i class="pi pi-phone text-brand text-xs"></i> Teléfono
                                 </label>
                                 <div class="relative">
-                                    <input v-model="form.telefono" type="text" placeholder="7771234567" class="w-full rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                                    <input v-model="form.telefono" type="text" placeholder="7771234567" class="admin-input pl-3 pr-9 py-2.5" />
                                     <i class="pi pi-phone absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
                                 </div>
                                 <p v-if="form.errors.telefono" class="text-red-600 text-xs mt-1">{{ form.errors.telefono }}</p>
@@ -128,7 +128,7 @@ function submit() {
                                 <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
                                     <i class="pi pi-calendar text-brand text-xs"></i> Fecha de nacimiento <span class="text-red-500">*</span>
                                 </label>
-                                <input v-model="form.fecha_nacimiento" type="date" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none" />
+                                <input v-model="form.fecha_nacimiento" type="date" class="admin-input px-3 py-2.5" />
                                 <p v-if="form.errors.fecha_nacimiento" class="text-red-600 text-xs mt-1">{{ form.errors.fecha_nacimiento }}</p>
                             </div>
                         </div>
@@ -139,7 +139,7 @@ function submit() {
                                     <i class="pi pi-sliders-h text-brand text-xs"></i> Tipo de usuario <span class="text-red-500">*</span>
                                 </label>
                                 <div class="relative">
-                                    <select v-model="form.rol" class="w-full appearance-none rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none">
+                                    <select v-model="form.rol" class="admin-input appearance-none pl-3 pr-9 py-2.5">
                                         <option value="usuario">Usuario</option>
                                         <option value="creador">Creador</option>
                                         <option value="admin">Admin</option>
@@ -153,7 +153,7 @@ function submit() {
                                     <i class="pi pi-verified text-brand text-xs"></i> Estado <span class="text-red-500">*</span>
                                 </label>
                                 <div class="relative">
-                                    <select v-model="form.estado" class="w-full appearance-none rounded-lg border border-gray-300 text-sm pl-3 pr-9 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none">
+                                    <select v-model="form.estado" class="admin-input appearance-none pl-3 pr-9 py-2.5">
                                         <option value="verificado">Verificado</option>
                                         <option value="pendiente">Pendiente</option>
                                         <option value="incompleto">Incompleto</option>
@@ -167,8 +167,8 @@ function submit() {
                 </div>
 
                 <!-- Sección: Credenciales de acceso -->
-                <div class="p-6 bg-gray-50/50 border-t border-gray-100">
-                    <div class="flex items-center justify-between gap-3 pb-4 mb-5 border-b border-gray-100">
+                <div class="p-6 border-t" style="background:var(--surface);border-color:var(--line)">
+                    <div class="flex items-center justify-between gap-3 pb-4 mb-5 border-b" style="border-color:var(--line)">
                         <div class="flex items-center gap-3">
                         <div class="admin-icon-gradient shrink-0" style="width:48px;height:48px">
                                 <i class="pi pi-lock text-lg"></i>
@@ -178,7 +178,7 @@ function submit() {
                                 <p class="text-xs text-gray-400">Deja en blanco si no quieres cambiar la contraseña</p>
                             </div>
                         </div>
-                        <span class="bg-gray-300 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full shrink-0">Opcional</span>
+                        <span class="text-xs font-semibold px-3 py-1 rounded-full shrink-0" style="background:var(--muted-light);color:#fff">Opcional</span>
                     </div>
 
                     <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
@@ -189,7 +189,7 @@ function submit() {
                             v-model="form.password"
                             :type="mostrarPassword ? 'text' : 'password'"
                             placeholder="Dejar en blanco para no cambiar"
-                            class="w-full rounded-lg border border-gray-300 text-sm pl-3 pr-32 py-2.5 focus:border-brand focus:ring-brand focus:ring-1 focus:outline-none"
+                            class="admin-input pl-3 pr-32 py-2.5"
                         />
                         <div class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                             <button
@@ -208,16 +208,16 @@ function submit() {
                 </div>
 
                 <!-- Acciones -->
-                <div class="p-6 border-t border-gray-100 flex items-center gap-3">
+                <div class="p-6 border-t flex items-center gap-3" style="border-color:var(--line)">
                     <button
                         type="submit"
                         :disabled="form.processing"
-                        class="bg-brand hover:bg-brand-dark text-white font-medium px-6 py-2.5 rounded-lg text-sm disabled:opacity-50 flex items-center gap-2"
+                        class="admin-btn-primary disabled:opacity-50"
                     >
                         <i class="pi" :class="form.processing ? 'pi-spin pi-spinner' : 'pi-check'"></i>
                         {{ form.processing ? 'Guardando...' : 'Guardar cambios' }}
                     </button>
-                    <Link :href="route('admin.usuarios.index')" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2.5">
+                    <Link :href="route('admin.usuarios.index')" class="admin-btn-secondary" style="border:none">
                         Cancelar
                     </Link>
                 </div>

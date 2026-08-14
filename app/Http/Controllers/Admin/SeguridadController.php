@@ -19,10 +19,9 @@ class SeguridadController extends Controller
         $esSuperAdmin = $admin->rol === 'super_admin';
 
         return Inertia::render('Admin/Seguridad/Index', [
-            'perfil' => [
-                'nombre' => $admin->nombre,
+            'cuenta' => [
                 'email' => $admin->email,
-                'telefono' => $admin->telefono,
+                'email_verificado_en' => $admin->email_verificado_en,
                 'rol' => $admin->rol,
                 'ultimo_acceso_en' => $admin->ultimo_acceso_en,
                 'ultimo_acceso_ip' => $admin->ultimo_acceso_ip,
@@ -35,19 +34,28 @@ class SeguridadController extends Controller
         ]);
     }
 
-    public function actualizarPerfil(Request $request)
+    public function actualizarEmail(Request $request)
     {
         $admin = Auth::guard('admin')->user();
 
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', Rule::unique('administradores', 'email')->ignore($admin->id)],
-            'telefono' => ['nullable', 'string', 'max:30'],
+            'password_actual' => ['required'],
         ]);
 
-        $admin->update($data);
+        if (! Hash::check($data['password_actual'], $admin->password)) {
+            return back()->withErrors(['password_actual' => 'La contraseña actual no es correcta.']);
+        }
 
-        return back()->with('success', 'Perfil actualizado correctamente.');
+        $admin->update([
+            'email' => $data['email'],
+            // Vuelve a pedir verificación con el correo nuevo. Si aún no
+            // tienes flujo de verificación de correo para admins, este
+            // campo simplemente se queda en null sin romper nada.
+            'email_verificado_en' => null,
+        ]);
+
+        return back()->with('success', 'Correo actualizado correctamente.');
     }
 
     public function actualizarPassword(Request $request)
@@ -63,7 +71,7 @@ class SeguridadController extends Controller
             return back()->withErrors(['password_actual' => 'La contraseña actual no es correcta.']);
         }
 
-        $admin->update(['password' => $request->password_nueva]);
+        $admin->update(['password' => Hash::make($request->password_nueva)]);
 
         return back()->with('success', 'Contraseña actualizada correctamente.');
     }

@@ -3,8 +3,10 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useToast } from '@/composables/useToast';
+import { useContenidoMeta } from '@/composables/useContenidoMeta';
 
 const toast = useToast();
+const { tipoIcono } = useContenidoMeta();
 
 const props = defineProps({
     contenido: Object,
@@ -119,7 +121,8 @@ function submit() {
             ? data.etiquetas.split(',').map((t) => t.trim()).filter(Boolean)
             : [],
         programado_en: data.estado === 'programado' ? data.programado_en : null,
-    })).patch(route('admin.contenido.update', props.contenido.id), {
+        _method: 'patch',
+    })).post(route('admin.contenido.update', props.contenido.id), {
         forceFormData: true,
         onSuccess: () => {
             toast.success('Contenido actualizado correctamente.');
@@ -149,7 +152,7 @@ function submit() {
                 <div class="p-6">
                     <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
                         <div class="admin-icon-gradient shrink-0" style="width:48px;height:48px">
-                            <i class="pi pi-video text-lg"></i>
+                            <i class="pi text-lg" :class="tipoIcono[form.tipo] || 'pi-video'"></i>
                         </div>
                         <div>
                             <h2 class="font-semibold text-gray-800">Datos del contenido</h2>
@@ -315,11 +318,11 @@ function submit() {
                 </div>
 
                 <div class="p-6 border-t border-gray-100 flex items-center gap-3">
-                    <button type="submit" :disabled="form.processing" class="bg-brand hover:bg-brand-dark text-white font-medium px-6 py-2.5 rounded-lg text-sm disabled:opacity-50 flex items-center gap-2">
+                    <button type="submit" :disabled="form.processing" class="admin-btn-primary disabled:opacity-50">
                         <i class="pi" :class="form.processing ? 'pi-spin pi-spinner' : 'pi-check'"></i>
                         {{ form.processing ? 'Guardando...' : 'Guardar cambios' }}
                     </button>
-                    <Link :href="route('admin.contenido.index')" class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2.5">
+                    <Link :href="route('admin.contenido.index')" class="admin-btn-secondary">
                         Cancelar
                     </Link>
                 </div>

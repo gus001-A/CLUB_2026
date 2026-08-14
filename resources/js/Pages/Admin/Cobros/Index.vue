@@ -92,57 +92,6 @@ function formatCorto(v) {
 }
 
 const lineChartRef = ref(null);
-const puntoDestacado = ref(null);
-
-const picoIndex = computed(() => {
-    if (!props.ingresosPorDia?.length) return -1;
-    let maxI = 0;
-    props.ingresosPorDia.forEach((d, i) => {
-        if (d.total > props.ingresosPorDia[maxI].total) maxI = i;
-    });
-    return maxI;
-});
-
-function actualizarPuntoDestacado(chart) {
-    if (picoIndex.value < 0) { puntoDestacado.value = null; return; }
-    const point = chart.getDatasetMeta(0).data[picoIndex.value];
-    if (!point) { puntoDestacado.value = null; return; }
-    const d = props.ingresosPorDia[picoIndex.value];
-    const fecha = new Date(d.fecha).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' });
-    puntoDestacado.value = {
-        x: point.x,
-        y: point.y,
-        label: fecha.charAt(0).toUpperCase() + fecha.slice(1),
-        valor: money(d.total),
-    };
-}
-
-const dashedLinePlugin = {
-    id: 'puntoDestacadoPlugin',
-    afterDatasetsDraw(chart) {
-        if (picoIndex.value < 0) return;
-        const { ctx, chartArea } = chart;
-        const point = chart.getDatasetMeta(0).data[picoIndex.value];
-        if (!point) return;
-        ctx.save();
-        ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = '#C81E3A';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(point.x, point.y);
-        ctx.lineTo(point.x, chartArea.bottom);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.arc(point.x, point.y, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#C81E3A';
-        ctx.fill();
-        ctx.restore();
-    },
-    afterRender(chart) {
-        actualizarPuntoDestacado(chart);
-    },
-};
 
 const lineData = computed(() => ({
     labels: props.ingresosPorDia.map((d) => new Date(d.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })),
@@ -176,6 +125,12 @@ const lineOptions = {
         legend: { display: false },
         tooltip: {
             callbacks: {
+                title: (items) => {
+                    const d = props.ingresosPorDia[items[0].dataIndex];
+                    if (!d) return '';
+                    const fecha = new Date(d.fecha).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' });
+                    return fecha.charAt(0).toUpperCase() + fecha.slice(1);
+                },
                 label: (ctx) => money(ctx.parsed.y),
             },
         },
@@ -251,13 +206,13 @@ const totalCategorias = computed(() => props.categoriasResumen.reduce((sum, c) =
             <div class="admin-cobros-main-grid gap-6 mb-6 w-full">
                 <!-- Tabla Transacciones -->
                 <div
-                    class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between" style="grid-area:tabla">
+                    class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:tabla">
                     <div class="flex flex-col flex-1">
                         <!-- Encabezado -->
-                        <div class="px-6 pt-6">
-                            <h2 class="text-xl font-semibold text-gray-900">Transacciones</h2>
-                            <p class="text-sm text-gray-500 mt-1">Administra los cobros y pagos registrados.</p>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-receipt text-brand"></i> Transacciones</span>
                         </div>
+                        <p class="text-sm px-6 pt-4" style="color:var(--muted)">Administra los cobros y pagos registrados.</p>
                         <!-- Filtros -->
                         <div class="flex flex-wrap items-center gap-3 px-6 py-5">
                             <!-- Buscador -->
@@ -377,16 +332,16 @@ const totalCategorias = computed(() => props.categoriasResumen.reduce((sum, c) =
                     </div>
                 </div>
                 <!-- Resumen de Cobros -->
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6" style="grid-area:resumen">
-                    <div class="flex items-center justify-between mb-5">
-                        <h2 class="text-lg font-semibold text-gray-900">Resumen de Cobros</h2>
-                        <select v-model="periodoResumen" class="text-xs rounded-lg border-gray-300 focus:border-brand focus:ring-brand">
+                <div class="min-w-0 admin-card overflow-hidden" style="grid-area:resumen">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-wallet text-brand"></i> Resumen de Cobros</span>
+                        <select v-model="periodoResumen" class="text-xs rounded-lg border-gray-300 bg-white px-2 py-1 focus:border-brand focus:ring-brand">
                             <option value="semana">Esta semana</option>
                             <option value="mes">Este mes</option>
                             <option value="anio">Este año</option>
                         </select>
                     </div>
-                    <div class="space-y-3 text-sm">
+                    <div class="space-y-3 text-sm p-6">
                         <div class="flex justify-between">
                             <span class="text-gray-500">Total Cobros</span>
                             <span class="font-semibold text-gray-800">{{ money(resumen.cobrosDelMes) }}</span>
@@ -407,10 +362,12 @@ const totalCategorias = computed(() => props.categoriasResumen.reduce((sum, c) =
                 </div>
                 <!-- Métodos de Pago -->
                 <div
-                    class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:metodos">
+                    class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:metodos">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900 mb-5">Métodos de Pago</h2>
-                        <div class="space-y-5">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-credit-card text-brand"></i> Métodos de Pago</span>
+                        </div>
+                        <div class="space-y-5 p-6">
                             <div v-for="m in metodosPago" :key="m.metodo">
                                 <div class="flex items-center justify-between text-sm mb-2">
                                     <span class="text-gray-600">{{ m.metodo_nombre }}</span>
@@ -432,81 +389,78 @@ const totalCategorias = computed(() => props.categoriasResumen.reduce((sum, c) =
             <div class="admin-cobros-charts-grid gap-6 mt-6 w-full">
                 <!-- 1. Ingresos -->
                 <div
-                    class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:ingresos">
+                    class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:ingresos">
                     <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <h2 class="font-semibold text-gray-800 text-lg">Ingresos</h2>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-chart-line text-brand"></i> Ingresos</span>
                             <select v-model="periodoIngresos"
-                                class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-500 focus:outline-none focus:border-brand">
+                                class="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-500 bg-white focus:outline-none focus:border-brand">
                                 <option value="semana">Esta semana</option>
                                 <option value="mes">Este mes</option>
                                 <option value="anio">Este año</option>
                             </select>
                         </div>
-                        <div style="height:240px" class="relative">
-                            <template v-if="ingresosPorDia?.length">
-                                <Line ref="lineChartRef" :data="lineData" :options="lineOptions" :plugins="[dashedLinePlugin]" />
-                                <div v-if="puntoDestacado" class="absolute pointer-events-none -translate-x-1/2 z-10"
-                                    :style="{ left: puntoDestacado.x + 'px', top: (puntoDestacado.y - 62) + 'px' }">
-                                    <div class="bg-white border border-gray-100 shadow-lg rounded-xl px-3 py-1.5 text-center whitespace-nowrap">
-                                        <p class="text-[10px] text-gray-400">{{ puntoDestacado.label }}</p>
-                                        <p class="text-sm font-bold text-gray-800">{{ puntoDestacado.valor }}</p>
-                                    </div>
+                        <div class="p-6">
+                            <div style="height:240px" class="relative">
+                                <template v-if="ingresosPorDia?.length">
+                                    <Line ref="lineChartRef" :data="lineData" :options="lineOptions" />
+                                </template>
+                                <div v-else class="h-full flex items-center justify-center">
+                                    <p class="text-gray-400 text-sm">Aún no hay ingresos registrados.</p>
                                 </div>
-                            </template>
-                            <div v-else class="h-full flex items-center justify-center">
-                                <p class="text-gray-400 text-sm">Aún no hay ingresos registrados.</p>
                             </div>
                         </div>
                     </div>
                 </div>
                 <!-- 2. Cobros y Reembolsos -->
                 <div
-                    class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:cobros">
+                    class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:cobros">
                     <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <h2 class="font-semibold text-gray-800 text-lg">Cobros y Reembolsos</h2>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-chart-pie text-brand"></i> Cobros y Reembolsos</span>
                             <select v-model="periodoTipos"
-                                class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 focus:outline-none focus:border-brand">
+                                class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:border-brand">
                                 <option value="semana">Esta semana</option>
                                 <option value="mes">Este mes</option>
                                 <option value="anio">Este año</option>
                             </select>
                         </div>
-                        <!-- Gráfica Dona -->
-                        <div v-if="totalCategorias > 0" class="relative my-2" style="height:160px">
-                            <Doughnut :data="doughnutData"
-                                :options="{ maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => money(ctx.parsed) } } }, cutout: '65%' }" />
-                            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wider">Total</p>
-                                <p class="font-bold text-gray-800 text-base">{{ money(totalCategorias) }}</p>
-                            </div>
-                        </div>
-                        <div v-else class="py-12 text-center">
-                            <p class="text-gray-400 text-sm">Sin datos aún.</p>
-                        </div>
-                        <!-- Leyenda / Desglose -->
-                        <ul v-if="totalCategorias > 0" class="mt-4 space-y-2">
-                            <li v-for="c in categoriasResumen" :key="c.id" class="flex items-center justify-between text-xs">
-                                <span class="flex items-center gap-2 text-gray-600">
-                                    <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: categoriaColores[c.id] }"></span>
-                                    {{ c.label }}
-                                </span>
-                                <div class="flex items-center gap-3">
-                                    <span class="text-gray-400">{{ totalCategorias ? Math.round((c.total / totalCategorias) * 100) : 0 }}%</span>
-                                    <span class="text-gray-800 font-semibold">{{ money(c.total) }}</span>
+                        <div class="p-6">
+                            <!-- Gráfica Dona -->
+                            <div v-if="totalCategorias > 0" class="relative my-2" style="height:160px">
+                                <Doughnut :data="doughnutData"
+                                    :options="{ maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => money(ctx.parsed) } } }, cutout: '65%' }" />
+                                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wider">Total</p>
+                                    <p class="font-bold text-gray-800 text-base">{{ money(totalCategorias) }}</p>
                                 </div>
-                            </li>
-                        </ul>
+                            </div>
+                            <div v-else class="py-12 text-center">
+                                <p class="text-gray-400 text-sm">Sin datos aún.</p>
+                            </div>
+                            <!-- Leyenda / Desglose -->
+                            <ul v-if="totalCategorias > 0" class="mt-4 space-y-2">
+                                <li v-for="c in categoriasResumen" :key="c.id" class="flex items-center justify-between text-xs">
+                                    <span class="flex items-center gap-2 text-gray-600">
+                                        <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: categoriaColores[c.id] }"></span>
+                                        {{ c.label }}
+                                    </span>
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-gray-400">{{ totalCategorias ? Math.round((c.total / totalCategorias) * 100) : 0 }}%</span>
+                                        <span class="text-gray-800 font-semibold">{{ money(c.total) }}</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 <!-- 3. Pagos Pendientes -->
                 <div
-                    class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between" style="grid-area:pendientes">
+                    class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:pendientes">
                     <div>
                         <!-- Header con Badge estilo diseño -->
-                        <div class="flex items-center justify-between mb-5">
-                            <h2 class="font-semibold text-gray-800 text-lg">Pagos Pendientes</h2>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-clock text-brand"></i> Pagos Pendientes</span>
                             <span v-if="pagosPendientes?.length"
                                 class="bg-red-50 text-red-500 text-xs font-bold rounded-full flex items-center justify-center shrink-0"
                                 style="width:24px;height:24px">
@@ -514,7 +468,7 @@ const totalCategorias = computed(() => props.categoriasResumen.reduce((sum, c) =
                             </span>
                         </div>
                         <!-- Lista de elementos pendientes -->
-                        <ul class="divide-y divide-gray-100">
+                        <ul class="divide-y divide-gray-100 px-6">
                             <li v-for="p in pagosPendientes" :key="p.id"
                                 class="py-3 flex items-center justify-between text-sm">
                                 <div class="flex flex-col">
@@ -533,7 +487,7 @@ const totalCategorias = computed(() => props.categoriasResumen.reduce((sum, c) =
                         </ul>
                     </div>
                     <!-- Enlace al pie -->
-                    <div v-if="pagosPendientes?.length" class="pt-4 border-t border-gray-100 text-center">
+                    <div v-if="pagosPendientes?.length" class="pt-4 pb-6 border-t border-gray-100 text-center mx-6">
                         <a href="#" class="text-xs font-semibold text-red-500 hover:text-red-600 transition">
                             Ver todos los pendientes
                         </a>

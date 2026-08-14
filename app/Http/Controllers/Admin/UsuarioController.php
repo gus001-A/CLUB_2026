@@ -143,6 +143,14 @@ class UsuarioController extends Controller
     {
         $usuario->load('perfil', 'creador');
 
+        $perfil = $usuario->perfil;
+
+        $perfilData = $perfil ? [
+            'foto' => $this->getFotoUrl($perfil->foto ?? null),
+            'biografia' => $perfil->biografia ?? null,
+            'genero' => $perfil->genero ?? null,
+        ] : null;
+
         return Inertia::render('Admin/Usuarios/Show', [
             'usuario' => [
                 'id' => $usuario->id,
@@ -158,6 +166,7 @@ class UsuarioController extends Controller
                 'created_at' => $usuario->created_at,
                 'updated_at' => $usuario->updated_at,
                 'perfil' => $perfilData,
+                'creador' => $usuario->creador,
             ],
         ]);
     }
@@ -250,7 +259,6 @@ class UsuarioController extends Controller
      */
     public function toggleBloqueo(Request $request, $id)
     {
-        // Si viene la bandera es_admin desde la petición o si no existe en Users
         $usuario = User::find($id);
 
         if ($usuario) {

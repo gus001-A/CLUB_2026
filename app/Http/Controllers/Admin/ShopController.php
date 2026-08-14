@@ -36,7 +36,7 @@ class ShopController extends Controller
             default => now()->startOfMonth(),
         };
 
-        $query = Pedido::with(['usuario:id,nombre,apodo', 'items.producto:id,nombre,imagenes'])->where('estado', '!=', 'carrito');
+        $query = Pedido::with(['usuario:id,nombre,apodo', 'items.producto:id,nombre,imagen_principal'])->where('estado', '!=', 'carrito');
 
         if ($search = $request->string('q')->trim()->value()) {
             $query->where(function ($q) use ($search) {
@@ -59,7 +59,7 @@ class ShopController extends Controller
             'numero_pedido' => $p->numero_pedido,
             'usuario' => $p->usuario,
             'total_items' => $p->items->sum('cantidad'),
-            'miniaturas' => $p->items->take(3)->map(fn ($i) => $i->producto?->imagenes[0] ?? null)->filter()->values(),
+            'miniaturas' => $p->items->take(3)->map(fn ($i) => $i->producto?->imagen_principal ?? null)->filter()->values(),
             'total' => $p->total,
             'metodo_pago' => $p->metodo_pago,
             'estado' => $p->estado,
@@ -71,12 +71,12 @@ class ShopController extends Controller
             ->selectRaw('producto_id, SUM(cantidad) as unidades, SUM(total) as ingresos')
             ->groupBy('producto_id')
             ->orderByDesc('unidades')
-            ->with('producto:id,nombre,imagenes')
+            ->with('producto:id,nombre,imagen_principal')
             ->take(5)
             ->get()
             ->map(fn ($r) => [
                 'nombre' => $r->producto?->nombre ?? 'Producto eliminado',
-                'imagen' => $r->producto?->imagenes[0] ?? null,
+                'imagen' => $r->producto?->imagen_principal ?? null,
                 'unidades' => (int) $r->unidades,
                 'ingresos' => (float) $r->ingresos,
             ]);
@@ -163,7 +163,7 @@ class ShopController extends Controller
                     'producto' => $i->producto ? [
                         'nombre' => $i->producto->nombre,
                         'sku' => $i->producto->sku,
-                        'imagen' => $i->producto->imagenes[0] ?? null,
+                        'imagen' => $i->producto->imagen_principal,
                     ] : ['nombre' => 'Producto eliminado', 'sku' => '—', 'imagen' => null],
                     'cantidad' => $i->cantidad,
                     'precio' => $i->precio,

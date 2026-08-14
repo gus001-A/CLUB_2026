@@ -1,6 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import Pagination from '@/Components/Pagination.vue';
+import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import { useConfirm } from '@/composables/useConfirm';
 
@@ -89,7 +90,7 @@ async function descartar(r) {
 
             <!-- Fila 1: KPIs -->
             <div class="admin-kpi-grid gap-6 mb-6 w-full">
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                <div class="min-w-0 admin-kpi-card">
                     <div>
                         <p class="text-sm text-gray-400">Reportes Totales</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.total }}</p>
@@ -98,7 +99,7 @@ async function descartar(r) {
                         <i class="pi pi-flag text-lg"></i>
                     </div>
                 </div>
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                <div class="min-w-0 admin-kpi-card">
                     <div>
                         <p class="text-sm text-gray-400">Pendientes</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.pendientes }}</p>
@@ -107,7 +108,7 @@ async function descartar(r) {
                         <i class="pi pi-clock text-lg"></i>
                     </div>
                 </div>
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                <div class="min-w-0 admin-kpi-card">
                     <div>
                         <p class="text-sm text-gray-400">Revisados</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.revisados }}</p>
@@ -116,7 +117,7 @@ async function descartar(r) {
                         <i class="pi pi-eye text-lg"></i>
                     </div>
                 </div>
-                <div class="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
+                <div class="min-w-0 admin-kpi-card">
                     <div>
                         <p class="text-sm text-gray-400">Resueltos</p>
                         <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.resueltos }}</p>
@@ -131,18 +132,18 @@ async function descartar(r) {
             <div class="admin-reportes-main-grid gap-6 mb-6 w-full">
 
                 <!-- Cola de moderación -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6" style="grid-area:cola">
-                    <div class="mb-4">
-                        <h2 class="text-xl font-semibold text-gray-900">Cola de Moderación</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Revisa y resuelve los reportes entre usuarios.</p>
+                <div class="admin-card overflow-hidden" style="grid-area:cola">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-shield text-brand"></i> Cola de Moderación</span>
                     </div>
+                    <p class="text-xs px-6 pt-4" style="color:var(--muted)">Revisa y resuelve los reportes entre usuarios.</p>
 
-                    <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                    <div class="flex flex-col sm:flex-row gap-3 mb-4 px-6 pt-4">
                         <div class="relative flex-1 min-w-[160px]">
                             <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300 text-sm pointer-events-none"></i>
-                            <input v-model="q" type="text" placeholder="Buscar por usuario..." class="w-full pl-10 pr-3 py-2 rounded-xl border border-gray-300 text-sm focus:border-red-500 focus:ring-red-500 focus:ring-1 focus:outline-none" />
+                            <input v-model="q" type="text" placeholder="Buscar por usuario..." class="admin-input pl-10 pr-3 py-2" />
                         </div>
-                        <select v-model="tipo" class="rounded-xl border border-gray-300 text-sm px-3 py-2 focus:border-red-500 focus:ring-red-500">
+                        <select v-model="tipo" class="admin-input w-auto py-2">
                             <option value="">Todos los tipos</option>
                             <option value="spam">Spam</option>
                             <option value="inapropiado">Contenido inapropiado</option>
@@ -150,7 +151,7 @@ async function descartar(r) {
                             <option value="acoso">Acoso</option>
                             <option value="otro">Otro</option>
                         </select>
-                        <select v-model="estado" class="rounded-xl border border-gray-300 text-sm px-3 py-2 focus:border-red-500 focus:ring-red-500">
+                        <select v-model="estado" class="admin-input w-auto py-2">
                             <option value="">Todos los estados</option>
                             <option value="pendiente">Pendiente</option>
                             <option value="revisado">Revisado</option>
@@ -158,7 +159,7 @@ async function descartar(r) {
                         </select>
                     </div>
 
-                    <ul class="space-y-3">
+                    <ul class="space-y-3 px-6 pb-6">
                         <li v-for="r in reportes.data" :key="r.id" class="border border-gray-100 rounded-xl p-4">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="flex items-start gap-3 flex-1 min-w-0">
@@ -199,29 +200,17 @@ async function descartar(r) {
                     </ul>
 
                     <!-- Paginación -->
-                    <div v-if="reportes.last_page > 1" class="flex items-center justify-between mt-5 text-sm">
-                        <p class="text-gray-400">Mostrando {{ reportes.from }}–{{ reportes.to }} de {{ reportes.total }}</p>
-                        <div class="flex items-center gap-1">
-                            <template v-for="(link, i) in reportes.links" :key="i">
-                                <Link
-                                    v-if="link.url"
-                                    :href="link.url"
-                                    preserve-scroll
-                                    preserve-state
-                                    class="px-3 py-1.5 rounded-lg"
-                                    :class="link.active ? 'bg-red-600 text-white' : 'text-gray-500 hover:bg-gray-100'"
-                                    v-html="link.label"
-                                />
-                                <span v-else class="px-3 py-1.5 text-gray-300" v-html="link.label"></span>
-                            </template>
-                        </div>
+                    <div v-if="reportes.last_page > 1" class="border-t border-gray-100 px-6 py-4">
+                        <Pagination :data="reportes" />
                     </div>
                 </div>
 
                 <!-- Reportes por tipo -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6" style="grid-area:tipo">
-                    <h2 class="text-sm font-bold text-gray-900 mb-4">Reportes por Tipo</h2>
-                    <ul class="space-y-3">
+                <div class="admin-card overflow-hidden" style="grid-area:tipo">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-chart-bar text-brand"></i> Reportes por Tipo</span>
+                    </div>
+                    <ul class="space-y-3 p-6">
                         <li v-for="(cantidad, key) in porTipo" :key="key" class="flex items-center justify-between text-sm">
                             <span class="flex items-center gap-2 text-gray-600">
                                 <i class="pi text-xs" :class="[tipoIcono[key], tipoIconoColor[key]]"></i>
@@ -238,9 +227,11 @@ async function descartar(r) {
             <div class="admin-two-col-grid gap-6 w-full">
 
                 <!-- Actividad Reciente de Moderación -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <h2 class="text-sm font-bold text-gray-900 mb-4">Actividad Reciente de Moderación</h2>
-                    <ul class="space-y-3">
+                <div class="admin-card overflow-hidden">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-history text-brand"></i> Actividad Reciente de Moderación</span>
+                    </div>
+                    <ul class="space-y-3 p-6">
                         <li v-for="(a, i) in actividadModeracion" :key="i" class="flex items-start gap-3">
                             <div
                                 class="rounded-full flex items-center justify-center shrink-0"
@@ -261,9 +252,11 @@ async function descartar(r) {
                 </div>
 
                 <!-- Usuarios más reportados -->
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <h2 class="text-sm font-bold text-gray-900 mb-4">Usuarios Más Reportados</h2>
-                    <ul class="space-y-3">
+                <div class="admin-card overflow-hidden">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-users text-brand"></i> Usuarios Más Reportados</span>
+                    </div>
+                    <ul class="space-y-3 p-6">
                         <li v-for="(item, i) in masReportados" :key="i" class="flex items-center justify-between gap-2">
                             <div class="flex items-center gap-2.5 min-w-0">
                                 <div class="rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0 text-xs font-semibold" style="width:32px;height:32px">
