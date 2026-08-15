@@ -6,8 +6,6 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
 import { Line } from 'vue-chartjs';
 import { Chart as ChartJS, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler } from 'chart.js';
-import { useToast } from '@/composables/useToast';
-import { useConfirm } from '@/composables/useConfirm';
 import { useFormatters } from '@/composables/useFormatters';
 import { useContenidoMeta } from '@/composables/useContenidoMeta';
 
@@ -22,8 +20,6 @@ const props = defineProps({
     estadisticas: Object,
 });
 
-const toast = useToast();
-const { confirm } = useConfirm();
 const { formatDate } = useFormatters();
 const { tipoLabel, tipoIcono, tipoColor, estadoColores, estadoLabel } = useContenidoMeta();
 
@@ -89,31 +85,6 @@ const lineOptions = {
         y: { beginAtZero: true },
     },
 };
-
-const accionesRapidas = [
-    { label: 'Nuevo Video', desc: 'Sube y publica un nuevo video', icon: 'pi-video', tipo: 'video' },
-    { label: 'Nuevo Artículo', desc: 'Escribe y publica un artículo', icon: 'pi-file-edit', tipo: 'articulo' },
-    { label: 'Nueva Galería', desc: 'Crea una nueva galería de fotos', icon: 'pi-images', tipo: 'galeria' },
-    { label: 'Administrar Categorías', desc: 'Organiza tus categorías de contenido', icon: 'pi-folder', comingSoon: true },
-];
-
-function irA(a) {
-    if (a.comingSoon) {
-        toast.success(`"${a.label}" estará disponible próximamente.`);
-        return;
-    }
-    router.visit(route('admin.contenido.create', { tipo: a.tipo }));
-}
-
-async function eliminarContenido(c) {
-    const ok = await confirm(`Esto eliminará "${c.titulo}" permanentemente.`, {
-        title: 'Eliminar contenido',
-        confirmLabel: 'Sí, eliminar',
-        danger: true,
-    });
-    if (!ok) return;
-    router.delete(route('admin.contenido.destroy', c.id), { preserveScroll: true });
-}
 </script>
 
 <template>
@@ -153,12 +124,8 @@ async function eliminarContenido(c) {
                     <div class="flex flex-col flex-1">
                         <div class="admin-card-header">
                             <span class="admin-card-header-title"><i class="pi pi-play text-brand"></i> Gestión de Contenido</span>
-                            <Link :href="route('admin.contenido.create')" class="admin-btn-primary flex-none" style="padding:0.4rem 0.85rem;font-size:0.75rem">
-                                <i class="pi pi-plus text-xs"></i>
-                                Nuevo Contenido
-                            </Link>
                         </div>
-                        <p class="text-xs px-6 pt-4" style="color:var(--muted)">Administra el contenido publicado en la plataforma.</p>
+                        <p class="text-xs px-6 pt-4" style="color:var(--muted)">Bitácora del contenido publicado por los creadores en la plataforma.</p>
 
                         <!-- Filtros -->
                         <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 px-6 py-4">
@@ -234,12 +201,6 @@ async function eliminarContenido(c) {
                                             <Link :href="route('admin.contenido.show', c.id)" title="Ver" class="admin-table-action text-gray-600">
                                                 <i class="pi pi-eye text-xs"></i>
                                             </Link>
-                                            <Link :href="route('admin.contenido.edit', c.id)" title="Editar" class="admin-table-action text-gray-600">
-                                                <i class="pi pi-pencil text-xs"></i>
-                                            </Link>
-                                            <button @click="eliminarContenido(c)" title="Eliminar" class="admin-table-action text-red-600 hover:bg-red-50">
-                                                <i class="pi pi-trash text-xs"></i>
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -276,25 +237,6 @@ async function eliminarContenido(c) {
                             <span class="font-semibold text-gray-800">{{ cantidad }}</span>
                         </li>
                     </ul>
-                </div>
-
-                <!-- Acciones Rápidas -->
-                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:acciones">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-bolt text-brand"></i> Acciones Rápidas</span>
-                    </div>
-                    <div class="space-y-3 p-4">
-                        <button v-for="a in accionesRapidas" :key="a.label" type="button" @click="irA(a)"
-                            class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group text-left">
-                            <div class="admin-icon-circle" style="width:44px;height:44px">
-                                <i class="pi text-sm" :class="a.icon"></i>
-                            </div>
-                            <div class="min-w-0">
-                                <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">{{ a.label }}</p>
-                                <p class="text-xs text-gray-400">{{ a.desc }}</p>
-                            </div>
-                        </button>
-                    </div>
                 </div>
             </div>
 

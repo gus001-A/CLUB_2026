@@ -6,9 +6,11 @@ use App\Http\Controllers\Admin\ContenidoController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EventoController;
 use App\Http\Controllers\Admin\InvitacionController;
+use App\Http\Controllers\Admin\ProductoController;
 use App\Http\Controllers\Admin\ReporteController;
 use App\Http\Controllers\Admin\SeguridadController;
 use App\Http\Controllers\Admin\ShopController;
+use App\Http\Controllers\Admin\SoporteController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Auth\LoginController;
 use Illuminate\Support\Facades\Route;
@@ -65,20 +67,24 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('/eventos/{evento}', [EventoController::class, 'update'])->name('eventos.update');
         Route::delete('/eventos/{evento}', [EventoController::class, 'destroy'])->name('eventos.destroy');
 
-        // --- Contenido ---
+        // --- Contenido (solo monitoreo: index + show, sin crear/editar/eliminar) ---
         Route::get('/contenido', [ContenidoController::class, 'index'])->name('contenido.index');
-        Route::get('/contenido/crear', [ContenidoController::class, 'create'])->name('contenido.create');
-        Route::post('/contenido', [ContenidoController::class, 'store'])->name('contenido.store');
         Route::get('/contenido/{contenido}', [ContenidoController::class, 'show'])->name('contenido.show');
-        Route::get('/contenido/{contenido}/editar', [ContenidoController::class, 'edit'])->name('contenido.edit');
-        Route::patch('/contenido/{contenido}', [ContenidoController::class, 'update'])->name('contenido.update');
-        Route::delete('/contenido/{contenido}', [ContenidoController::class, 'destroy'])->name('contenido.destroy');
 
-        // --- Shop ---
+        // --- Shop (Pedidos) ---
         Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
         Route::get('/shop/exportar', [ShopController::class, 'exportar'])->name('shop.exportar');
         Route::get('/shop/{pedido}', [ShopController::class, 'show'])->name('shop.show');
         Route::post('/shop/{pedido}/estado', [ShopController::class, 'actualizarEstado'])->name('shop.actualizar-estado');
+
+        // --- Productos ---
+        Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
+        Route::get('/productos/crear', [ProductoController::class, 'create'])->name('productos.create');
+        Route::post('/productos', [ProductoController::class, 'store'])->name('productos.store');
+        Route::get('/productos/{producto}', [ProductoController::class, 'show'])->name('productos.show');
+        Route::get('/productos/{producto}/editar', [ProductoController::class, 'edit'])->name('productos.edit');
+        Route::patch('/productos/{producto}', [ProductoController::class, 'update'])->name('productos.update');
+        Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])->name('productos.destroy');
 
         // --- Reportes ---
         Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
@@ -97,8 +103,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/configuracion', [ConfiguracionController::class, 'index'])->name('configuracion.index');
         Route::patch('/configuracion', [ConfiguracionController::class, 'actualizar'])->name('configuracion.actualizar');
 
+        // --- Mensajes (bandeja de soporte admin ↔ usuario) ---
+        Route::get('/mensajes', [SoporteController::class, 'index'])->name('mensajes.index');
+        Route::post('/mensajes/iniciar', [SoporteController::class, 'iniciar'])->name('mensajes.iniciar');
+        Route::post('/mensajes/{soporte}/enviar', [SoporteController::class, 'enviar'])->name('mensajes.enviar');
+        Route::post('/mensajes/{soporte}/cerrar', [SoporteController::class, 'cerrar'])->name('mensajes.cerrar');
+
         // --- Modulares / Coming Soon ---
-        Route::get('/mensajes', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Mensajes']))->name('mensajes.index');
         Route::get('/soporte', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Soporte']))->name('soporte.index');
     });
 });

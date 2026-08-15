@@ -12,6 +12,11 @@ use Inertia\Response;
 
 class ContenidoController extends Controller
 {
+    /**
+     * El admin solo monitorea el contenido que suben los creadores: bitácora,
+     * filtros y estadísticas. No hay create/store/edit/update/destroy aquí
+     * — eso es exclusivo del panel de creadores.
+     */
     public function index(Request $request): Response
     {
         // Salvavidas: si un contenido "programado" ya pasó su fecha/hora y
@@ -20,6 +25,8 @@ class ContenidoController extends Controller
         // sitio público depende de que esto pase puntual sin que nadie abra
         // el admin, hace falta un comando con schedule:everyMinute() en
         // routes/console.php (o el Kernel, según tu versión de Laravel).
+        // NOTA: esto no es "editar contenido" en el sentido de que el admin
+        // decide algo — solo confirma un estado que el creador ya programó.
         $this->promoverProgramados();
 
         $total = Contenido::count();
@@ -134,51 +141,6 @@ class ContenidoController extends Controller
             ->update(['estado' => 'publicado']);
     }
 
-    public function create(Request $request): Response
-    {
-        return Inertia::render('Admin/Contenido/Create', [
-            'tipoPreseleccionado' => $request->query('tipo'),
-        ]);
-    }
-
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'titulo' => ['required', 'string', 'max:255'],
-            'categoria' => ['nullable', 'string', 'max:255'],
-            'descripcion' => ['nullable', 'string'],
-            'tipo' => ['required', 'in:foto,video,galeria,audio,articulo,documento,exclusivo'],
-            'visibilidad' => ['required', 'in:publico,suscriptores,individual'],
-            'estado' => ['required', 'in:borrador,publicado,programado,archivado'],
-            'precio' => ['required', 'numeric', 'min:0'],
-            'es_premium' => ['boolean'],
-            'archivos' => [
-                'required', 'array',
-                function ($attribute, $value, $fail) use ($request) {
-                    $minimo = $request->input('tipo') === 'galeria' ? 3 : 1;
-                    if (count($value) < $minimo) {
-                        $fail($minimo === 3 ? 'Una galería debe tener al menos 3 fotos.' : 'Agrega al menos un archivo.');
-                    }
-                },
-            ],
-            'archivos.*' => [
-                'file', 'max:1048576',
-                'mimes:jpg,jpeg,png,gif,webp,mp4,mov,webm,avi,mp3,wav,ogg,m4a,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip,rar,7z',
-            ],
-            'etiquetas' => ['nullable', 'array'],
-            'etiquetas.*' => ['string', 'max:50'],
-            'programado_en' => ['nullable', 'required_if:estado,programado', 'date'],
-        ]);
-
-        $data['archivos'] = $this->guardarArchivos($request->file('archivos', []));
-
-        $contenido = Contenido::create($data + [
-            'creador_id' => auth('admin')->id(),
-        ]);
-
-        return redirect()->route('admin.contenido.index')->with('success', "Contenido \"{$contenido->titulo}\" creado correctamente.");
-    }
-
     public function show(Contenido $contenido): Response
     {
         $contenido->vistas = $contenido->interacciones()->where('tipo', 'vista')->count();
@@ -191,82 +153,6 @@ class ContenidoController extends Controller
         return Inertia::render('Admin/Contenido/Show', [
             'contenido' => $data,
         ]);
-    }
-
-    public function edit(Contenido $contenido): Response
-    {
-        $data = $contenido->toArray();
-        $data['archivos'] = $this->resolverArchivos($contenido->archivos);
-
-        return Inertia::render('Admin/Contenido/Edit', [
-            'contenido' => $data,
-        ]);
-    }
-
-    public function update(Request $request, Contenido $contenido)
-    {
-        $data = $request->validate([
-            'titulo' => ['required', 'string', 'max:255'],
-            'categoria' => ['nullable', 'string', 'max:255'],
-            'descripcion' => ['nullable', 'string'],
-            'tipo' => ['required', 'in:foto,video,galeria,audio,articulo,documento,exclusivo'],
-            'visibilidad' => ['required', 'in:publico,suscriptores,individual'],
-            'estado' => ['required', 'in:borrador,publicado,programado,archivado'],
-            'precio' => ['required', 'numeric', 'min:0'],
-            'es_premium' => ['boolean'],
-            'archivos_existentes' => [
-                'array',
-                function ($attribute, $value, $fail) use ($request) {
-                    $totalNuevos = count($request->file('archivos_nuevos', []));
-                    $minimo = $request->input('tipo') === 'galeria' ? 3 : 1;
-                    if (count($value) + $totalNuevos < $minimo) {
-                        $fail($minimo === 3 ? 'Una galería debe tener al menos 3 fotos.' : 'Agrega al menos un archivo.');
-                    }
-                },
-            ],
-            'archivos_existentes.*' => ['string'],
-            'archivos_nuevos' => ['nullable', 'array'],
-            'archivos_nuevos.*' => [
-                'file', 'max:1048576',
-                'mimes:jpg,jpeg,png,gif,webp,mp4,mov,webm,avi,mp3,wav,ogg,m4a,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip,rar,7z',
-            ],
-            'etiquetas' => ['nullable', 'array'],
-            'etiquetas.*' => ['string', 'max:50'],
-            'programado_en' => ['nullable', 'required_if:estado,programado', 'date'],
-        ]);
-
-        // Rutas internas que el admin decidió conservar (convertidas de vuelta
-        // desde la URL pública que le mandamos al formulario)
-        $existentes = array_map(fn ($url) => $this->rutaOriginal($url), $data['archivos_existentes'] ?? []);
-
-        // Borra del disco los archivos que ya no están entre los conservados
-        foreach ($contenido->archivos ?? [] as $rutaAnterior) {
-            if (! in_array($rutaAnterior, $existentes, true)) {
-                $this->borrarSiEsPropio($rutaAnterior);
-            }
-        }
-
-        $nuevasRutas = $this->guardarArchivos($request->file('archivos_nuevos', []));
-
-        $data['archivos'] = array_values(array_merge($existentes, $nuevasRutas));
-        unset($data['archivos_existentes'], $data['archivos_nuevos']);
-
-        $contenido->update($data);
-
-        return redirect()->route('admin.contenido.index')->with('success', "Contenido \"{$contenido->titulo}\" actualizado correctamente.");
-    }
-
-    public function destroy(Contenido $contenido)
-    {
-        $titulo = $contenido->titulo ?: 'Sin título';
-
-        foreach ($contenido->archivos ?? [] as $ruta) {
-            $this->borrarSiEsPropio($ruta);
-        }
-
-        $contenido->delete();
-
-        return redirect()->route('admin.contenido.index')->with('success', "Contenido \"{$titulo}\" eliminado correctamente.");
     }
 
     /**
@@ -291,41 +177,5 @@ class ContenidoController extends Controller
     private function resolverArchivos(?array $rutas): array
     {
         return array_values(array_filter(array_map(fn ($r) => $this->resolverUrl($r), $rutas ?? [])));
-    }
-
-    /**
-     * Camino inverso: dada la URL pública que manda el frontend (la que
-     * generó resolverUrl), regresa la ruta interna guardable en la BD.
-     * Si es una URL externa que no pasa por /storage/, se deja tal cual.
-     */
-    private function rutaOriginal(string $url): string
-    {
-        $marcador = '/storage/';
-        $pos = strpos($url, $marcador);
-
-        if ($pos !== false) {
-            return substr($url, $pos + strlen($marcador));
-        }
-
-        return $url;
-    }
-
-    /** Sube los archivos nuevos recibidos y devuelve las rutas guardadas. */
-    private function guardarArchivos(array $archivos): array
-    {
-        $rutas = [];
-        foreach ($archivos as $archivo) {
-            $rutas[] = $archivo->store('contenido', 'public');
-        }
-
-        return $rutas;
-    }
-
-    /** Borra del disco solo si es una ruta interna (no una URL externa). */
-    private function borrarSiEsPropio(?string $ruta): void
-    {
-        if ($ruta && ! str_starts_with($ruta, 'http://') && ! str_starts_with($ruta, 'https://')) {
-            Storage::disk('public')->delete($ruta);
-        }
     }
 }

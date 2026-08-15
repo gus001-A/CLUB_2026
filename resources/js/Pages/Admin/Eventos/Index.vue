@@ -403,9 +403,7 @@ async function eliminarEvento(evento) {
                             </button>
                     </div>
                 </div>
-
             </div>
-
         </div>
     </AdminLayout>
 </template>

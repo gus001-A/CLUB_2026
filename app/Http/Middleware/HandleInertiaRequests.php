@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\CodigoInvitacion;
+use App\Models\MensajeSoporte;
 use App\Models\Transaccion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -284,6 +285,7 @@ class HandleInertiaRequests extends Middleware
             return [
                 'invitacionesPendientes' => 0,
                 'pagosPendientes' => 0,
+                'mensajesSoporteSinLeer' => 0,
                 'notificaciones' => 0,
             ];
         }
@@ -291,18 +293,21 @@ class HandleInertiaRequests extends Middleware
         // Contar pagos pendientes
         $pagosPendientes = Transaccion::where('estado', 'pendiente')->count();
 
+        // Mensajes de soporte (usuario → admin) que siguen sin leerse
+        $mensajesSoporteSinLeer = MensajeSoporte::deUsuario()->noLeidos()->count();
+
         return [
             'invitacionesPendientes' => 0,
             'pagosPendientes' => $pagosPendientes,
-            'notificaciones' => $pagosPendientes,
+            'mensajesSoporteSinLeer' => $mensajesSoporteSinLeer,
+            'notificaciones' => $pagosPendientes + $mensajesSoporteSinLeer,
         ];
     }
 
     /**
      * Lista real que alimenta el panel de la campana (no solo el número).
-     * Por ahora son los pagos pendientes, porque es lo único que "badges"
-     * está contando de verdad. Cuando exista una tabla de notificaciones,
-     * esto se reemplaza por Notificacion::where('leida', false)->...
+     * Combina pagos pendientes y mensajes de soporte sin leer, ordenados
+     * por fecha, tope de 5.
      */
     private function notificaciones(Request $request): array
     {
@@ -310,19 +315,44 @@ class HandleInertiaRequests extends Middleware
             return [];
         }
 
-        return Transaccion::with('usuario:id,nombre,apodo')
+        $pagos = Transaccion::with('usuario:id,nombre,apodo')
             ->where('estado', 'pendiente')
             ->latest()
             ->take(5)
             ->get()
             ->map(fn ($t) => [
-                'id' => $t->id,
+                'id' => 'pago-' . $t->id,
                 'titulo' => 'Pago pendiente de aprobación',
                 'mensaje' => '@' . ($t->usuario?->apodo ?? $t->usuario?->nombre ?? 'usuario')
                     . ' — $' . number_format($t->monto, 2),
                 'fecha' => $t->created_at->diffForHumans(),
                 'route' => 'admin.cobros.index',
-            ])
+                'params' => [],
+                'ordenar_por' => $t->created_at,
+            ]);
+
+        $mensajes = MensajeSoporte::with('usuario:id,nombre,apodo')
+            ->deUsuario()
+            ->noLeidos()
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(fn ($m) => [
+                'id' => 'soporte-' . $m->id,
+                'titulo' => 'Nuevo mensaje de soporte',
+                'mensaje' => '@' . ($m->usuario?->apodo ?? $m->usuario?->nombre ?? 'usuario')
+                    . ': ' . str($m->texto)->limit(50)->value(),
+                'fecha' => $m->created_at->diffForHumans(),
+                'route' => 'admin.mensajes.index',
+                'params' => ['soporte' => $m->soporte_id],
+                'ordenar_por' => $m->created_at,
+            ]);
+
+        return $pagos->concat($mensajes)
+            ->sortByDesc('ordenar_por')
+            ->take(5)
+            ->map(fn ($n) => collect($n)->except('ordenar_por')->all())
+            ->values()
             ->all();
     }
 }

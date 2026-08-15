@@ -77,6 +77,15 @@ async function descartar(r) {
     if (!ok) return;
     router.delete(route('admin.reportes.destroy', r.id), { preserveScroll: true });
 }
+
+function contactarReportante(r) {
+    if (!r.reporta?.id) return;
+    router.post(route('admin.mensajes.iniciar'), {
+        usuario_id: r.reporta.id,
+        reporte_id: r.id,
+        asunto: `Reporte #${r.id} — ${r.tipo_nombre}`,
+    });
+}
 </script>
 
 <template>
@@ -181,6 +190,9 @@ async function descartar(r) {
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
+                                    <button v-if="r.reporta?.id" @click="contactarReportante(r)" class="text-xs text-brand border rounded-lg px-2.5 py-1.5 hover:bg-brand/5" style="border-color:var(--brand)" title="Iniciar conversación de soporte con el reportante">
+                                        <i class="pi pi-comments"></i> Contactar
+                                    </button>
                                     <button v-if="r.estado === 'pendiente'" @click="marcarRevisado(r)" class="text-xs text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-50">
                                         Revisar
                                     </button>

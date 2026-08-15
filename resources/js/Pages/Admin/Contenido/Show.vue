@@ -1,30 +1,17 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables/useFormatters';
 import { useContenidoMeta } from '@/composables/useContenidoMeta';
-import { useConfirm } from '@/composables/useConfirm';
 
 const props = defineProps({
     contenido: Object,
 });
 
-const { confirm } = useConfirm();
-
 const { money, formatDate: formatDateBase } = useFormatters();
 const formatFecha = (v) => formatDateBase(v, { month: 'long', hour: '2-digit', minute: '2-digit' });
 
 const { tipoLabel, tipoIcono, tipoColor, estadoColores, estadoLabel, visibilidadLabel, visibilidadIcono } = useContenidoMeta();
-
-async function eliminar() {
-    const ok = await confirm(`Esto eliminará "${props.contenido.titulo}" permanentemente.`, {
-        title: 'Eliminar contenido',
-        confirmLabel: 'Sí, eliminar',
-        danger: true,
-    });
-    if (!ok) return;
-    router.delete(route('admin.contenido.destroy', props.contenido.id));
-}
 </script>
 
 <template>
@@ -219,15 +206,9 @@ async function eliminar() {
                     <!-- Acciones -->
                     <div class="admin-card overflow-hidden">
                         <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-bolt text-brand"></i> Acciones</span>
+                            <span class="admin-card-header-title"><i class="pi pi-bolt text-brand"></i> Navegación</span>
                         </div>
                         <div class="flex flex-col gap-2.5 p-6">
-                            <Link :href="route('admin.contenido.edit', contenido.id)" class="admin-btn-primary">
-                                <i class="pi pi-pencil text-xs"></i> Editar contenido
-                            </Link>
-                            <button @click="eliminar" class="border border-red-200 text-red-600 hover:bg-red-50 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2">
-                                <i class="pi pi-trash text-xs"></i> Eliminar contenido
-                            </button>
                             <Link :href="route('admin.contenido.index')" class="admin-btn-secondary text-center">
                                 Volver al listado
                             </Link>

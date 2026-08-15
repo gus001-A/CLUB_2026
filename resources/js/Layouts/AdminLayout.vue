@@ -57,10 +57,23 @@ const links = computed(() => [
         icon: 'pi-folder',
         children: [
             { name: 'Todo el contenido', route: 'admin.contenido.index' },
-            { name: 'Nuevo contenido', route: 'admin.contenido.create' },
+            ...(route().current('admin.contenido.show')
+                ? [{ name: 'Ver Contenido', url: window.location.pathname }]
+                : []),
         ],
     },
-    { name: 'Shop', route: 'admin.shop.index', icon: 'pi-shopping-bag' },
+    { name: 'Pedidos', route: 'admin.shop.index', icon: 'pi-shopping-bag' },
+    {
+        name: 'Productos',
+        icon: 'pi-tags',
+        children: [
+            { name: 'Todos los productos', route: 'admin.productos.index' },
+            { name: 'Nuevo producto', route: 'admin.productos.create' },
+            ...(route().current('admin.productos.edit')
+                ? [{ name: 'Editar Producto', url: window.location.pathname }]
+                : []),
+        ],
+    },
     { name: 'Reportes', route: 'admin.reportes.index', icon: 'pi-chart-line' },
     { name: 'Mensajes', route: 'admin.mensajes.index', icon: 'pi-comments' },
     { name: 'Configuración', route: 'admin.configuracion.index', icon: 'pi-cog' },
