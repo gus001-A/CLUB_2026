@@ -81,6 +81,70 @@ class ProductoController extends Controller
         ]);
     }
 
+    /**
+     * Vista "Ver todos los productos": listado completo con más filtros
+     * y desglose por categoría/estado — separado del dashboard de Productos.
+     */
+    public function todos(Request $request): Response
+    {
+        $query = Producto::query();
+
+        if ($search = $request->string('q')->trim()->value()) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre', 'like', "%{$search}%")
+                    ->orWhere('sku', 'like', "%{$search}%");
+            });
+        }
+        if ($categoria = $request->string('categoria')->value()) {
+            $query->where('categoria', $categoria);
+        }
+        if ($estado = $request->string('estado')->value()) {
+            if ($estado === 'activo') {
+                $query->where('esta_activo', true);
+            } elseif ($estado === 'inactivo') {
+                $query->where('esta_activo', false);
+            } elseif ($estado === 'sin_stock') {
+                $query->where('stock', '<=', 0);
+            }
+        }
+
+        $productos = $query->latest()->paginate(10)->withQueryString();
+        $productos->through(fn (Producto $p) => [
+            'id' => $p->id,
+            'sku' => $p->sku,
+            'nombre' => $p->nombre,
+            'categoria' => $p->categoria,
+            'marca' => $p->marca,
+            'precio' => (float) $p->precio,
+            'stock' => $p->stock,
+            'esta_activo' => $p->esta_activo,
+            'imagen' => $this->resolverUrl($p->imagenes[0] ?? null),
+        ]);
+
+        // --- Desglose por categoría ---
+        $porCategoria = collect(self::CATEGORIAS)->map(fn ($cat) => [
+            'categoria' => $cat,
+            'label' => $cat,
+            'cantidad' => Producto::where('categoria', $cat)->count(),
+        ]);
+
+        // --- Desglose por estado ---
+        $porEstado = collect([
+            ['estado' => 'activo', 'label' => 'Activos', 'cantidad' => Producto::where('esta_activo', true)->count()],
+            ['estado' => 'inactivo', 'label' => 'Inactivos', 'cantidad' => Producto::where('esta_activo', false)->count()],
+            ['estado' => 'sin_stock', 'label' => 'Sin stock', 'cantidad' => Producto::where('stock', '<=', 0)->count()],
+        ]);
+
+        return Inertia::render('Admin/Productos/Productos', [
+            'productos' => $productos,
+            'filtros' => $request->only(['q', 'categoria', 'estado']),
+            'categorias' => self::CATEGORIAS,
+            'porCategoria' => $porCategoria,
+            'porEstado' => $porEstado,
+            'totalGeneral' => Producto::count(),
+        ]);
+    }
+
     public function create(): Response
     {
         return Inertia::render('Admin/Productos/Create', [

@@ -290,6 +290,11 @@ class EventoController extends Controller
         } elseif ($request->boolean('eliminar_imagen')) {
             $this->borrarImagenSiEsPropia($evento->imagen);
             $data['imagen'] = null;
+        } else {
+            // Ni archivo nuevo ni "eliminar imagen" marcado: no tocar la
+            // imagen que ya tenía. Sin este unset, el formulario mandaba
+            // 'imagen' vacío igual y se pisaba la imagen existente con null.
+            unset($data['imagen']);
         }
         unset($data['eliminar_imagen']);
 
@@ -311,7 +316,7 @@ class EventoController extends Controller
 
         $evento->delete();
 
-        return back()->with('success', "Evento \"{$nombre}\" eliminado correctamente.");
+        return redirect()->route('admin.eventos.index')->with('success', "Evento \"{$nombre}\" eliminado correctamente.");
     }
 
     /** Borra del disco solo si es una ruta interna (no una URL externa). */

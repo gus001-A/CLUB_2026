@@ -158,7 +158,7 @@ function irA(a) {
                             </div>
 
                             <div class="overflow-x-auto flex-1 flex flex-col">
-                                <table class="w-full text-left text-sm min-w-[760px] flex-1">
+                                <table class="w-full text-left text-sm min-w-[760px]">
                                 <thead>
                                     <tr class="border-y border-gray-100 bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider">
                                         <th class="pl-6 pr-4 py-3 font-semibold">Pedido</th>
@@ -216,7 +216,7 @@ function irA(a) {
                             <Pagination :data="pedidos" />
                         </div>
                         <div v-else class="border-t border-gray-100 py-3.5 text-center">
-                            <Link :href="route('admin.shop.index')" class="text-brand font-medium hover:underline text-xs">
+                            <Link :href="route('admin.shop.todos')" class="text-brand font-medium hover:underline text-xs">
                                 Ver todos los pedidos
                             </Link>
                         </div>

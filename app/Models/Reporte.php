@@ -19,6 +19,7 @@ class Reporte extends Model
         'tipo',
         'descripcion',
         'estado',
+        'atendido_por_admin_id',
         'metadatos',
     ];
 
@@ -43,6 +44,11 @@ class Reporte extends Model
     public function reportado()
     {
         return $this->belongsTo(User::class, 'reportado_id');
+    }
+
+    public function atendidoPor()
+    {
+        return $this->belongsTo(Administrador::class, 'atendido_por_admin_id');
     }
 
     // Scopes

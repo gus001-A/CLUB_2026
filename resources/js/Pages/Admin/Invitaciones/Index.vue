@@ -133,7 +133,8 @@ function irA(a) {
             <div class="admin-invitaciones-main-grid gap-6 w-full">
 
                 <!-- Gestión de Invitaciones -->
-                <div class="min-w-0 admin-card overflow-hidden flex flex-col" style="grid-area:gestion">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between" style="grid-area:gestion">
+                    <div class="flex flex-col flex-1">
                     <div class="admin-card-header">
                         <span class="admin-card-header-title"><i class="pi pi-envelope text-brand"></i> Gestión de Invitaciones</span>
                         <Link :href="route('admin.invitaciones.create')" class="admin-btn-primary flex-none" style="padding:0.4rem 0.85rem;font-size:0.75rem">
@@ -224,6 +225,7 @@ function irA(a) {
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
                     </div>
 
                     <!-- Paginación o Enlace Ver todas las invitaciones -->

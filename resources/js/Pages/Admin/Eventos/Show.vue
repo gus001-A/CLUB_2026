@@ -2,6 +2,7 @@
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { useConfirm } from '@/composables/useConfirm';
+import { useToast } from '@/composables/useToast';
 import { useFormatters } from '@/composables/useFormatters';
 
 const props = defineProps({
@@ -9,6 +10,7 @@ const props = defineProps({
 });
 
 const { confirm } = useConfirm();
+const toast = useToast();
 const { money, formatDate } = useFormatters();
 
 const estadoColores = {
@@ -38,7 +40,10 @@ async function eliminar() {
         danger: true,
     });
     if (!ok) return;
-    router.delete(route('admin.eventos.destroy', props.evento.id));
+    router.delete(route('admin.eventos.destroy', props.evento.id), {
+        onSuccess: () => toast.success(`Evento "${props.evento.nombre}" eliminado correctamente.`),
+        onError: () => toast.error('No se pudo eliminar el evento.'),
+    });
 }
 </script>
 

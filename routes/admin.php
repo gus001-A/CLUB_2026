@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ContenidoController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EventoController;
 use App\Http\Controllers\Admin\InvitacionController;
+use App\Http\Controllers\Admin\ModeracionController;
 use App\Http\Controllers\Admin\ProductoController;
 use App\Http\Controllers\Admin\ReporteController;
 use App\Http\Controllers\Admin\SeguridadController;
@@ -74,6 +75,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // --- Shop (Pedidos) ---
         Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
         Route::get('/shop/exportar', [ShopController::class, 'exportar'])->name('shop.exportar');
+        Route::get('/shop/todos', [ShopController::class, 'todos'])->name('shop.todos');
         Route::get('/shop/{pedido}', [ShopController::class, 'show'])->name('shop.show');
         Route::post('/shop/{pedido}/estado', [ShopController::class, 'actualizarEstado'])->name('shop.actualizar-estado');
 
@@ -81,17 +83,24 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
         Route::get('/productos/crear', [ProductoController::class, 'create'])->name('productos.create');
         Route::post('/productos', [ProductoController::class, 'store'])->name('productos.store');
+        Route::get('/productos/todos', [ProductoController::class, 'todos'])->name('productos.todos');
         Route::get('/productos/{producto}', [ProductoController::class, 'show'])->name('productos.show');
         Route::get('/productos/{producto}/editar', [ProductoController::class, 'edit'])->name('productos.edit');
         Route::patch('/productos/{producto}', [ProductoController::class, 'update'])->name('productos.update');
         Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])->name('productos.destroy');
 
-        // --- Reportes ---
+        // --- Reportes analíticos (hub + reportes individuales, PDF/Excel) ---
         Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
-        Route::post('/reportes/{reporte}/revisar', [ReporteController::class, 'marcarRevisado'])->name('reportes.revisar');
-        Route::post('/reportes/{reporte}/resolver', [ReporteController::class, 'resolver'])->name('reportes.resolver');
-        Route::post('/reportes/{reporte}/bloquear', [ReporteController::class, 'bloquearReportado'])->name('reportes.bloquear');
-        Route::delete('/reportes/{reporte}', [ReporteController::class, 'destroy'])->name('reportes.destroy');
+        Route::get('/reportes/{tipo}/exportar-pdf', [ReporteController::class, 'exportarPdf'])->name('reportes.exportar-pdf');
+        Route::get('/reportes/{tipo}/exportar-excel', [ReporteController::class, 'exportarExcel'])->name('reportes.exportar-excel');
+        Route::get('/reportes/{tipo}', [ReporteController::class, 'detalle'])->name('reportes.detalle');
+
+        // --- Soporte (moderación de reportes entre usuarios: acoso, perfil falso, spam...) ---
+        Route::get('/soporte', [ModeracionController::class, 'index'])->name('soporte.index');
+        Route::post('/soporte/{reporte}/revisar', [ModeracionController::class, 'marcarRevisado'])->name('soporte.revisar');
+        Route::post('/soporte/{reporte}/resolver', [ModeracionController::class, 'resolver'])->name('soporte.resolver');
+        Route::post('/soporte/{reporte}/bloquear', [ModeracionController::class, 'bloquearReportado'])->name('soporte.bloquear');
+        Route::delete('/soporte/{reporte}', [ModeracionController::class, 'destroy'])->name('soporte.destroy');
 
         // --- Seguridad ---
         Route::get('/seguridad', [SeguridadController::class, 'index'])->name('seguridad.index');
@@ -108,8 +117,5 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/mensajes/iniciar', [SoporteController::class, 'iniciar'])->name('mensajes.iniciar');
         Route::post('/mensajes/{soporte}/enviar', [SoporteController::class, 'enviar'])->name('mensajes.enviar');
         Route::post('/mensajes/{soporte}/cerrar', [SoporteController::class, 'cerrar'])->name('mensajes.cerrar');
-
-        // --- Modulares / Coming Soon ---
-        Route::get('/soporte', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Soporte']))->name('soporte.index');
     });
 });

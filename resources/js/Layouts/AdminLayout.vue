@@ -7,7 +7,7 @@ import ConfirmModal from '@/Components/ConfirmModal.vue';
 
 const page = usePage();
 const admin = computed(() => page.props.auth?.admin);
-const badges = computed(() => page.props.badges || { invitacionesPendientes: 0, notificaciones: 0 });
+const badges = computed(() => page.props.badges || { invitacionesPendientes: 0, reportesPendientes: 0, mensajesSoporteSinLeer: 0, pedidosNuevos: 0, productosStockBajo: 0, notificaciones: 0 });
 const toast = useToast();
 
 const sidebarAbierto = ref(false);
@@ -18,6 +18,55 @@ const perfilAbierto = ref(false);
 // Ajusta el nombre según cómo lo envíes desde el controlador/middleware.
 const notificaciones = computed(() => page.props.notificaciones || []);
 
+// "Vista" = el admin ya le dio clic y entró al Show correspondiente. Se
+// guarda en localStorage (por navegador, no en la BD) solo para pintarla
+// gris la próxima vez que se abra la campana — el contador real de
+// pendientes sigue viniendo del backend tal cual.
+const NOTIF_VISTAS_KEY = 'admin_notificaciones_vistas';
+const notificacionesVistas = ref(JSON.parse(localStorage.getItem(NOTIF_VISTAS_KEY) || '[]'));
+
+function esNotificacionVista(id) {
+    return notificacionesVistas.value.includes(id);
+}
+
+function marcarNotificacionVista(id) {
+    if (!id || notificacionesVistas.value.includes(id)) return;
+    notificacionesVistas.value.push(id);
+    // Tope para que localStorage no crezca sin límite con el tiempo.
+    if (notificacionesVistas.value.length > 200) {
+        notificacionesVistas.value = notificacionesVistas.value.slice(-200);
+    }
+    localStorage.setItem(NOTIF_VISTAS_KEY, JSON.stringify(notificacionesVistas.value));
+}
+
+// El id de cada notificación viene como "prefijo-idReal" (ej. "stock-9",
+// "pedido-12"). De ahí sacamos a qué badgeKey del sidebar pertenece, sin
+// que el backend tenga que mandarlo aparte.
+const PREFIJO_A_BADGE = {
+    pago: 'pagosPendientes',
+    soporte: 'mensajesSoporteSinLeer',
+    reporte: 'reportesPendientes',
+    invitacion: 'invitacionesPendientes',
+    pedido: 'pedidosNuevos',
+    stock: 'productosStockBajo',
+};
+
+// Notificaciones que la campana SÍ trae (máximo 5, las más recientes) y que
+// el admin todavía no ha visto — esto es lo que se muestra en el ícono de
+// la campana y en el encabezado del dropdown.
+const notificacionesNuevas = computed(() => notificaciones.value.filter((n) => !esNotificacionVista(n.id)));
+
+// Contador de un badgeKey del sidebar, restando las que ya se vieron (de
+// las que trae la campana para esa categoría). El total real del backend
+// no se toca — esto solo ajusta lo que se pinta en pantalla.
+function contadorBadge(badgeKey) {
+    const total = badges.value[badgeKey] ?? 0;
+    const vistasDeEsaCategoria = notificaciones.value.filter(
+        (n) => PREFIJO_A_BADGE[n.id?.split('-')[0]] === badgeKey && esNotificacionVista(n.id)
+    ).length;
+    return Math.max(total - vistasDeEsaCategoria, 0);
+}
+
 const links = computed(() => [
     { name: 'Dashboard', route: 'admin.dashboard', icon: 'pi-home' },
     {
@@ -26,15 +75,29 @@ const links = computed(() => [
         children: [
             { name: 'Todos los usuarios', route: 'admin.usuarios.index' },
             { name: 'Agregar usuario', route: 'admin.usuarios.create' },
+            ...(route().current('admin.usuarios.show')
+                ? [{ name: 'Ver Usuario', url: window.location.pathname }]
+                : []),
             ...(route().current('admin.usuarios.edit')
                 ? [{ name: 'Editar Usuario', url: window.location.pathname }]
                 : []),
         ],
     },
-    { name: 'Cobros y Pagos', route: 'admin.cobros.index', icon: 'pi-dollar' },
+    {
+        name: 'Cobros y Pagos',
+        icon: 'pi-dollar',
+        badgeKey: 'pagosPendientes',
+        children: [
+            { name: 'Todos los cobros', route: 'admin.cobros.index' },
+            ...(route().current('admin.cobros.show')
+                ? [{ name: 'Ver Cobro', url: window.location.pathname }]
+                : []),
+        ],
+    },
     {
         name: 'Invitaciones',
         icon: 'pi-envelope',
+        badgeKey: 'invitacionesPendientes',
         children: [
             { name: 'Todas las invitaciones', route: 'admin.invitaciones.index' },
             { name: 'Nueva invitación', route: 'admin.invitaciones.create' },
@@ -47,6 +110,9 @@ const links = computed(() => [
         children: [
             { name: 'Todos los eventos', route: 'admin.eventos.index' },
             { name: 'Nuevo evento', route: 'admin.eventos.create' },
+            ...(route().current('admin.eventos.show')
+                ? [{ name: 'Ver Evento', url: window.location.pathname }]
+                : []),
             ...(route().current('admin.eventos.edit')
                 ? [{ name: 'Editar Evento', url: window.location.pathname }]
                 : []),
@@ -62,23 +128,37 @@ const links = computed(() => [
                 : []),
         ],
     },
-    { name: 'Pedidos', route: 'admin.shop.index', icon: 'pi-shopping-bag' },
+    {
+        name: 'Pedidos',
+        icon: 'pi-shopping-bag',
+        badgeKey: 'pedidosNuevos',
+        children: [
+            { name: 'Todos los pedidos', route: 'admin.shop.index' },
+            ...(route().current('admin.shop.show')
+                ? [{ name: 'Ver Pedido', url: window.location.pathname }]
+                : []),
+        ],
+    },
     {
         name: 'Productos',
         icon: 'pi-tags',
+        badgeKey: 'productosStockBajo',
         children: [
             { name: 'Todos los productos', route: 'admin.productos.index' },
             { name: 'Nuevo producto', route: 'admin.productos.create' },
+            ...(route().current('admin.productos.show')
+                ? [{ name: 'Ver Producto', url: window.location.pathname }]
+                : []),
             ...(route().current('admin.productos.edit')
                 ? [{ name: 'Editar Producto', url: window.location.pathname }]
                 : []),
         ],
     },
-    { name: 'Reportes', route: 'admin.reportes.index', icon: 'pi-chart-line' },
-    { name: 'Mensajes', route: 'admin.mensajes.index', icon: 'pi-comments' },
+    { name: 'Soporte', route: 'admin.soporte.index', icon: 'pi-flag', badgeKey: 'reportesPendientes' },
+    { name: 'Mensajes', route: 'admin.mensajes.index', icon: 'pi-comments', badgeKey: 'mensajesSoporteSinLeer' },
     { name: 'Configuración', route: 'admin.configuracion.index', icon: 'pi-cog' },
     { name: 'Seguridad', route: 'admin.seguridad.index', icon: 'pi-shield' },
-    { name: 'Soporte', route: 'admin.soporte.index', icon: 'pi-headphones' },
+    { name: 'Reportes', route: 'admin.reportes.index', icon: 'pi-chart-bar' },
 ]);
 
 function isActive(routeName) {
@@ -173,11 +253,11 @@ function logout() {
                         <i class="pi text-base" :class="link.icon"></i>
                         <span class="flex-1">{{ link.name }}</span>
                         <span
-                            v-if="link.name === 'Invitaciones' ? badges.invitacionesPendientes > 0 : link.badge"
+                            v-if="link.badgeKey ? contadorBadge(link.badgeKey) > 0 : link.badge"
                             class="bg-brand text-white text-[11px] font-semibold rounded-full w-5 h-5 flex items-center justify-center"
                             :class="isActive(link.route) ? 'bg-white/25' : ''"
                         >
-                            {{ link.name === 'Invitaciones' ? badges.invitacionesPendientes : link.badge }}
+                            {{ link.badgeKey ? contadorBadge(link.badgeKey) : link.badge }}
                         </span>
                     </Link>
 
@@ -194,11 +274,11 @@ function logout() {
                             <i class="pi text-base" :class="link.icon"></i>
                             <span class="flex-1 text-left">{{ link.name }}</span>
                             <span
-                                v-if="link.name === 'Invitaciones' && badges.invitacionesPendientes > 0"
+                                v-if="link.badgeKey && contadorBadge(link.badgeKey) > 0"
                                 class="bg-brand text-white text-[11px] font-semibold rounded-full w-5 h-5 flex items-center justify-center"
                                 :class="grupoActivo(link) && !estaAbierto(link) ? 'bg-white/25' : ''"
                             >
-                                {{ badges.invitacionesPendientes }}
+                                {{ contadorBadge(link.badgeKey) }}
                             </span>
                             <i class="pi text-xs transition-transform" :class="estaAbierto(link) ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
                         </button>
@@ -261,11 +341,11 @@ function logout() {
                         >
                             <i class="pi pi-bell"></i>
                             <span
-                                v-if="badges.notificaciones > 0"
+                                v-if="notificacionesNuevas.length > 0"
                                 class="admin-icon-badge text-[10px]"
                                 style="width:18px;height:18px;top:-2px;right:-2px"
                             >
-                                {{ badges.notificaciones }}
+                                {{ notificacionesNuevas.length }}
                             </span>
                         </button>
 
@@ -284,9 +364,9 @@ function logout() {
                                         <h3 class="font-serif font-semibold text-gray-800">Notificaciones</h3>
                                         <span
                                             class="inline-block mt-1 text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                                            :class="badges.notificaciones > 0 ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-400'"
+                                            :class="notificacionesNuevas.length > 0 ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-400'"
                                         >
-                                            {{ badges.notificaciones }} nuevas
+                                            {{ notificacionesNuevas.length }} nuevas
                                         </span>
                                     </div>
                                 </div>
@@ -305,11 +385,12 @@ function logout() {
                                     <Link
                                         v-for="n in notificaciones"
                                         :key="n.id"
-                                        :href="n.route ? route(n.route) : '#'"
-                                        @click="cerrarNotificaciones"
+                                        :href="n.route ? route(n.route, n.params || {}) : '#'"
+                                        @click="marcarNotificacionVista(n.id); cerrarNotificaciones()"
                                         class="block px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                                        :class="esNotificacionVista(n.id) ? 'opacity-50' : ''"
                                     >
-                                        <p class="text-sm text-gray-700 font-medium">{{ n.titulo }}</p>
+                                        <p class="text-sm font-medium" :class="esNotificacionVista(n.id) ? 'text-gray-400' : 'text-gray-700'">{{ n.titulo }}</p>
                                         <p class="text-xs text-gray-400 mt-0.5">{{ n.mensaje }}</p>
                                         <p class="text-[11px] text-gray-300 mt-1">{{ n.fecha }}</p>
                                     </Link>

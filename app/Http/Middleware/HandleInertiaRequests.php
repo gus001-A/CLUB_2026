@@ -4,6 +4,9 @@ namespace App\Http\Middleware;
 
 use App\Models\CodigoInvitacion;
 use App\Models\MensajeSoporte;
+use App\Models\Pedido;
+use App\Models\Producto;
+use App\Models\Reporte;
 use App\Models\Transaccion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -285,7 +288,10 @@ class HandleInertiaRequests extends Middleware
             return [
                 'invitacionesPendientes' => 0,
                 'pagosPendientes' => 0,
+                'reportesPendientes' => 0,
                 'mensajesSoporteSinLeer' => 0,
+                'pedidosNuevos' => 0,
+                'productosStockBajo' => 0,
                 'notificaciones' => 0,
             ];
         }
@@ -296,11 +302,46 @@ class HandleInertiaRequests extends Middleware
         // Mensajes de soporte (usuario → admin) que siguen sin leerse
         $mensajesSoporteSinLeer = MensajeSoporte::deUsuario()->noLeidos()->count();
 
+        // Reportes de usuarios sin revisar
+        $reportesPendientes = Reporte::where('estado', 'pendiente')->count();
+
+        // Invitaciones que llegaron a un resultado final (aceptada o
+        // expirada) en los últimos 7 días — sin columna extra: no
+        // contamos las "pendientes" (esas las mandó el propio admin, no
+        // necesita que se le avise de su propio envío), solo lo que hizo
+        // el destinatario o lo que venció.
+        $ahora = now();
+        $desde = $ahora->copy()->subDays(7);
+        $invitacionesNotificar = CodigoInvitacion::where(function ($q) use ($ahora, $desde) {
+            $q->where('usado_en', '>=', $desde)
+                ->orWhere(function ($q2) use ($ahora, $desde) {
+                    $q2->whereNull('usado_en')
+                        ->whereNotNull('expira_en')
+                        ->whereBetween('expira_en', [$desde, $ahora]);
+                });
+        })->count();
+
+        // Pedidos recién pagados que todavía no se marcan como enviados —
+        // se autolimpia solo: en cuanto lo marcas "enviado" desde el Show,
+        // deja de contar aquí.
+        $pedidosNuevos = Pedido::where('estado', 'pagado')->count();
+
+        // Productos activos con 5 unidades o menos (incluye agotados) —
+        // se autolimpia en cuanto repongas stock.
+        $umbralStockBajo = 5;
+        $productosStockBajo = Producto::where('esta_activo', true)
+            ->where('stock', '<=', $umbralStockBajo)
+            ->count();
+
         return [
-            'invitacionesPendientes' => 0,
+            'invitacionesPendientes' => $invitacionesNotificar,
             'pagosPendientes' => $pagosPendientes,
+            'reportesPendientes' => $reportesPendientes,
             'mensajesSoporteSinLeer' => $mensajesSoporteSinLeer,
-            'notificaciones' => $pagosPendientes + $mensajesSoporteSinLeer,
+            'pedidosNuevos' => $pedidosNuevos,
+            'productosStockBajo' => $productosStockBajo,
+            'notificaciones' => $pagosPendientes + $mensajesSoporteSinLeer + $reportesPendientes
+                + $invitacionesNotificar + $pedidosNuevos + $productosStockBajo,
         ];
     }
 
@@ -348,7 +389,80 @@ class HandleInertiaRequests extends Middleware
                 'ordenar_por' => $m->created_at,
             ]);
 
-        return $pagos->concat($mensajes)
+        $reportes = Reporte::with('reportado:id,nombre,apodo')
+            ->where('estado', 'pendiente')
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(fn ($r) => [
+                'id' => 'reporte-' . $r->id,
+                'titulo' => 'Nuevo reporte: ' . ($r->tipo_nombre ?? $r->tipo),
+                'mensaje' => 'Sobre @' . ($r->reportado?->apodo ?? $r->reportado?->nombre ?? 'usuario eliminado'),
+                'fecha' => $r->created_at->diffForHumans(),
+                'route' => 'admin.soporte.index',
+                'params' => [],
+                'ordenar_por' => $r->created_at,
+            ]);
+
+        $ahora = now();
+        $desde = $ahora->copy()->subDays(7);
+        $invitaciones = CodigoInvitacion::where(function ($q) use ($ahora, $desde) {
+            $q->where('usado_en', '>=', $desde)
+                ->orWhere(function ($q2) use ($ahora, $desde) {
+                    $q2->whereNull('usado_en')
+                        ->whereNotNull('expira_en')
+                        ->whereBetween('expira_en', [$desde, $ahora]);
+                });
+        })
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(function ($c) {
+                $aceptada = ! is_null($c->usado_en);
+                $nombre = $c->nombre_destinatario ?: $c->email;
+
+                return [
+                    'id' => 'invitacion-' . $c->id,
+                    'titulo' => $aceptada ? 'Invitación aceptada' : 'Invitación expirada',
+                    'mensaje' => $aceptada ? "{$nombre} aceptó la invitación" : "{$nombre} — la invitación expiró sin usarse",
+                    'fecha' => ($aceptada ? $c->usado_en : $c->expira_en)->diffForHumans(),
+                    'route' => 'admin.invitaciones.index',
+                    'params' => ['q' => $c->codigo],
+                    'ordenar_por' => $aceptada ? $c->usado_en : $c->expira_en,
+                ];
+            });
+
+        $pedidosNuevos = Pedido::with('usuario:id,nombre,apodo')
+            ->where('estado', 'pagado')
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(fn ($p) => [
+                'id' => 'pedido-' . $p->id,
+                'titulo' => 'Pedido nuevo',
+                'mensaje' => "#{$p->numero_pedido} de @" . ($p->usuario?->apodo ?? 'usuario') . ' — $' . number_format($p->total, 2),
+                'fecha' => $p->created_at->diffForHumans(),
+                'route' => 'admin.shop.show',
+                'params' => ['pedido' => $p->id],
+                'ordenar_por' => $p->created_at,
+            ]);
+
+        $productosStockBajo = Producto::where('esta_activo', true)
+            ->where('stock', '<=', 5)
+            ->orderBy('stock')
+            ->take(5)
+            ->get()
+            ->map(fn ($p) => [
+                'id' => 'stock-' . $p->id,
+                'titulo' => $p->stock <= 0 ? 'Producto agotado' : 'Stock bajo',
+                'mensaje' => $p->stock <= 0 ? "\"{$p->nombre}\" ya no tiene stock" : "\"{$p->nombre}\" — quedan {$p->stock} unidades",
+                'fecha' => $p->updated_at->diffForHumans(),
+                'route' => 'admin.productos.show',
+                'params' => ['producto' => $p->id],
+                'ordenar_por' => $p->updated_at,
+            ]);
+
+        return $pagos->concat($mensajes)->concat($reportes)->concat($invitaciones)->concat($pedidosNuevos)->concat($productosStockBajo)
             ->sortByDesc('ordenar_por')
             ->take(5)
             ->map(fn ($n) => collect($n)->except('ordenar_por')->all())

@@ -163,6 +163,11 @@ async function eliminarProducto(p) {
                     <div v-if="productos.last_page > 1" class="border-t border-gray-100 px-6 py-4">
                         <Pagination :data="productos" />
                     </div>
+                    <div v-else class="border-t border-gray-100 py-3.5 text-center">
+                        <Link :href="route('admin.productos.todos')" class="text-brand font-medium hover:underline text-xs">
+                            Ver todos los productos
+                        </Link>
+                    </div>
                 </div>
 
                 <!-- Por Categoría -->
