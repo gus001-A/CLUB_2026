@@ -11,6 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // SOLUCIÓN: Establecer longitud máxima para strings
+        Schema::defaultStringLength(191);
+
         // Tabla de usuarios
         Schema::create('users', function (Blueprint $table) {
             $table->id();
@@ -29,7 +32,12 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['email', 'apodo']);
+            // 📌 CORRECCIÓN: Eliminar el índice compuesto problemático
+            // $table->index(['email', 'apodo']);
+            
+            // En su lugar, crear índices separados
+            $table->index('email');
+            $table->index('apodo');
             $table->index('estado');
             $table->index('rol');
         });

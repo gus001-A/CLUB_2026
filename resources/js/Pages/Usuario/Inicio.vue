@@ -20,8 +20,13 @@ const quickStats = computed(() => page.props.quickStats || []);
 const panelInteligente = computed(() => page.props.panelInteligente || []);
 const eventos = computed(() => page.props.eventos || []);
 const mensajesRecientes = computed(() => page.props.mensajesRecientes || []);
-const actividadReciente = computed(() => page.props.actividadReciente || []);
 const publicacionesRecientes = computed(() => page.props.publicacionesRecientes || []);
+
+// Formatear precio para mostrar
+const formatearPrecio = (precio) => {
+    if (precio <= 0) return 'GRATIS';
+    return '$' + new Intl.NumberFormat('es-MX').format(precio);
+};
 </script>
 
 <template>
@@ -73,7 +78,7 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
             <!-- ============================================================ -->
             <!-- PANEL INTELIGENTE -->
             <!-- ============================================================ -->
-            <section class="section">
+            <section class="section section--panel">
                 <div class="section__heading">
                     <h2>Tu panel inteligente</h2>
                     <p>Todo lo que necesitas para conectar mejor.</p>
@@ -82,14 +87,17 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
                 <div class="panel-grid">
                     <div v-for="item in panelInteligente" :key="item.titulo" class="panel-card">
                         <div class="panel-card__image">
-                            <img :src="item.imagen" :alt="item.titulo" />
+                            <img :src="item.imagen" :alt="item.titulo" loading="lazy" />
                         </div>
                         <div class="panel-card__body">
                             <h3>{{ item.titulo }}</h3>
                             <p>{{ item.desc }}</p>
                             <div class="panel-card__footer">
-                                <a href="#">{{ item.link }} <i v-if="!item.extra" class="pi pi-chevron-right"></i></a>
-                                <strong v-if="item.extra">{{ item.extra }}</strong>
+                                <a href="#" class="panel-card__link">
+                                    {{ item.link }} 
+                                    <i v-if="!item.extra" class="pi pi-chevron-right"></i>
+                                </a>
+                                <strong v-if="item.extra" class="panel-card__extra">{{ item.extra }}</strong>
                             </div>
                         </div>
                     </div>
@@ -99,7 +107,7 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
             <!-- ============================================================ -->
             <!-- COMUNIDAD - ÚLTIMAS 6 PUBLICACIONES -->
             <!-- ============================================================ -->
-            <section class="section">
+            <section class="section section--community">
                 <div class="section__heading section__heading--row">
                     <div>
                         <h2>Comunidad</h2>
@@ -142,7 +150,7 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
                             
                             <!-- Imagen -->
                             <div v-if="publicacion.es_imagen && publicacion.imagen" class="community-card__media">
-                                <img :src="publicacion.imagen" :alt="publicacion.texto || 'Publicación'" @error="(e) => e.target.src = '/images/shared/image-default.jpg'" />
+                                <img :src="publicacion.imagen" :alt="publicacion.texto || 'Publicación'" loading="lazy" @error="(e) => e.target.src = '/images/shared/image-default.jpg'" />
                             </div>
                             
                             <!-- Video -->
@@ -168,57 +176,96 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
             </section>
 
             <!-- ============================================================ -->
-            <!-- EVENTOS -->
+            <!-- EVENTOS (MÁXIMO 5) -->
             <!-- ============================================================ -->
-            <section class="section">
+            <section class="section section--events">
                 <div class="section__heading section__heading--row">
                     <div>
                         <h2>Próximos eventos exclusivos</h2>
                         <p>Vive experiencias únicas en un ambiente seguro y selecto.</p>
                     </div>
-                    <a href="#" class="see-all">Ver todos los eventos <i class="pi pi-chevron-right"></i></a>
+                    <Link :href="route('eventos.index')" class="see-all">
+                        Ver todos los eventos <i class="pi pi-chevron-right"></i>
+                    </Link>
                 </div>
 
                 <div class="event-grid">
                     <div v-if="eventos.length === 0" class="empty-state">
-                        <p>No hay eventos próximos disponibles.</p>
+                        <div class="empty-state__content">
+                            <i class="pi pi-calendar empty-state__icon"></i>
+                            <p>No hay eventos próximos disponibles.</p>
+                            <span class="empty-state__sub">¡Pronto tendremos nuevos eventos para ti!</span>
+                        </div>
                     </div>
-                    <div v-for="e in eventos" :key="e.titulo" class="event-card">
+                    
+                    <div v-for="evento in eventos" :key="evento.id" class="event-card">
                         <div class="event-card__image">
-                            <img :src="e.imagen" :alt="e.titulo" />
+                            <img :src="evento.imagen" :alt="evento.nombre" loading="lazy" />
                             <div class="event-card__date">
-                                <strong>{{ e.dia }}</strong>
-                                <span>{{ e.mes }}</span>
+                                <strong>{{ evento.dia || evento.fecha?.split('-')[2] || '00' }}</strong>
+                                <span>{{ evento.mes_abreviado || 'MES' }}</span>
+                            </div>
+                            <!-- Badge de disponibilidad -->
+                            <div v-if="evento.casi_lleno" class="event-card__badge event-card__badge--warning">
+                                ¡Últimos lugares!
+                            </div>
+                            <div v-if="evento.esta_lleno" class="event-card__badge event-card__badge--danger">
+                                Completado
                             </div>
                         </div>
                         <div class="event-card__body">
-                            <h3>{{ e.titulo }}</h3>
-                            <p><i class="pi pi-map-marker"></i> {{ e.ciudad }}</p>
-                            <p><i class="pi pi-clock"></i> {{ e.fecha }}</p>
-                            <PvButton label="Más información" outlined class="event-card__btn" />
+                            <div class="event-card__header">
+                                <h3>{{ evento.nombre }}</h3>
+                                <span class="event-card__price" :class="{ 'event-card__price--free': evento.es_gratis }">
+                                    {{ evento.precio_formateado || formatearPrecio(evento.precio) }}
+                                </span>
+                            </div>
+                            <p class="event-card__info"><i class="pi pi-map-marker"></i> {{ evento.ciudad || 'Ciudad no especificada' }}</p>
+                            <p class="event-card__info"><i class="pi pi-clock"></i> {{ evento.fecha_completa || evento.fecha_corta || 'Fecha por definir' }} · {{ evento.hora_formateada || 'Horario por definir' }}</p>
+                            <div v-if="!evento.esta_lleno" class="event-card__availability">
+                                <div class="event-card__progress">
+                                    <div class="event-card__progress-bar" :style="{ width: Math.min(evento.porcentaje_ocupado || 0, 100) + '%' }"></div>
+                                </div>
+                                <span class="event-card__availability-text">
+                                    {{ evento.disponibles || 0 }} lugares disponibles
+                                </span>
+                            </div>
+                            <div v-else class="event-card__availability event-card__availability--full">
+                                <span class="event-card__availability-text">Sin lugares disponibles</span>
+                            </div>
+                            <Link :href="route('eventos.show', evento.id)" class="event-card__btn">
+                                Más información
+                                <i class="pi pi-chevron-right"></i>
+                            </Link>
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- ============================================================ -->
-            <!-- MENSAJES + ACTIVIDAD -->
+            <!-- MENSAJES RECIENTES -->
             <!-- ============================================================ -->
-            <section class="section two-col">
-                <PvCard class="panel-list-card">
+            <section class="section section--messages">
+                <PvCard class="panel-list-card panel-list-card--full">
                     <template #title>
                         <div class="panel-list-card__title">
                             <div>
                                 <h2>Mensajes recientes</h2>
                                 <p>Tus conversaciones más recientes.</p>
                             </div>
-                            <a href="#" class="see-all">Ver todos <i class="pi pi-chevron-right"></i></a>
+                            <Link :href="route('mensajes')" class="see-all">
+                                Ver todos <i class="pi pi-chevron-right"></i>
+                            </Link>
                         </div>
                     </template>
                     <template #content>
                         <div class="message-list">
                             <div v-if="mensajesRecientes.length === 0" class="empty-state">
-                                <p>No tienes mensajes aún. ¡Conecta con alguien!</p>
+                                <div class="empty-state__content">
+                                    <i class="pi pi-comment empty-state__icon"></i>
+                                    <p>No tienes mensajes aún.</p>
+                                    <span class="empty-state__sub">¡Conecta con alguien para empezar a conversar!</span>
+                                </div>
                             </div>
                             <div v-for="msg in mensajesRecientes" :key="msg.nombre" class="message-item">
                                 <PvAvatar :image="msg.avatar" shape="circle" size="large" />
@@ -234,32 +281,6 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
                         </div>
                     </template>
                 </PvCard>
-
-                <PvCard class="panel-list-card">
-                    <template #title>
-                        <div class="panel-list-card__title">
-                            <div>
-                                <h2>Actividad reciente</h2>
-                                <p>Lo último en tu comunidad.</p>
-                            </div>
-                        </div>
-                    </template>
-                    <template #content>
-                        <div class="activity-list">
-                            <div v-if="actividadReciente.length === 0" class="empty-state">
-                                <p>No hay actividad reciente.</p>
-                            </div>
-                            <div v-for="act in actividadReciente" :key="act.titulo" class="activity-item">
-                                <span class="activity-item__icon"><i class="pi" :class="act.icon"></i></span>
-                                <div class="activity-item__body">
-                                    <strong>{{ act.titulo }}</strong>
-                                    <span>{{ act.desc }}</span>
-                                </div>
-                                <span class="activity-item__time">{{ act.tiempo }}</span>
-                            </div>
-                        </div>
-                    </template>
-                </PvCard>
             </section>
 
             <!-- ============================================================ -->
@@ -267,7 +288,7 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
             <!-- ============================================================ -->
             <section v-if="!usuario.tiene_perfil" class="cta">
                 <div class="cta__bg">
-                    <img src="/images/completa.png" alt="Completa tu perfil" class="cta__bg-image" />
+                    <img src="/images/completa.png" alt="Completa tu perfil" class="cta__bg-image" loading="lazy" />
                     <div class="cta__bg-overlay"></div>
                 </div>
                 <div class="cta__content">
@@ -279,6 +300,11 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
                     </Link>
                 </div>
             </section>
+
+            <!-- ============================================================ -->
+            <!-- SEPARADOR FINAL -->
+            <!-- ============================================================ -->
+            <div class="section-divider section-divider--bottom"></div>
         </div>
     </AppLayout>
 </template>
@@ -298,6 +324,10 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
   --line: #ECE9E7;
   --surface: #FAF8F7;
   --white: #FFFFFF;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.10);
+  --shadow-xl: 0 30px 80px rgba(0, 0, 0, 0.12);
 
   --font-serif: 'Fraunces', Georgia, serif;
   --font-sans: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
@@ -310,7 +340,7 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
 
   font-family: var(--font-sans);
   color: var(--ink);
-  background: var(--white);
+  background: var(--surface);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -324,6 +354,87 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
 }
 
 /* =========================================================================
+   SECCIÓN DIVISORES
+   ========================================================================= */
+.section-divider {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.section-divider::after {
+    content: '';
+    display: block;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--line), transparent);
+    margin: 1.5rem 0;
+}
+
+.section-divider--bottom::after {
+    margin: 2rem 0 0.5rem 0;
+}
+
+/* =========================================================================
+   SECCIONES CON SOMBRAS
+   ========================================================================= */
+.section--panel {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 2rem 2rem 2.5rem !important;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.3s ease;
+}
+
+.section--panel:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.section--community {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 2rem 2rem 2.5rem !important;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.3s ease;
+}
+
+.section--community:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.section--events {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 2rem 2rem 2.5rem !important;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.3s ease;
+}
+
+.section--events:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.section--messages {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 0 !important;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.3s ease;
+}
+
+.section--messages:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.section--messages .panel-list-card {
+    box-shadow: none !important;
+    border-radius: var(--radius-lg);
+}
+
+.section--messages .panel-list-card:hover {
+    box-shadow: none !important;
+}
+
+/* =========================================================================
    HERO
    ========================================================================= */
 .hero {
@@ -334,7 +445,7 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
     border-radius: var(--radius-lg);
     overflow: hidden;
     min-height: 420px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--shadow-lg);
     background: var(--ink);
 }
 
@@ -428,7 +539,7 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
 }
 
 .stat-card {
-    background: #ffffff; 
+    background: var(--white); 
     border-radius: var(--radius-md);
     padding: 1.25rem 1.5rem; 
     display: flex; 
@@ -436,12 +547,14 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
     gap: 1rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: default;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--line);
 }
 
 .stat-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-md);
+    border-color: transparent;
 }
 
 .stat-card__icon {
@@ -588,18 +701,20 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
 }
 
 .panel-card {
-    background: #ffffff;
+    background: var(--white);
     border-radius: var(--radius-md);
     overflow: hidden;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid var(--line);
 }
 
 .panel-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-lg);
+    border-color: transparent;
 }
 
 .panel-card__image {
@@ -653,9 +768,10 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
     justify-content: space-between;
     align-items: center;
     padding-top: 0.75rem;
+    border-top: 1px solid var(--line);
 }
 
-.panel-card__footer a {
+.panel-card__link {
     color: var(--brand);
     font-size: 0.78rem;
     font-weight: 700;
@@ -666,12 +782,12 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
     transition: all 0.3s ease;
 }
 
-.panel-card__footer a:hover {
+.panel-card__link:hover {
     color: var(--brand-dark);
     gap: 0.6rem;
 }
 
-.panel-card__footer strong {
+.panel-card__extra {
     font-size: 0.85rem;
     font-weight: 700;
     background: var(--brand-soft);
@@ -691,19 +807,21 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
 }
 
 .community-card {
-    background: #ffffff;
+    background: var(--white);
     border-radius: var(--radius-md);
     overflow: hidden;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     height: 100%;
+    border: 1px solid var(--line);
 }
 
 .community-card:hover {
     transform: translateY(-6px);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-lg);
+    border-color: transparent;
 }
 
 .community-card__header {
@@ -827,7 +945,6 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
     gap: 1.25rem;
     padding: 0.5rem 1.25rem;
     border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
     margin: 0 1.25rem 0.5rem 1.25rem;
 }
 
@@ -844,26 +961,30 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
 }
 
 /* =========================================================================
-   EVENTOS
+   EVENTOS - MODIFICADO PARA MOSTRAR 5 Y CON MÁS INFORMACIÓN
    ========================================================================= */
 .event-grid { 
     margin-top: 1.25rem; 
     display: grid; 
-    grid-template-columns: repeat(3, 1fr); 
+    grid-template-columns: repeat(5, 1fr); 
     gap: 1.5rem; 
 }
 
 .event-card {
-    background: #ffffff;
+    background: var(--white);
     border-radius: var(--radius-md);
     overflow: hidden;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
 }
 
 .event-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-lg);
+    border-color: transparent;
 }
 
 .event-card__image {
@@ -909,64 +1030,166 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
     text-transform: uppercase;
 }
 
+.event-card__badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #ffffff;
+}
+
+.event-card__badge--warning {
+    background: #F59E0B;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.event-card__badge--danger {
+    background: #EF4444;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
 .event-card__body { 
     padding: 1rem 1.25rem 1.25rem; 
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.event-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
 }
 
 .event-card__body h3 { 
-    font-size: 0.95rem; 
+    font-size: 0.9rem; 
     font-weight: 600;
-    margin: 0 0 0.5rem; 
+    margin: 0; 
+    flex: 1;
+    line-height: 1.2;
 }
 
-.event-card__body p { 
-    font-size: 0.78rem; 
+.event-card__price {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    padding: 0.15rem 0.5rem;
+    background: var(--surface);
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.event-card__price--free {
+    color: #48BB78;
+    background: #F0FFF4;
+}
+
+.event-card__info { 
+    font-size: 0.75rem; 
     color: var(--muted); 
-    margin: 0 0 0.35rem; 
+    margin: 0 0 0.25rem; 
     display: flex; 
     align-items: center; 
     gap: 0.35rem; 
 }
 
-.event-card__btn { 
-    width: 100%; 
-    margin-top: 0.6rem; 
-    font-weight: 700; 
-    font-size: 0.78rem; 
-    border-radius: var(--radius-sm); 
+.event-card__info i {
+    font-size: 0.7rem;
+    width: 0.9rem;
+    text-align: center;
 }
 
-.event-card__btn :deep(.p-button) {
-    border-color: var(--line);
+.event-card__availability {
+    margin-top: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.event-card__availability--full {
+    opacity: 0.6;
+}
+
+.event-card__progress {
+    width: 100%;
+    height: 4px;
+    background: var(--line);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    margin-bottom: 0.25rem;
+}
+
+.event-card__progress-bar {
+    height: 100%;
+    background: var(--brand);
+    border-radius: var(--radius-full);
+    transition: width 0.6s ease;
+}
+
+.event-card__availability-text {
+    font-size: 0.65rem;
+    color: var(--muted);
+}
+
+.event-card__btn { 
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    width: 100%; 
+    margin-top: auto; 
+    padding: 0.5rem 0.75rem;
+    font-weight: 600; 
+    font-size: 0.78rem; 
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--line);
     color: var(--ink-soft);
     background: transparent;
-    padding: 0.5rem 0.75rem;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
 }
 
-.event-card__btn :deep(.p-button:hover) {
+.event-card__btn:hover {
     border-color: var(--brand);
     color: var(--brand);
     background: var(--brand-soft);
+    transform: translateY(-2px);
+}
+
+.event-card__btn i {
+    font-size: 0.7rem;
+    transition: transform 0.3s ease;
+}
+
+.event-card__btn:hover i {
+    transform: translateX(4px);
 }
 
 /* =========================================================================
-   MENSAJES + ACTIVIDAD
+   MENSAJES RECIENTES
    ========================================================================= */
-.two-col { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr; 
-    gap: 1.5rem; 
+.panel-list-card--full {
+    max-width: 100%;
 }
 
 .panel-list-card { 
     border-radius: var(--radius-md); 
     overflow: hidden;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--line);
 }
 
 .panel-list-card:hover {
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--shadow-md);
+    border-color: transparent;
 }
 
 .panel-list-card :deep(.p-card-body) { 
@@ -1048,68 +1271,6 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
     color: var(--muted-light); 
 }
 
-.activity-list { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 0.5rem; 
-    margin-top: 0.5rem; 
-}
-
-.activity-item { 
-    display: flex; 
-    align-items: flex-start; 
-    gap: 0.75rem; 
-    padding: 0.6rem 0.75rem;
-    border-radius: var(--radius-sm);
-    transition: all 0.3s ease;
-    cursor: default;
-}
-
-.activity-item:hover {
-    background: var(--surface);
-}
-
-.activity-item__icon {
-    width: 32px; 
-    height: 32px; 
-    border-radius: var(--radius-sm); 
-    background: var(--brand-soft); 
-    color: var(--brand);
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    flex-shrink: 0; 
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-}
-
-.activity-item:hover .activity-item__icon {
-    background: var(--brand);
-    color: var(--white);
-}
-
-.activity-item__body { 
-    display: flex; 
-    flex-direction: column; 
-    flex: 1; 
-}
-
-.activity-item__body strong { 
-    font-size: 0.85rem; 
-    color: var(--ink);
-}
-
-.activity-item__body span { 
-    font-size: 0.78rem; 
-    color: var(--muted); 
-}
-
-.activity-item__time { 
-    font-size: 0.7rem; 
-    color: var(--muted-light); 
-    white-space: nowrap; 
-}
-
 /* =========================================================================
    EMPTY STATE
    ========================================================================= */
@@ -1159,7 +1320,7 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
     min-height: 280px;
     display: flex;
     align-items: center;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--shadow-lg);
 }
 
 .cta__bg {
@@ -1257,6 +1418,12 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
 /* =========================================================================
    RESPONSIVE
    ========================================================================= */
+@media (max-width: 1300px) {
+    .event-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
 @media (max-width: 1100px) {
     .panel-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -1266,9 +1433,6 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
     }
     .event-grid {
         grid-template-columns: repeat(2, 1fr);
-    }
-    .two-col {
-        grid-template-columns: 1fr;
     }
 }
 
@@ -1304,6 +1468,11 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
     }
     .section {
         padding: 0 1rem;
+    }
+    .section--panel,
+    .section--community,
+    .section--events {
+        padding: 1.5rem 1rem !important;
     }
     .hero__content {
         padding: 2rem 1.5rem;
@@ -1351,6 +1520,9 @@ const publicacionesRecientes = computed(() => page.props.publicacionesRecientes 
     .community-card__media img,
     .community-card__media--video video {
         height: 200px;
+    }
+    .section-divider {
+        padding: 0 1rem;
     }
 }
 

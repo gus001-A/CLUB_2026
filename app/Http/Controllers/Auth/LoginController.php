@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Log;
 
 class LoginController extends Controller
 {
@@ -27,11 +26,6 @@ class LoginController extends Controller
      */
     public function login(Request $request)
     {
-        Log::info('Intento de inicio de sesión', [
-            'nickname' => $request->nickname,
-            'ip' => $request->ip()
-        ]);
-
         // Validación de los campos
         $request->validate([
             'nickname' => 'required|string|max:50',
@@ -64,11 +58,6 @@ class LoginController extends Controller
         }
 
         // Si llegamos aquí, las credenciales son incorrectas
-        Log::warning('Intento de login fallido - credenciales incorrectas', [
-            'nickname' => $request->nickname,
-            'ip' => $request->ip()
-        ]);
-        
         return back()->withErrors([
             'login' => 'Nickname y/o contraseña incorrecta'
         ])->onlyInput('nickname');
@@ -81,13 +70,6 @@ class LoginController extends Controller
     {
         // Verificar si el admin está activo
         if (!$admin->esta_activo) {
-            Log::warning('Intento de login admin - cuenta inactiva', [
-                'admin_id' => $admin->id,
-                'nickname' => $admin->nickname,
-                'email' => $admin->email,
-                'ip' => $request->ip()
-            ]);
-            
             return back()->withErrors([
                 'login' => 'Esta cuenta de administrador está inactiva.'
             ])->onlyInput('nickname');
@@ -95,14 +77,6 @@ class LoginController extends Controller
 
         // Iniciar sesión como administrador
         Auth::guard('admin')->login($admin, $request->remember ?? false);
-        
-        Log::info('Inicio de sesión exitoso - Administrador', [
-            'admin_id' => $admin->id,
-            'nickname' => $admin->nickname,
-            'email' => $admin->email,
-            'rol' => $admin->rol ?? 'admin',
-            'ip' => $request->ip()
-        ]);
 
         $request->session()->regenerate();
 
@@ -129,35 +103,17 @@ class LoginController extends Controller
     {
         // Verificar si el usuario está activo
         if ($user->estado === 'inactivo' || $user->estado === 'suspendido') {
-            Log::warning('Intento de login - cuenta inactiva', [
-                'user_id' => $user->id,
-                'estado' => $user->estado,
-                'ip' => $request->ip()
-            ]);
-            
             return back()->withErrors([
                 'login' => 'Tu cuenta está inactiva o suspendida. Contacta al soporte.'
             ])->onlyInput('nickname');
         }
 
-        Log::info('Usuario encontrado para login', [
-            'user_id' => $user->id,
-            'apodo' => $user->apodo,
-            'email' => $user->email,
-            'estado' => $user->estado
-        ]);
-
         try {
-            // 🔥 INTENTAR LOGIN CON GUARD WEB
+            // Intentar login con guard web
             Auth::guard('web')->login($user, $request->remember ?? false);
             
             // Verificar que el login fue exitoso
             if (!Auth::guard('web')->check()) {
-                Log::error('Fallo al autenticar usuario - Auth::check() es false', [
-                    'user_id' => $user->id,
-                    'guard' => 'web'
-                ]);
-                
                 return back()->withErrors([
                     'login' => 'Error al iniciar sesión. Por favor intenta de nuevo.'
                 ])->onlyInput('nickname');
@@ -167,19 +123,11 @@ class LoginController extends Controller
             if ($user->perfil) {
                 session()->put('user_perfil', $user->perfil);
             }
-            
-            Log::info('Inicio de sesión exitoso - Usuario', [
-                'user_id' => $user->id,
-                'nickname' => $user->apodo,
-                'email' => $user->email,
-                'rol' => $user->rol,
-                'ip' => $request->ip()
-            ]);
 
             $request->session()->regenerate();
             $request->session()->put('auth.password_confirmed_at', time());
 
-            // 🔥 REDIRECCIONAR A INICIO
+            // Redirigir a inicio
             return redirect()->intended(route('inicio'))
                 ->with('flash', [
                     'toast' => [
@@ -191,13 +139,6 @@ class LoginController extends Controller
                 ]);
 
         } catch (\Exception $e) {
-            Log::error('Error durante el login del usuario', [
-                'user_id' => $user->id,
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
-
             return back()->withErrors([
                 'login' => 'Error al iniciar sesión: ' . $e->getMessage()
             ])->onlyInput('nickname');
@@ -209,20 +150,6 @@ class LoginController extends Controller
      */
     public function logout(Request $request)
     {
-        $user = Auth::user();
-        $admin = Auth::guard('admin')->user();
-        
-        $userType = $user ? 'Usuario' : ($admin ? 'Administrador' : 'Desconocido');
-        $userId = $user?->id ?? $admin?->id ?? null;
-        $userIdentifier = $user?->apodo ?? $admin?->nickname ?? $admin?->nombre ?? $admin?->email ?? null;
-        
-        Log::info('Cierre de sesión', [
-            'tipo' => $userType,
-            'id' => $userId,
-            'nickname' => $userIdentifier,
-            'ip' => $request->ip()
-        ]);
-
         // Limpiar sesión de perfil
         session()->forget('user_perfil');
 
@@ -237,18 +164,6 @@ class LoginController extends Controller
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-
-        if ($userType === 'Administrador') {
-            return redirect()->route('login')
-                ->with('flash', [
-                    'toast' => [
-                        'type' => 'info',
-                        'title' => 'Sesión cerrada',
-                        'message' => 'Has cerrado sesión del panel de administración correctamente.',
-                        'duration' => 3000,
-                    ]
-                ]);
-        }
 
         return redirect()->route('login')
             ->with('flash', [

@@ -103,4 +103,39 @@ class Creador extends Model
     {
         return $this->precios['video'] ?? null;
     }
+
+    // En App\Models\Creador
+
+/**
+ * Relación con la configuración de monetización
+ */
+public function configuracionMonetizacion()
+{
+    return $this->hasOne(ConfiguracionMonetizacion::class);
+}
+
+/**
+ * Obtiene la configuración de monetización activa
+ */
+public function getConfiguracionActivaAttribute()
+{
+    return $this->configuracionMonetizacion()
+                ->where('estado', 'activo')
+                ->first();
+}
+
+/**
+ * Verifica si el creador tiene configurada su monetización
+ */
+public function getTieneMonetizacionConfiguradaAttribute(): bool
+{
+    $config = $this->configuracion_activa;
+    
+    if (!$config) {
+        return false;
+    }
+
+    // Debe tener token de Mercado Pago y método de cobro
+    return $config->token_valido && $config->tiene_tarjeta;
+}
 }

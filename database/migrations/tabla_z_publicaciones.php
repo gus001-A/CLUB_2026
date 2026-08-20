@@ -8,6 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // 👈 ESTABLECER LONGITUD PREDETERMINADA
+        Schema::defaultStringLength(191);
+
         // Tabla publicaciones
         Schema::create('publicaciones', function (Blueprint $table) {
             $table->id();
@@ -18,13 +21,18 @@ return new class extends Migration
             $table->boolean('destacado')->default(false);
             $table->integer('likes')->default(0);
             $table->integer('comentarios_count')->default(0);
-            $table->string('estado')->default('publicado'); // publicado, oculto, reportado
+            
+            // 👈 ESPECIFICAR LONGITUD PARA EL ESTADO
+            $table->string('estado', 50)->default('publicado'); // publicado, oculto, reportado
+            
             $table->json('metadatos')->nullable();
             $table->timestamps();
             $table->softDeletes();
             
             $table->index(['usuario_id', 'created_at']);
-            $table->index('estado');
+            
+            // 👈 ÍNDICE CON LONGITUD ESPECÍFICA
+            $table->index('estado', 'publicaciones_estado_index');
         });
 
         // Tabla comentarios
@@ -34,7 +42,10 @@ return new class extends Migration
             $table->foreignId('usuario_id')->constrained('users')->onDelete('cascade');
             $table->text('texto');
             $table->integer('likes')->default(0);
-            $table->string('estado')->default('aprobado');
+            
+            // 👈 ESPECIFICAR LONGITUD PARA EL ESTADO
+            $table->string('estado', 50)->default('aprobado');
+            
             $table->timestamps();
             $table->softDeletes();
             

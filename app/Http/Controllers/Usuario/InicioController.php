@@ -277,16 +277,17 @@ class InicioController extends Controller
     }
 
     /**
-     * Obtiene eventos para el usuario
+     * Obtiene eventos para el usuario (MÁXIMO 5, CON FECHAS EN ESPAÑOL)
      */
     protected function getEventos($user)
     {
         try {
+            // Obtener los 5 eventos más próximos
             $eventos = Evento::where('fecha', '>=', Carbon::now()->toDateString())
                 ->where('estado', 'publicado')
                 ->orderBy('fecha', 'asc')
                 ->orderBy('hora', 'asc')
-                ->limit(3)
+                ->limit(5)
                 ->get();
 
             $resultados = [];
@@ -295,18 +296,52 @@ class InicioController extends Controller
                 $fecha = Carbon::parse($evento->fecha);
                 $hora = $evento->hora ? Carbon::parse($evento->hora) : null;
                 
-                $fechaCompleta = $fecha->format('D, d M');
-                if ($hora) {
-                    $fechaCompleta .= ' · ' . $hora->format('g:i A');
-                }
+                // Obtener mes en español
+                $meses = [
+                    'January' => 'Enero', 'February' => 'Febrero', 'March' => 'Marzo',
+                    'April' => 'Abril', 'May' => 'Mayo', 'June' => 'Junio',
+                    'July' => 'Julio', 'August' => 'Agosto', 'September' => 'Septiembre',
+                    'October' => 'Octubre', 'November' => 'Noviembre', 'December' => 'Diciembre'
+                ];
+                
+                $mesNombre = $meses[$fecha->format('F')] ?? $fecha->format('F');
+                $mesAbreviado = substr($mesNombre, 0, 3);
+                
+                // Obtener día de la semana en español
+                $dias = [
+                    0 => 'Domingo', 1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles',
+                    4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado'
+                ];
+                $diaSemana = $dias[(int)$fecha->format('w')] ?? 'Día';
+                
+                // Calcular disponibilidad
+                $reservasConfirmadas = $evento->reservas()->whereIn('estado', ['pendiente', 'confirmada'])->count();
+                $disponible = $evento->capacidad - $reservasConfirmadas;
+                $porcentajeOcupado = $evento->capacidad > 0 ? round(($reservasConfirmadas / $evento->capacidad) * 100) : 0;
+                
+                // Determinar si está casi lleno (menos del 15% disponible)
+                $casiLleno = $disponible > 0 && $disponible <= ($evento->capacidad * 0.15);
+                $estaLleno = $disponible <= 0;
 
                 $resultados[] = [
-                    'imagen' => $evento->imagen ?? '/images/inicio/evento-default.jpg',
-                    'dia' => $fecha->format('d'),
-                    'mes' => strtoupper($fecha->format('M')),
-                    'titulo' => $evento->nombre,
+                    'id' => $evento->id,
+                    'nombre' => $evento->nombre,
+                    'imagen' => $this->getImagenUrl($evento),
                     'ciudad' => $evento->ciudad,
-                    'fecha' => $fechaCompleta,
+                    'fecha' => $fecha->format('Y-m-d'),
+                    'fecha_completa' => "{$diaSemana} {$fecha->format('d')} de {$mesNombre}",
+                    'fecha_corta' => $fecha->format('d/m/Y'),
+                    'mes_abreviado' => strtoupper($mesAbreviado),
+                    'dia' => $fecha->format('d'),
+                    'hora_formateada' => $hora ? $hora->format('g:i A') : 'Horario por definir',
+                    'precio' => (float) $evento->precio,
+                    'precio_formateado' => $evento->precio > 0 ? '$' . number_format($evento->precio, 0, ',', '.') : 'GRATIS',
+                    'es_gratis' => $evento->precio <= 0,
+                    'disponibles' => max(0, $disponible),
+                    'porcentaje_ocupado' => $porcentajeOcupado,
+                    'casi_lleno' => $casiLleno,
+                    'esta_lleno' => $estaLleno,
+                    'tipo' => $evento->tipo ?? 'evento',
                 ];
             }
 
@@ -319,6 +354,34 @@ class InicioController extends Controller
             
             return [];
         }
+    }
+
+    /**
+     * Obtiene la URL de la imagen del evento
+     */
+    protected function getImagenUrl($evento)
+    {
+        if (empty($evento->imagen)) {
+            return '/images/eventos/evento-default.jpg';
+        }
+
+        // Si ya es una URL completa
+        if (filter_var($evento->imagen, FILTER_VALIDATE_URL)) {
+            return $evento->imagen;
+        }
+
+        // Si ya tiene /storage/
+        if (strpos($evento->imagen, '/storage/') === 0) {
+            return $evento->imagen;
+        }
+
+        // Si tiene storage/ sin slash inicial
+        if (strpos($evento->imagen, 'storage/') === 0) {
+            return '/' . $evento->imagen;
+        }
+
+        // Caso por defecto
+        return asset('storage/' . ltrim($evento->imagen, '/'));
     }
 
     /**
@@ -362,8 +425,16 @@ class InicioController extends Controller
                     $nombre = $nombre . ' & Pareja';
                 }
 
+                // Obtener avatar del otro usuario
+                $avatar = '/images/inicio/avatar-default.jpg';
+                if ($otroUsuario->foto_principal) {
+                    $avatar = $this->getImagenUrlFromPath($otroUsuario->foto_principal);
+                } elseif ($perfil && $perfil->foto_principal) {
+                    $avatar = $this->getImagenUrlFromPath($perfil->foto_principal);
+                }
+
                 $resultados[] = [
-                    'avatar' => $perfil->foto_principal ?? '/images/inicio/avatar-default.jpg',
+                    'avatar' => $avatar,
                     'nombre' => $nombre,
                     'preview' => $ultimoMensaje ? $this->truncarTexto($ultimoMensaje->texto ?? 'Mensaje sin contenido', 40) : 'Sin mensajes',
                     'hora' => $ultimoMensaje ? $this->formatearTiempo($ultimoMensaje->created_at) : 'Recién',
@@ -380,6 +451,26 @@ class InicioController extends Controller
             
             return [];
         }
+    }
+
+    /**
+     * Obtiene la URL pública de una ruta de imagen
+     */
+    protected function getImagenUrlFromPath($path)
+    {
+        if (empty($path)) {
+            return '/images/inicio/avatar-default.jpg';
+        }
+        
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+        
+        if (strpos($path, '/storage/') === 0) {
+            return $path;
+        }
+        
+        return asset('storage/' . ltrim($path, '/'));
     }
 
     /**
@@ -493,23 +584,17 @@ class InicioController extends Controller
             foreach ($publicaciones as $publicacion) {
                 $usuario = $publicacion->usuario;
                 
-                // 🔥 OBTENER AVATAR DEL USUARIO usando el accesor avatar del modelo User
-                // Este accesor usa foto_principal automáticamente
+                // OBTENER AVATAR DEL USUARIO
                 $avatar = '/images/shared/avatar-default.jpg';
                 if ($usuario) {
-                    // Usamos el accesor avatar que ya existe en el modelo User
                     $avatar = $usuario->avatar ?? '/images/shared/avatar-default.jpg';
-                    
-                    // 🔥 CORRECCIÓN: Si el avatar no tiene http ni empieza con /, agregar prefijo
                     if ($avatar && !str_starts_with($avatar, 'http') && !str_starts_with($avatar, '/')) {
                         $avatar = '/storage/' . $avatar;
                     }
                 }
 
-                // 🔥 Obtener la URL de la imagen del post
+                // Obtener la URL de la imagen del post
                 $mediaUrl = $publicacion->imagen ?? null;
-                
-                // Si la imagen existe y no tiene http ni empieza con /storage/, agregar el prefijo
                 if ($mediaUrl && !str_starts_with($mediaUrl, 'http') && !str_starts_with($mediaUrl, '/')) {
                     $mediaUrl = '/storage/' . $mediaUrl;
                 }

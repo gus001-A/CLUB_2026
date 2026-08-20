@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import { useToast } from 'primevue/usetoast';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -16,9 +16,25 @@ const props = defineProps({
         type: Array,
         default: () => []
     },
+    totalAsistentes: {
+        type: Number,
+        default: 0
+    },
+    creadoresAsistentes: {
+        type: Number,
+        default: 0
+    },
     eventosRelacionados: {
         type: Array,
         default: () => []
+    },
+    tieneReserva: {
+        type: Boolean,
+        default: false
+    },
+    reserva: {
+        type: Object,
+        default: null
     }
 });
 
@@ -41,8 +57,11 @@ const usuario = computed(() => page.props.auth?.user || {
  * Estado local
  * --------------------------------------------------------------- */
 const isReservando = ref(false);
-const isGuardando = ref(false);
 const activeTab = ref('descripcion');
+const mapLoaded = ref(false);
+const mapContainer = ref(null);
+let mapInstance = null;
+let markerInstance = null;
 
 /* ---------------------------------------------------------------
  * Cálculos
@@ -58,21 +77,20 @@ const esEventoPasado = computed(() => {
     return new Date(props.evento.fecha) < new Date();
 });
 
-const estaCompleto = computed(() => 
+const estaCompleto = computed(() =>
     props.evento.cupos_disponibles === 0
 );
+
+const tieneCoordenadas = computed(() => {
+    return props.evento.ubicacion_lat && props.evento.ubicacion_lng;
+});
+
+const ubicacionLat = computed(() => parseFloat(props.evento.ubicacion_lat) || 19.4326);
+const ubicacionLng = computed(() => parseFloat(props.evento.ubicacion_lng) || -99.1332);
 
 /* ---------------------------------------------------------------
  * Datos estáticos
  * --------------------------------------------------------------- */
-const confianza = [
-    { icon: 'pi-users', texto: 'Solo miembros' },
-    { icon: 'pi-check-circle', texto: 'Verificación requerida' },
-    { icon: 'pi-lock', texto: 'Privacidad garantizada' },
-    { icon: 'pi-star-fill', texto: 'Dress code elegante' },
-    { icon: 'pi-ticket', texto: 'Cupo limitado' },
-];
-
 const incluye = [
     { icon: 'pi-gift', titulo: 'Cóctel de bienvenida', desc: 'Brindis de cortesía al llegar' },
     { icon: 'pi-palette', titulo: 'Ambientación premium', desc: 'Iluminación y sonido envolvente' },
@@ -116,16 +134,32 @@ function reservarLugar() {
     window.location.href = `/eventos/${props.evento.id}/reservar`;
 }
 
+function verReserva() {
+    if (props.reserva && props.reserva.id) {
+        window.location.href = `/eventos/reserva/comprobante/${props.reserva.id}`;
+    } else {
+        toast.add({
+            severity: 'info',
+            summary: 'Cargando reserva',
+            detail: 'Redirigiendo a tu reserva...',
+            life: 3000
+        });
+        setTimeout(() => {
+            window.location.href = `/eventos/${props.evento.id}/reservar?ver_reserva=true`;
+        }, 1000);
+    }
+}
+
 function compartirEvento() {
     const url = window.location.href;
     const titulo = props.evento.titulo;
-    
+
     if (navigator.share) {
         navigator.share({
             title: titulo,
             text: `¡No te pierdas "${titulo}"! ${props.evento.descripcion_corta || ''}`,
             url: url
-        }).catch(() => {});
+        }).catch(() => { });
     } else {
         navigator.clipboard.writeText(url).then(() => {
             toast.add({
@@ -143,19 +177,6 @@ function compartirEvento() {
             });
         });
     }
-}
-
-function guardarEvento() {
-    isGuardando.value = true;
-    setTimeout(() => {
-        isGuardando.value = false;
-        toast.add({
-            severity: 'success',
-            summary: 'Evento guardado',
-            detail: 'El evento ha sido guardado en tus favoritos',
-            life: 3000
-        });
-    }, 500);
 }
 
 function obtenerIniciales(nombre) {
@@ -185,11 +206,11 @@ function formatearFecha(fecha) {
     if (!fecha) return 'Por confirmar';
     try {
         const date = new Date(fecha);
-        return date.toLocaleDateString('es-MX', { 
-            weekday: 'long', 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric' 
+        return date.toLocaleDateString('es-MX', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
         });
     } catch {
         return 'Por confirmar';
@@ -208,18 +229,99 @@ function obtenerDiaMes(fecha) {
         return { dia: '--', mes: '---' };
     }
 }
+
+function formatearNumero(numero) {
+    if (!numero && numero !== 0) return '0';
+    return new Intl.NumberFormat('es-MX').format(numero);
+}
+
+/* ---------------------------------------------------------------
+ * Mapa - Inicialización con Leaflet
+ * --------------------------------------------------------------- */
+function initMap() {
+    if (typeof window.L === 'undefined') {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.onload = () => {
+            crearMapa();
+        };
+        document.head.appendChild(script);
+    } else {
+        crearMapa();
+    }
+}
+
+function crearMapa() {
+    if (!mapContainer.value) return;
+
+    const lat = ubicacionLat.value;
+    const lng = ubicacionLng.value;
+
+    mapInstance = window.L.map(mapContainer.value, {
+        center: [lat, lng],
+        zoom: 15,
+        zoomControl: true,
+        fadeAnimation: true,
+        attributionControl: true
+    });
+
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+        minZoom: 10
+    }).addTo(mapInstance);
+
+    const icon = window.L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="background: #c81e3a; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(200, 30, 58, 0.4); border: 3px solid white;">
+                <i class="pi pi-map-marker" style="color: white; font-size: 18px;"></i>
+              </div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 40],
+        popupAnchor: [0, -40]
+    });
+
+    markerInstance = window.L.marker([lat, lng], { icon })
+        .addTo(mapInstance)
+        .bindPopup(`
+            <div style="font-family: 'Inter', sans-serif; padding: 4px;">
+                <strong style="color: #171412; font-size: 14px;">${props.evento.titulo}</strong>
+                <br>
+                <span style="color: #6b6764; font-size: 12px;">
+                    <i class="pi pi-map-marker" style="color: #c81e3a;"></i> 
+                    ${props.evento.ubicacion_detalle || props.evento.ubicacion || props.evento.ciudad || 'Ubicación'}
+                </span>
+            </div>
+        `);
+
+    setTimeout(() => {
+        if (mapInstance) {
+            mapInstance.invalidateSize();
+        }
+    }, 300);
+
+    mapLoaded.value = true;
+}
+
+onMounted(() => {
+    if (tieneCoordenadas.value) {
+        setTimeout(() => {
+            initMap();
+        }, 500);
+    }
+});
 </script>
 
 <template>
+
     <Head :title="evento.titulo" />
 
-    <AppLayout
-        active-nav="eventos"
-        :usuario="usuario"
-        :notificaciones="6"
-        :favoritos="12"
-        :mensajes="3"
-    >
+    <AppLayout active-nav="eventos" :usuario="usuario" :notificaciones="6" :favoritos="12" :mensajes="3">
         <div class="ver-evento-page">
             <!-- ============================================================ -->
             <!-- HERO CON BOOKING CARD -->
@@ -227,11 +329,8 @@ function obtenerDiaMes(fecha) {
             <section class="hero-section">
                 <div class="hero-container">
                     <div class="hero-background">
-                        <img 
-                            :src="getImageUrl(evento.imagen_url || evento.imagen)" 
-                            :alt="evento.titulo" 
-                            class="hero-background__image" 
-                        />
+                        <img :src="getImageUrl(evento.imagen_url || evento.imagen)" :alt="evento.titulo"
+                            class="hero-background__image" />
                         <div class="hero-background__overlay"></div>
                     </div>
 
@@ -245,6 +344,12 @@ function obtenerDiaMes(fecha) {
                         <span v-if="!estaCompleto && !esEventoPasado" class="hero-badge hero-badge--disponible">
                             <i class="pi pi-check-circle"></i> DISPONIBLE
                         </span>
+                        <span v-if="evento.vip" class="hero-badge hero-badge--vip">
+                            <i class="pi pi-crown"></i> VIP
+                        </span>
+                        <span v-if="tieneReserva" class="hero-badge hero-badge--reserva">
+                            <i class="pi pi-check-circle"></i> TIENES RESERVA
+                        </span>
                     </div>
 
                     <div class="hero-content">
@@ -252,7 +357,8 @@ function obtenerDiaMes(fecha) {
                             <div class="hero-date">
                                 <strong>{{ evento.dia || obtenerDiaMes(evento.fecha).dia }}</strong>
                                 <span>{{ evento.mes || obtenerDiaMes(evento.fecha).mes }}</span>
-                                <span class="hero-date__year">{{ evento.fecha ? new Date(evento.fecha).getFullYear() : '' }}</span>
+                                <span class="hero-date__year">{{ evento.fecha ? new Date(evento.fecha).getFullYear() :
+                                    '' }}</span>
                             </div>
                             <div class="hero-info">
                                 <h1>{{ evento.titulo }}</h1>
@@ -262,26 +368,27 @@ function obtenerDiaMes(fecha) {
                                     </span>
                                     <span class="hero-meta__divider">•</span>
                                     <span class="hero-meta__item">
-                                        <i class="pi pi-clock"></i> {{ evento.hora || '23:00 hrs' }}
+                                        <i class="pi pi-clock"></i> {{ evento.hora_formateada || evento.hora }}
                                     </span>
                                     <span class="hero-meta__divider">•</span>
                                     <span class="hero-meta__item">
-                                        <i class="pi pi-tag"></i> {{ evento.tipo_evento || evento.tipo || 'Fiesta privada' }}
+                                        <i class="pi pi-tag"></i> {{ evento.tipo_evento || evento.tipo }}
                                     </span>
                                 </div>
                             </div>
                         </div>
 
                         <div class="hero-actions">
-                            <button class="hero-actions__btn-primary" @click="reservarLugar" :disabled="estaCompleto || esEventoPasado">
+                            <button v-if="tieneReserva" class="hero-actions__btn-reserva" @click="verReserva">
+                                <i class="pi pi-ticket"></i> Ver mi reserva
+                            </button>
+                            <button v-else class="hero-actions__btn-primary" @click="reservarLugar"
+                                :disabled="estaCompleto || esEventoPasado">
                                 {{ estaCompleto ? 'Cupo agotado' : 'Reservar' }}
                             </button>
-                            <button class="hero-actions__btn-secondary" @click="compartirEvento" title="Compartir evento">
+                            <button class="hero-actions__btn-secondary" @click="compartirEvento"
+                                title="Compartir evento">
                                 <i class="pi pi-share-alt"></i>
-                            </button>
-                            <button class="hero-actions__btn-secondary" @click="guardarEvento" :disabled="isGuardando" title="Guardar en favoritos">
-                                <i v-if="isGuardando" class="pi pi-spin pi-spinner"></i>
-                                <i v-else class="pi pi-heart"></i>
                             </button>
                         </div>
                     </div>
@@ -290,25 +397,28 @@ function obtenerDiaMes(fecha) {
                         <div class="booking-card">
                             <div class="booking-card__header">
                                 <span class="booking-card__vip"><i class="pi pi-crown"></i> VIP</span>
-                                <span class="booking-card__price">${{ evento.precio || 25 }}</span>
+                                <span class="booking-card__price">{{ evento.precio_formateado || '$' + (evento.precio ||
+                                    25) }}</span>
                             </div>
                             <span class="booking-card__per-person">por persona</span>
 
                             <div class="booking-card__availability">
                                 <div class="booking-card__availability-info">
-                                    <span><i class="pi pi-users"></i> {{ evento.cupos_disponibles || 150 }} disponibles</span>
+                                    <span><i class="pi pi-users"></i> {{ evento.cupos_disponibles || 150 }}
+                                        disponibles</span>
                                     <span>{{ Math.round(porcentajeDisponible) }}%</span>
                                 </div>
                                 <div class="booking-card__availability-bar">
-                                    <div class="booking-card__availability-fill" :style="{ width: porcentajeDisponible + '%' }"></div>
+                                    <div class="booking-card__availability-fill"
+                                        :style="{ width: porcentajeDisponible + '%' }"></div>
                                 </div>
                             </div>
 
-                            <button 
-                                class="booking-card__btn"
-                                :disabled="estaCompleto || esEventoPasado"
-                                @click="reservarLugar"
-                            >
+                            <button v-if="tieneReserva" class="booking-card__btn-reserva" @click="verReserva">
+                                <i class="pi pi-ticket"></i> Ver mi reserva
+                            </button>
+                            <button v-else class="booking-card__btn" :disabled="estaCompleto || esEventoPasado"
+                                @click="reservarLugar">
                                 {{ estaCompleto ? 'Cupo agotado' : 'Reservar lugar' }}
                             </button>
 
@@ -326,14 +436,15 @@ function obtenerDiaMes(fecha) {
                                     <i class="pi pi-clock"></i>
                                     <div>
                                         <span>Hora</span>
-                                        <strong>{{ evento.hora || '21:00 hrs' }}</strong>
+                                        <strong>{{ evento.hora_formateada || evento.hora || '21:00 hrs' }}</strong>
                                     </div>
                                 </div>
                                 <div class="detail-row">
                                     <i class="pi pi-map-marker"></i>
                                     <div>
                                         <span>Ubicación</span>
-                                        <strong>{{ evento.ubicacion_detalle || evento.ubicacion || 'Locación privada' }}</strong>
+                                        <strong>{{ evento.ubicacion_detalle || evento.ubicacion || 'Locación privada'
+                                        }}</strong>
                                         <small v-if="evento.ubicacion_nota">{{ evento.ubicacion_nota }}</small>
                                     </div>
                                 </div>
@@ -355,16 +466,58 @@ function obtenerDiaMes(fecha) {
             <!-- ============================================================ -->
             <div class="content-grid">
                 <div class="main-column">
+                    <!-- ============================================================ -->
+                    <!-- INFORMACIÓN EXTRA DEL EVENTO - ESTADÍSTICAS -->
+                    <!-- ============================================================ -->
+                    <div class="extra-info-bar">
+                        <h4 class="extra-info-title">
+                            <i class="pi pi-info-circle"></i> Estadísticas del evento
+                        </h4>
+                        <div class="extra-info-grid">
+                            <div class="extra-info-item extra-info-item--capacidad">
+                                <div class="extra-info-item__icon">
+                                    <i class="pi pi-users"></i>
+                                </div>
+                                <div class="extra-info-item__content">
+                                    <span class="extra-info-item__label">Capacidad total</span>
+                                    <strong class="extra-info-item__value">{{ evento.capacidad || 'Ilimitado'
+                                    }}</strong>
+                                </div>
+                            </div>
+
+                            <div class="extra-info-item extra-info-item--reservas">
+                                <div class="extra-info-item__icon">
+                                    <i class="pi pi-ticket"></i>
+                                </div>
+                                <div class="extra-info-item__content">
+                                    <span class="extra-info-item__label">Reservas realizadas</span>
+                                    <strong class="extra-info-item__value">{{ formatearNumero(totalAsistentes)
+                                    }}</strong>
+                                </div>
+                            </div>
+
+                            <div class="extra-info-item extra-info-item--creadores">
+                                <div class="extra-info-item__icon">
+                                    <i class="pi pi-star"></i>
+                                </div>
+                                <div class="extra-info-item__content">
+                                    <span class="extra-info-item__label">Creadores asistentes</span>
+                                    <strong class="extra-info-item__value">{{ formatearNumero(creadoresAsistentes)
+                                    }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ============================================================ -->
+                    <!-- TABS: Descripción, Incluye, Programa -->
+                    <!-- ============================================================ -->
                     <div class="tabs-container">
                         <div class="tabs-header">
-                            <button 
-                                v-for="tab in ['descripcion', 'incluye', 'programa']" 
-                                :key="tab"
-                                class="tab-btn"
-                                :class="{ active: activeTab === tab }"
-                                @click="activeTab = tab"
-                            >
-                                <i :class="tab === 'descripcion' ? 'pi pi-info-circle' : tab === 'incluye' ? 'pi pi-list' : 'pi pi-clock'"></i>
+                            <button v-for="tab in ['descripcion', 'incluye', 'programa']" :key="tab" class="tab-btn"
+                                :class="{ active: activeTab === tab }" @click="activeTab = tab">
+                                <i
+                                    :class="tab === 'descripcion' ? 'pi pi-info-circle' : tab === 'incluye' ? 'pi pi-list' : 'pi pi-clock'"></i>
                                 {{ tab === 'descripcion' ? 'Descripción' : tab === 'incluye' ? 'Incluye' : 'Programa' }}
                             </button>
                         </div>
@@ -372,12 +525,8 @@ function obtenerDiaMes(fecha) {
                         <div class="tab-content">
                             <div v-show="activeTab === 'descripcion'" class="tab-panel">
                                 <div class="section-block">
-                                    <p class="section-block__desc">{{ evento.descripcion || evento.descripcion_larga || 'Descripción no disponible.' }}</p>
-                                    <div class="feature-tags">
-                                        <span v-for="tag in confianza" :key="tag.texto" class="feature-tag">
-                                            <i class="pi" :class="tag.icon"></i> {{ tag.texto }}
-                                        </span>
-                                    </div>
+                                    <p class="section-block__desc">{{ evento.descripcion || evento.descripcion_larga ||
+                                        'Descripción no disponible.' }}</p>
                                 </div>
                             </div>
 
@@ -407,9 +556,8 @@ function obtenerDiaMes(fecha) {
                     </div>
 
                     <!-- ============================================================ -->
-                    <!-- SUSCRIPCIÓN ELIMINADA - ESTA SECCIÓN FUE REMOVIDA -->
+                    <!-- EVENTOS RELACIONADOS -->
                     <!-- ============================================================ -->
-
                     <section v-if="eventosRelacionados && eventosRelacionados.length" class="related-section">
                         <div class="related-section__header">
                             <h2>También te puede interesar</h2>
@@ -431,10 +579,12 @@ function obtenerDiaMes(fecha) {
                                     <h3>{{ e.titulo }}</h3>
                                     <div class="related-card__meta">
                                         <span><i class="pi pi-map-marker"></i> {{ e.ciudad || 'CDMX' }}</span>
-                                        <span><i class="pi pi-clock"></i> {{ e.hora || '21:00 hrs' }}</span>
+                                        <span><i class="pi pi-clock"></i> {{ e.hora_formateada || e.hora || '21:00 hrs'
+                                        }}</span>
                                     </div>
                                     <div class="related-card__footer">
-                                        <span class="related-card__price">${{ e.precio || 0 }}</span>
+                                        <span class="related-card__price">{{ e.precio_formateado || '$' + (e.precio ||
+                                            0) }}</span>
                                         <a :href="`/eventos/${e.id}`" class="related-card__link">
                                             Ver detalles <i class="pi pi-arrow-right"></i>
                                         </a>
@@ -446,6 +596,9 @@ function obtenerDiaMes(fecha) {
                 </div>
 
                 <aside class="sidebar-column">
+                    <!-- ============================================================ -->
+                    <!-- ASISTENTES -->
+                    <!-- ============================================================ -->
                     <div v-if="asistentes && asistentes.length" class="sidebar-card sidebar-card--attendees">
                         <div class="sidebar-card__header">
                             <h3><i class="pi pi-users"></i> Asistentes</h3>
@@ -453,22 +606,20 @@ function obtenerDiaMes(fecha) {
                         </div>
                         <div class="attendees">
                             <div class="attendees__avatars">
-                                <div 
-                                    v-for="(a, i) in asistentes.slice(0, 6)" 
-                                    :key="i" 
-                                    class="attendees__avatar"
-                                    :style="{ backgroundColor: obtenerColorAvatar(a.nombre) }"
-                                    :title="a.nombre"
-                                >
-                                    <span v-if="a.avatar_url" class="attendees__avatar-img" :style="{ backgroundImage: `url(${getImageUrl(a.avatar_url)})` }"></span>
-                                    <span v-else class="attendees__avatar-initials">{{ obtenerIniciales(a.nombre) }}</span>
+                                <div v-for="(a, i) in asistentes.slice(0, 6)" :key="i" class="attendees__avatar"
+                                    :style="{ backgroundColor: obtenerColorAvatar(a.nombre) }" :title="a.nombre">
+                                    <span v-if="a.avatar_url" class="attendees__avatar-img"
+                                        :style="{ backgroundImage: `url(${getImageUrl(a.avatar_url)})` }"></span>
+                                    <span v-else class="attendees__avatar-initials">{{ obtenerIniciales(a.nombre)
+                                    }}</span>
                                 </div>
                                 <div v-if="asistentes.length > 6" class="attendees__more">
                                     +{{ asistentes.length - 6 }}
                                 </div>
                             </div>
                             <div class="attendees__info">
-                                <span class="attendees__count">{{ asistentes.length }} personas asistirán</span>
+                                <span class="attendees__count">{{ totalAsistentes || asistentes.length }} personas
+                                    asistirán</span>
                                 <span class="attendees__status">
                                     <span class="status-dot"></span> En vivo
                                 </span>
@@ -476,28 +627,43 @@ function obtenerDiaMes(fecha) {
                         </div>
                     </div>
 
+                    <!-- ============================================================ -->
+                    <!-- MAPA CON UBICACIÓN -->
+                    <!-- ============================================================ -->
                     <div class="sidebar-card sidebar-card--map">
                         <h3><i class="pi pi-map"></i> Ubicación</h3>
-                        <div class="map-placeholder">
-                            <div class="map-working">
-                                <i class="pi pi-map-marker map-working-icon"></i>
-                                <span class="map-working-text">Estamos trabajando en el mapa</span>
-                                <span class="map-working-sub">Pronto podrás ver la ubicación exacta</span>
+
+                        <div v-if="tieneCoordenadas" class="map-container">
+                            <div ref="mapContainer" class="map-container__leaflet"></div>
+                            <div v-if="!mapLoaded" class="map-container__loading">
+                                <i class="pi pi-spin pi-spinner"></i>
+                                <span>Cargando mapa...</span>
                             </div>
                         </div>
-                        <p class="map-note">
-                            <i class="pi pi-info-circle"></i>
-                            La ubicación exacta se comparte al confirmar tu asistencia
-                        </p>
-                    </div>
 
-                    <!-- ============================================================ -->
-                    <!-- SIDEBAR SUSCRIPCIÓN ELIMINADA -->
-                    <!-- ============================================================ -->
+                        <div v-else class="map-placeholder">
+                            <div class="map-working">
+                                <i class="pi pi-map-marker map-working-icon"></i>
+                                <span class="map-working-text">Ubicación no disponible</span>
+                                <span class="map-working-sub">{{ evento.ubicacion_detalle || evento.ubicacion ||
+                                    evento.ciudad || 'Locación privada' }}</span>
+                            </div>
+                        </div>
+
+                        <div class="map-info">
+                            <p v-if="evento.ubicacion_detalle || evento.ubicacion" class="map-address">
+                                <i class="pi pi-home"></i>
+                                {{ evento.ubicacion_detalle || evento.ubicacion }}
+                            </p>
+                        </div>
+                    </div>
                 </aside>
             </div>
 
-            <section class="cta-banner" v-if="!estaCompleto && !esEventoPasado">
+            <!-- ============================================================ -->
+            <!-- CTA BANNER -->
+            <!-- ============================================================ -->
+            <section class="cta-banner" v-if="!estaCompleto && !esEventoPasado && !tieneReserva">
                 <div class="cta-banner__background"></div>
                 <div class="cta-banner__content">
                     <div class="cta-banner__text">
@@ -510,12 +676,32 @@ function obtenerDiaMes(fecha) {
                     </div>
                 </div>
             </section>
+
+            <section class="cta-banner cta-banner--reserva" v-if="tieneReserva && reserva">
+                <div class="cta-banner__background cta-banner__background--reserva"></div>
+                <div class="cta-banner__content">
+                    <div class="cta-banner__text">
+                        <span class="cta-banner__badge cta-banner__badge--reserva">
+                            <i class="pi pi-check-circle"></i> Ya tienes reserva
+                        </span>
+                        <h2>¡Estás confirmado!</h2>
+                        <p>Tu lugar está asegurado para este evento. Revisa los detalles de tu reserva.</p>
+                    </div>
+                    <div class="cta-banner__actions">
+                        <PvButton label="Ver mi reserva" @click="verReserva" class="cta-banner__btn-reserva" />
+                    </div>
+                </div>
+            </section>
         </div>
     </AppLayout>
 </template>
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap');
+
+:deep(.leaflet-container) {
+    font-family: 'Inter', sans-serif;
+}
 
 :root {
     --brand-red: #c81e3a;
@@ -527,6 +713,8 @@ function obtenerDiaMes(fecha) {
     --brand-gray: #6b6764;
     --brand-gray-light: #e8e5e3;
     --brand-white: #faf8f7;
+    --brand-green: #22c55e;
+    --brand-green-dark: #16a34a;
 
     --text-primary: var(--brand-dark);
     --text-secondary: var(--brand-gray);
@@ -591,7 +779,7 @@ function obtenerDiaMes(fecha) {
 .hero-background__overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(0deg, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 75%);
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.85) 20%, rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.1) 75%);
 }
 
 .hero-badges {
@@ -632,6 +820,16 @@ function obtenerDiaMes(fecha) {
 
 .hero-badge--disponible {
     background: rgba(34, 197, 94, 0.9);
+    color: #fff;
+}
+
+.hero-badge--vip {
+    background: linear-gradient(135deg, #8B5CF6, #6D28D9);
+    color: #fff;
+}
+
+.hero-badge--reserva {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
     color: #fff;
 }
 
@@ -730,7 +928,7 @@ function obtenerDiaMes(fecha) {
 
 .hero-meta__item {
     font-size: 0.85rem;
-    color: rgba(255,255,255,0.85);
+    color: rgba(255, 255, 255, 0.85);
     display: flex;
     align-items: center;
     gap: 0.4rem;
@@ -742,7 +940,7 @@ function obtenerDiaMes(fecha) {
 }
 
 .hero-meta__divider {
-    color: rgba(255,255,255,0.3);
+    color: rgba(255, 255, 255, 0.3);
 }
 
 .hero-actions {
@@ -786,12 +984,38 @@ function obtenerDiaMes(fecha) {
     box-shadow: none !important;
 }
 
+.hero-actions__btn-reserva {
+    background: #22c55e !important;
+    color: #ffffff !important;
+    border: 2px solid #22c55e !important;
+    padding: 0.8rem 2.5rem !important;
+    border-radius: 50px !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    font-family: var(--font-body) !important;
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3) !important;
+    min-width: 180px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.hero-actions__btn-reserva:hover {
+    background: #16a34a !important;
+    border-color: #16a34a !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4) !important;
+}
+
 .hero-actions__btn-secondary {
     width: 46px;
     height: 46px;
     border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.3);
-    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
     color: #fff;
     display: flex;
     align-items: center;
@@ -803,7 +1027,7 @@ function obtenerDiaMes(fecha) {
 }
 
 .hero-actions__btn-secondary:hover {
-    background: rgba(255,255,255,0.2);
+    background: rgba(255, 255, 255, 0.2);
     transform: translateY(-2px);
 }
 
@@ -840,7 +1064,7 @@ function obtenerDiaMes(fecha) {
     background: #fff;
     border-radius: 20px;
     padding: 1.5rem;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
     color: var(--text-primary);
 }
 
@@ -944,6 +1168,35 @@ function obtenerDiaMes(fecha) {
     box-shadow: none !important;
 }
 
+.booking-card__btn-reserva {
+    width: 100%;
+    background: #22c55e !important;
+    color: #ffffff !important;
+    border: 2px solid #22c55e !important;
+    padding: 0.9rem 1.5rem !important;
+    border-radius: 50px !important;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    font-family: var(--font-body) !important;
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.25) !important;
+    margin-bottom: 1rem !important;
+    display: flex !important;
+    width: 100% !important;
+    text-align: center !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+}
+
+.booking-card__btn-reserva:hover {
+    background: #16a34a !important;
+    border-color: #16a34a !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4) !important;
+}
+
 .booking-card__divider {
     height: 1px;
     background: linear-gradient(to right, transparent, var(--brand-gray-light), transparent);
@@ -1000,7 +1253,7 @@ function obtenerDiaMes(fecha) {
     margin: 2.5rem auto 0;
     padding: 0 2rem;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-columns: minmax(0, 1fr) 380px;
     gap: 2rem;
     align-items: start;
 }
@@ -1017,6 +1270,108 @@ function obtenerDiaMes(fecha) {
     display: flex;
     flex-direction: column;
     gap: 2rem;
+}
+
+/* ============================================================
+   ESTADÍSTICAS - INFORMACIÓN EXTRA
+   ============================================================ */
+.extra-info-bar {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid var(--brand-gray-light);
+    padding: 1.5rem;
+}
+
+.extra-info-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 1rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.extra-info-title i {
+    color: var(--brand-red);
+}
+
+.extra-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .extra-info-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+}
+
+.extra-info-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--brand-white);
+    border-radius: 12px;
+    border: 1px solid var(--brand-gray-light);
+    transition: all 0.3s ease;
+}
+
+.extra-info-item:hover {
+    border-color: var(--brand-red);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.extra-info-item__icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.extra-info-item--capacidad .extra-info-item__icon {
+    background: #e8f0fe;
+    color: #1a73e8;
+}
+
+.extra-info-item--reservas .extra-info-item__icon {
+    background: #fce8e8;
+    color: #c81e3a;
+}
+
+.extra-info-item--creadores .extra-info-item__icon {
+    background: #fef7e8;
+    color: #d4a53a;
+}
+
+.extra-info-item__content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    flex: 1;
+}
+
+.extra-info-item__label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.extra-info-item__value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
 }
 
 /* ============================================================
@@ -1093,8 +1448,15 @@ function obtenerDiaMes(fecha) {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .section-block__desc {
@@ -1102,29 +1464,6 @@ function obtenerDiaMes(fecha) {
     color: var(--text-primary);
     line-height: 1.8;
     margin: 0 0 1.5rem;
-}
-
-.feature-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-}
-
-.feature-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.35rem 0.9rem;
-    background: var(--brand-white);
-    border: 1px solid var(--brand-gray-light);
-    border-radius: 50px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.feature-tag i {
-    color: var(--brand-red);
 }
 
 .includes-grid {
@@ -1277,14 +1616,6 @@ function obtenerDiaMes(fecha) {
     margin: 0;
     line-height: 1.5;
 }
-
-/* ============================================================
-   NORMAS Y PRIVACIDAD - ELIMINADA COMPLETAMENTE
-   ============================================================ */
-
-/* ============================================================
-   SUSCRIPCIÓN - ELIMINADA COMPLETAMENTE
-   ============================================================ */
 
 /* ============================================================
    EVENTOS RELACIONADOS
@@ -1583,6 +1914,9 @@ function obtenerDiaMes(fecha) {
     animation: pulseDot 1.5s infinite;
 }
 
+/* ============================================================
+   MAPA
+   ============================================================ */
 .sidebar-card--map h3 {
     display: flex;
     align-items: center;
@@ -1595,6 +1929,44 @@ function obtenerDiaMes(fecha) {
 
 .sidebar-card--map h3 i {
     color: var(--brand-red);
+}
+
+.map-container {
+    border-radius: 12px;
+    overflow: hidden;
+    aspect-ratio: 16/10;
+    background: #f5f5f5;
+    position: relative;
+}
+
+.map-container__leaflet {
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+    z-index: 1;
+}
+
+.map-container__loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 2;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.map-container__loading i {
+    font-size: 1.5rem;
+    color: var(--brand-red);
+}
+
+.map-container__loading span {
+    font-size: 0.8rem;
+    font-weight: 500;
 }
 
 .map-placeholder {
@@ -1633,6 +2005,25 @@ function obtenerDiaMes(fecha) {
     font-size: 0.7rem;
     color: var(--text-secondary);
     margin-top: 0.25rem;
+    text-align: center;
+}
+
+.map-info {
+    margin-top: 0.5rem;
+}
+
+.map-address {
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    margin: 0 0 0.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 500;
+}
+
+.map-address i {
+    color: var(--brand-red);
 }
 
 .map-note {
@@ -1649,10 +2040,6 @@ function obtenerDiaMes(fecha) {
 }
 
 /* ============================================================
-   SIDEBAR SUSCRIPCIÓN - ELIMINADA COMPLETAMENTE
-   ============================================================ */
-
-/* ============================================================
    CTA BANNER
    ============================================================ */
 .cta-banner {
@@ -1667,6 +2054,10 @@ function obtenerDiaMes(fecha) {
     inset: 0 2rem 0 2rem;
     border-radius: 20px;
     background: linear-gradient(135deg, var(--brand-dark), #2d2522);
+}
+
+.cta-banner__background--reserva {
+    background: linear-gradient(135deg, #064e3b, #065f46);
 }
 
 .cta-banner__content {
@@ -1689,7 +2080,7 @@ function obtenerDiaMes(fecha) {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    background: rgba(255,255,255,0.1);
+    background: rgba(255, 255, 255, 0.1);
     padding: 0.2rem 0.8rem;
     border-radius: 50px;
     font-size: 0.65rem;
@@ -1700,6 +2091,14 @@ function obtenerDiaMes(fecha) {
 
 .cta-banner__badge i {
     color: var(--brand-gold);
+}
+
+.cta-banner__badge--reserva {
+    background: rgba(34, 197, 94, 0.25);
+}
+
+.cta-banner__badge--reserva i {
+    color: #22c55e;
 }
 
 .cta-banner__text h2 {
@@ -1735,6 +2134,18 @@ function obtenerDiaMes(fecha) {
     background: var(--brand-red-dark) !important;
 }
 
+.cta-banner__btn-reserva {
+    background: #22c55e !important;
+    border: none !important;
+    font-weight: 700 !important;
+    padding: 0.7rem 2rem !important;
+    border-radius: 50px !important;
+}
+
+.cta-banner__btn-reserva:hover {
+    background: #16a34a !important;
+}
+
 @media (max-width: 1100px) {
     .cta-banner {
         padding: 0 1rem;
@@ -1763,7 +2174,29 @@ function obtenerDiaMes(fecha) {
 }
 
 @keyframes pulseDot {
-    0%, 100% { box-shadow: 0 0 0 2px var(--brand-red); }
-    50% { box-shadow: 0 0 0 5px rgba(200, 30, 58, 0.2); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 2px var(--brand-red);
+    }
+
+    50% {
+        box-shadow: 0 0 0 5px rgba(200, 30, 58, 0.2);
+    }
+}
+
+/* ============================================================
+   RESPONSIVE - MAPA
+   ============================================================ */
+@media (max-width: 768px) {
+    .map-container__leaflet {
+        min-height: 180px;
+    }
+}
+
+@media (max-width: 480px) {
+    .map-container__leaflet {
+        min-height: 160px;
+    }
 }
 </style>

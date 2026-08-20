@@ -1,599 +1,3 @@
-<script setup>
-import { reactive, computed, onMounted, ref, watch } from 'vue';
-import { Head, usePage, router, Link } from '@inertiajs/vue3';
-import AppLayout from '@/Layouts/AppLayout.vue';
-import axios from 'axios';
-
-// Importaciones de PrimeVue
-import Button from 'primevue/button';
-import Tag from 'primevue/tag';
-import Badge from 'primevue/badge';
-import InputText from 'primevue/inputtext';
-import Dropdown from 'primevue/dropdown';
-import ConfirmDialog from 'primevue/confirmdialog';
-import { useConfirm } from 'primevue/useconfirm';
-
-// Importar componentes
-import AvatarCustom from '@/Components/AvatarCustom.vue';
-import ToastNotification from '@/Components/ToastNotification.vue';
-
-// Obtener datos desde Inertia
-const page = usePage();
-const confirm = useConfirm();
-
-// ============================================================
-// REFERENCIAS PARA TOAST
-// ============================================================
-const toastRef = ref(null);
-
-// ============================================================
-// PUBLICACIONES
-// ============================================================
-const publicaciones = ref(page.props.publicaciones || []);
-
-// ============================================================
-// FILTROS Y BÚSQUEDA
-// ============================================================
-const filtroBusqueda = ref('');
-const filtroOrden = ref({ label: 'Más recientes', value: 'reciente' });
-
-const opcionesOrden = [
-    { label: 'Más recientes', value: 'reciente' },
-    { label: 'Más antiguos', value: 'antiguo' },
-    { label: 'Más populares', value: 'popular' },
-    { label: 'Más comentados', value: 'comentado' },
-];
-
-// ============================================================
-// FUNCIÓN PARA FORMATEAR TIEMPO EN ESPAÑOL
-// ============================================================
-function formatearTiempo(fecha) {
-    if (!fecha) return 'Recién';
-    
-    const ahora = new Date();
-    const fechaDate = new Date(fecha);
-    const diffMs = ahora - fechaDate;
-    const diffMin = Math.floor(diffMs / 60000);
-    const diffHoras = Math.floor(diffMs / 3600000);
-    const diffDias = Math.floor(diffMs / 86400000);
-    const diffSemanas = Math.floor(diffDias / 7);
-    const diffMeses = Math.floor(diffDias / 30);
-    const diffAnios = Math.floor(diffDias / 365);
-
-    if (diffMin < 1) return 'Hace un momento';
-    if (diffMin < 60) return `Hace ${diffMin} minuto${diffMin > 1 ? 's' : ''}`;
-    if (diffHoras < 24) return `Hace ${diffHoras} hora${diffHoras > 1 ? 's' : ''}`;
-    if (diffDias < 7) return `Hace ${diffDias} día${diffDias > 1 ? 's' : ''}`;
-    if (diffSemanas < 4) return `Hace ${diffSemanas} semana${diffSemanas > 1 ? 's' : ''}`;
-    if (diffMeses < 12) return `Hace ${diffMeses} mes${diffMeses > 1 ? 'es' : ''}`;
-    return `Hace ${diffAnios} año${diffAnios > 1 ? 's' : ''}`;
-}
-
-// ============================================================
-// PUBLICACIONES FILTRADAS
-// ============================================================
-const publicacionesFiltradas = computed(() => {
-    let resultado = [...publicaciones.value];
-
-    if (filtroBusqueda.value.trim()) {
-        const busqueda = filtroBusqueda.value.toLowerCase().trim();
-        resultado = resultado.filter(post => 
-            post.autor.toLowerCase().includes(busqueda) ||
-            post.texto.toLowerCase().includes(busqueda) ||
-            post.rol.toLowerCase().includes(busqueda)
-        );
-    }
-
-    switch (filtroOrden.value.value) {
-        case 'reciente':
-            resultado.sort((a, b) => {
-                if (a.es_temporal && !b.es_temporal) return -1;
-                if (!a.es_temporal && b.es_temporal) return 1;
-                return new Date(b.created_at || b.id) - new Date(a.created_at || a.id);
-            });
-            break;
-        case 'antiguo':
-            resultado.sort((a, b) => new Date(a.created_at || a.id) - new Date(b.created_at || b.id));
-            break;
-        case 'popular':
-            resultado.sort((a, b) => (b.likes || 0) - (a.likes || 0));
-            break;
-        case 'comentado':
-            resultado.sort((a, b) => (b.comentarios || 0) - (a.comentarios || 0));
-            break;
-        default:
-            break;
-    }
-
-    return resultado;
-});
-
-// ============================================================
-// ESTADO PARA COMENTARIOS
-// ============================================================
-const comentariosVisibles = ref({});
-const nuevoComentario = ref({});
-const comentando = ref({});
-
-function toggleComentarios(postId) {
-    comentariosVisibles.value[postId] = !comentariosVisibles.value[postId];
-    if (!nuevoComentario.value[postId]) {
-        nuevoComentario.value[postId] = '';
-    }
-}
-
-// ============================================================
-// REFERENCIAS PARA LOS INPUTS FILE
-// ============================================================
-const imageInput = ref(null);
-const videoInput = ref(null);
-
-// ============================================================
-// FUNCIONES PARA TOAST
-// ============================================================
-function showToast(type, title, message) {
-    if (toastRef.value) {
-        toastRef.value.showToast({
-            type: type,
-            title: title || (type === 'success' ? 'Éxito' : type === 'error' ? 'Error' : 'Información'),
-            message: message,
-            duration: 3000
-        });
-    }
-}
-
-function showSuccess(message, title = 'Éxito') {
-    showToast('success', title, message);
-}
-
-function showError(message, title = 'Error') {
-    showToast('error', title, message);
-}
-
-function showInfo(message, title = 'Información') {
-    showToast('info', title, message);
-}
-
-// ============================================================
-// DATOS DEL USUARIO
-// ============================================================
-const usuario = computed(() => {
-    const user = page.props.usuario || {};
-    let avatar = user.avatar || '/images/shared/avatar-default.jpg';
-    
-    if (avatar && !avatar.startsWith('http') && !avatar.startsWith('/')) {
-        avatar = '/storage/' + avatar;
-    }
-    
-    return {
-        id: user.id || null,
-        nombre: user.nombre || 'Invitado',
-        apodo: user.apodo || 'Invitado',
-        email: user.email || '',
-        avatar: avatar,
-        verificado: user.verificado || false,
-        rol: user.rol || 'invitado',
-        tiene_perfil: user.tiene_perfil || false,
-    };
-});
-
-// ============================================================
-// MÉTRICAS
-// ============================================================
-const metricas = computed(() => {
-    const data = page.props.metricas || [];
-    if (data.length > 0) {
-        return data.filter(m => m.titulo !== 'Grupos privados');
-    }
-    return [
-        { icon: 'pi-wave-pulse', titulo: 'Feed activo', desc: 'Publicaciones, fotos y conversaciones nuevas cada minuto.', valor: '0', etiqueta: 'cargando...' },
-        { icon: 'pi-users', titulo: 'Creadores', desc: 'Comparte y accede a contenido exclusivo de creadores verificados.', valor: '0', etiqueta: 'cargando...' },
-        { icon: 'pi-calendar', titulo: 'Eventos próximos', desc: 'Eventos exclusivos para la comunidad.', valor: '0', etiqueta: 'cargando...' },
-    ];
-});
-
-// ============================================================
-// CREADORES SUGERIDOS
-// ============================================================
-const creadoresSugeridos = computed(() => page.props.creadoresSugeridos || []);
-
-// ============================================================
-// PRÓXIMOS EVENTOS
-// ============================================================
-const proximosEventos = computed(() => page.props.proximosEventos || []);
-
-// ============================================================
-// ESTADO PARA NUEVA PUBLICACIÓN
-// ============================================================
-const nuevaPublicacion = reactive({ 
-    texto: '',
-    imagen: null,
-    video: null,
-    es_premium: false,
-    tipo_media: null,
-    previewUrl: null,
-});
-
-// ============================================================
-// WATCH PARA ACTUALIZAR PREVISUALIZACIÓN
-// ============================================================
-watch(() => nuevaPublicacion.imagen, (newVal) => {
-    if (newVal) {
-        nuevaPublicacion.previewUrl = URL.createObjectURL(newVal);
-        nuevaPublicacion.tipo_media = 'imagen';
-    }
-});
-
-watch(() => nuevaPublicacion.video, (newVal) => {
-    if (newVal) {
-        nuevaPublicacion.previewUrl = URL.createObjectURL(newVal);
-        nuevaPublicacion.tipo_media = 'video';
-    }
-});
-
-// ============================================================
-// FUNCIÓN PARA PUBLICAR
-// ============================================================
-function publicar() {
-    if (!nuevaPublicacion.texto.trim() && !nuevaPublicacion.imagen && !nuevaPublicacion.video) {
-        showError('Escribe algo o adjunta un archivo para publicar');
-        return;
-    }
-    
-    const formData = new FormData();
-    formData.append('texto', nuevaPublicacion.texto);
-    formData.append('es_premium', nuevaPublicacion.es_premium ? 1 : 0);
-    
-    let tempMediaUrl = null;
-    let tempMediaType = 'texto';
-    
-    if (nuevaPublicacion.imagen) {
-        formData.append('imagen', nuevaPublicacion.imagen);
-        formData.append('tipo_media', 'imagen');
-        tempMediaUrl = URL.createObjectURL(nuevaPublicacion.imagen);
-        tempMediaType = 'imagen';
-    }
-    
-    if (nuevaPublicacion.video) {
-        formData.append('video', nuevaPublicacion.video);
-        formData.append('tipo_media', 'video');
-        tempMediaUrl = URL.createObjectURL(nuevaPublicacion.video);
-        tempMediaType = 'video';
-    }
-
-    const tempPost = {
-        id: Date.now(),
-        autor: usuario.value.nombre,
-        rol: usuario.value.rol === 'creador' ? 'Creador' : 'Usuario',
-        avatar: usuario.value.avatar,
-        tiempo: 'Hace un momento',
-        texto: nuevaPublicacion.texto,
-        media_url: tempMediaUrl,
-        media_type: tempMediaType,
-        imagen: tempMediaUrl,
-        likes: 0,
-        liked: false,
-        comentarios: 0,
-        comentarios_list: [],
-        premium: nuevaPublicacion.es_premium,
-        verificado: usuario.value.verificado,
-        es_temporal: true,
-        created_at: new Date().toISOString(),
-        usuario_id: usuario.value.id,
-    };
-
-    publicaciones.value.unshift(tempPost);
-
-    nuevaPublicacion.texto = '';
-    nuevaPublicacion.imagen = null;
-    nuevaPublicacion.video = null;
-    nuevaPublicacion.tipo_media = null;
-    nuevaPublicacion.previewUrl = null;
-    if (imageInput.value) imageInput.value = '';
-    if (videoInput.value) videoInput.value = '';
-
-    showSuccess('Publicando...');
-
-    router.post(route('comunidad.publicar'), formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        preserveScroll: true,
-        preserveState: true,
-        onSuccess: (response) => {
-            const realPosts = response.props?.publicaciones;
-            if (realPosts && realPosts.length > 0) {
-                const realPost = realPosts[0];
-                const index = publicaciones.value.findIndex(p => p.id === tempPost.id || p.es_temporal === true);
-                if (index !== -1) {
-                    publicaciones.value[index] = {
-                        ...realPost,
-                        id: realPost.id || tempPost.id,
-                        es_temporal: false,
-                    };
-                    showSuccess('Publicación creada correctamente');
-                } else {
-                    router.reload();
-                }
-            } else {
-                router.reload();
-            }
-        },
-        onError: (errors) => {
-            const index = publicaciones.value.findIndex(p => p.id === tempPost.id || p.es_temporal === true);
-            if (index !== -1) {
-                publicaciones.value.splice(index, 1);
-            }
-            if (tempMediaUrl) {
-                URL.revokeObjectURL(tempMediaUrl);
-            }
-            console.error('Error al publicar:', errors);
-            const errorMsg = errors?.imagen || errors?.video || errors?.texto || 'Error al publicar';
-            showError(typeof errorMsg === 'string' ? errorMsg : 'Error al publicar');
-        }
-    });
-}
-
-// ============================================================
-// FUNCIÓN PARA DAR LIKE
-// ============================================================
-function darLike(publicacionId) {
-    const post = publicaciones.value.find(p => p.id === publicacionId);
-    if (!post) return;
-
-    const nuevoLike = !post.liked;
-    const likesActuales = post.likes;
-    
-    post.liked = nuevoLike;
-    post.likes = nuevoLike ? post.likes + 1 : post.likes - 1;
-
-    axios.post(route('comunidad.like', publicacionId))
-        .then(response => {
-            const data = response.data;
-            if (data.success) {
-                post.likes = data.likes;
-                post.liked = data.liked;
-            }
-        })
-        .catch(error => {
-            post.liked = !nuevoLike;
-            post.likes = likesActuales;
-            showError('No se pudo procesar el like');
-            console.error('Error al dar like:', error);
-        });
-}
-
-// ============================================================
-// FUNCIÓN PARA ELIMINAR COMENTARIO
-// ============================================================
-function eliminarComentario(postId, comentarioId) {
-    confirm.require({
-        message: '¿Estás seguro de que quieres eliminar este comentario?',
-        header: 'Eliminar comentario',
-        icon: 'pi pi-exclamation-triangle',
-        acceptClass: 'p-button-danger',
-        accept: () => {
-            const post = publicaciones.value.find(p => p.id === postId);
-            if (!post) return;
-
-            // Eliminar temporalmente
-            const index = post.comentarios_list.findIndex(c => c.id === comentarioId);
-            if (index !== -1) {
-                post.comentarios_list.splice(index, 1);
-                post.comentarios = post.comentarios_list.length;
-                showInfo('Comentario eliminado');
-            }
-
-            // TODO: Llamar al endpoint para eliminar comentario
-            // axios.delete(route('comunidad.comentario.eliminar', comentarioId))
-            //     .then(response => {
-            //         if (response.data.success) {
-            //             showSuccess('Comentario eliminado correctamente');
-            //         }
-            //     })
-            //     .catch(error => {
-            //         // Restaurar si falla
-            //         showError('No se pudo eliminar el comentario');
-            //         console.error('Error al eliminar comentario:', error);
-            //     });
-        },
-        reject: () => {}
-    });
-}
-
-// ============================================================
-// FUNCIÓN PARA COMENTAR
-// ============================================================
-function comentar(publicacionId) {
-    const texto = nuevoComentario.value[publicacionId];
-    if (!texto || !texto.trim()) {
-        showError('Escribe un comentario');
-        return;
-    }
-
-    comentando.value[publicacionId] = true;
-
-    axios.post(route('comunidad.comentar', publicacionId), { texto: texto })
-        .then(response => {
-            const data = response.data;
-            if (data.success) {
-                const post = publicaciones.value.find(p => p.id === publicacionId);
-                if (post) {
-                    post.comentarios_list.unshift({
-                        ...data.comentario,
-                        usuario_id: data.comentario.usuario_id || usuario.value.id
-                    });
-                    post.comentarios = data.total_comentarios;
-                    nuevoComentario.value[publicacionId] = '';
-                }
-                showSuccess(data.message);
-            }
-            comentando.value[publicacionId] = false;
-        })
-        .catch(error => {
-            comentando.value[publicacionId] = false;
-            showError('No se pudo agregar el comentario');
-            console.error('Error al comentar:', error);
-        });
-}
-
-// ============================================================
-// FUNCIÓN PARA COMPARTIR
-// ============================================================
-function compartirPublicacion(postId) {
-    const url = window.location.origin + '/comunidad/publicacion/' + postId;
-    
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).then(() => {
-            showSuccess('Link copiado al portapapeles');
-        }).catch(() => {
-            copiarAlPortapapeles(url);
-        });
-    } else {
-        copiarAlPortapapeles(url);
-    }
-}
-
-function copiarAlPortapapeles(texto) {
-    const textarea = document.createElement('textarea');
-    textarea.value = texto;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-        document.execCommand('copy');
-        showSuccess('Link copiado al portapapeles');
-    } catch (err) {
-        showError('No se pudo copiar el link');
-    }
-    document.body.removeChild(textarea);
-}
-
-// ============================================================
-// FUNCIÓN PARA ELIMINAR PUBLICACIÓN
-// ============================================================
-function eliminarPublicacion(postId) {
-    confirm.require({
-        message: '¿Estás seguro de que quieres eliminar esta publicación?',
-        header: 'Eliminar publicación',
-        icon: 'pi pi-exclamation-triangle',
-        acceptClass: 'p-button-danger',
-        accept: () => {
-            const post = publicaciones.value.find(p => p.id === postId);
-            if (!post) return;
-
-            const index = publicaciones.value.findIndex(p => p.id === postId);
-            if (index !== -1) {
-                publicaciones.value.splice(index, 1);
-                showInfo('Publicación eliminada');
-            }
-
-            axios.delete(route('comunidad.eliminar', postId))
-                .then(response => {
-                    if (response.data.success) {
-                        showSuccess('Publicación eliminada correctamente');
-                    }
-                })
-                .catch(error => {
-                    if (post) {
-                        publicaciones.value.splice(index, 0, post);
-                    }
-                    showError('No se pudo eliminar la publicación');
-                    console.error('Error al eliminar:', error);
-                });
-        },
-        reject: () => {}
-    });
-}
-
-// ============================================================
-// FUNCIONES PARA MANEJAR ARCHIVOS
-// ============================================================
-function handleImageUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    if (file.size > 10 * 1024 * 1024) {
-        showError('La imagen no debe superar los 10MB');
-        event.target.value = '';
-        return;
-    }
-    if (!file.type.startsWith('image/')) {
-        showError('El archivo debe ser una imagen');
-        event.target.value = '';
-        return;
-    }
-    
-    if (nuevaPublicacion.video) {
-        nuevaPublicacion.video = null;
-        if (videoInput.value) videoInput.value = '';
-    }
-    
-    nuevaPublicacion.imagen = file;
-    nuevaPublicacion.tipo_media = 'imagen';
-}
-
-function handleVideoUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    if (file.size > 50 * 1024 * 1024) {
-        showError('El video no debe superar los 50MB');
-        event.target.value = '';
-        return;
-    }
-    const validTypes = ['video/mp4', 'video/avi', 'video/quicktime', 'video/x-ms-wmv', 'video/x-flv', 'video/webm', 'video/mkv'];
-    if (!validTypes.includes(file.type)) {
-        showError('Formato de video no soportado. Usa MP4, AVI, MOV, WMV, FLV, WEBM o MKV');
-        event.target.value = '';
-        return;
-    }
-    
-    if (nuevaPublicacion.imagen) {
-        nuevaPublicacion.imagen = null;
-        if (imageInput.value) imageInput.value = '';
-    }
-    
-    nuevaPublicacion.video = file;
-    nuevaPublicacion.tipo_media = 'video';
-}
-
-function eliminarMedia() {
-    if (nuevaPublicacion.previewUrl) {
-        URL.revokeObjectURL(nuevaPublicacion.previewUrl);
-    }
-    nuevaPublicacion.imagen = null;
-    nuevaPublicacion.video = null;
-    nuevaPublicacion.tipo_media = null;
-    nuevaPublicacion.previewUrl = null;
-    if (imageInput.value) imageInput.value = '';
-    if (videoInput.value) videoInput.value = '';
-}
-
-// ============================================================
-// FUNCIONES UTILES
-// ============================================================
-function getInitial(name) {
-    if (!name) return '?';
-    return name.charAt(0).toUpperCase();
-}
-
-function getAvatarUrl(avatar) {
-    if (!avatar) return '/images/shared/avatar-default.jpg';
-    if (!avatar.startsWith('http') && !avatar.startsWith('/')) {
-        return '/storage/' + avatar;
-    }
-    return avatar;
-}
-
-// ============================================================
-// ON MOUNTED
-// ============================================================
-onMounted(() => {
-    console.log('=== 🚀 DATOS DE COMUNIDAD ===');
-    console.log('Publicaciones:', publicaciones.value);
-});
-</script>
-
 <template>
     <Head title="Comunidad" />
 
@@ -622,15 +26,6 @@ onMounted(() => {
                             Conecta con personas reales, comparte experiencias, disfruta contenido exclusivo 
                             y vive momentos inolvidables en un entorno seguro y confiable.
                         </p>
-                        <div class="hero__actions">
-                            <button type="button" class="hero__btn hero__btn--primary" @click="publicar">
-                                Crear publicación <span aria-hidden="true">→</span>
-                            </button>
-                            <button type="button" class="hero__btn hero__btn--outline">
-                                <span class="hero__play-dot">▶</span>
-                                Explorar comunidad
-                            </button>
-                        </div>
                     </div>
 
                     <div class="hero__media">
@@ -900,69 +295,100 @@ onMounted(() => {
 
                 <!-- SIDEBAR -->
                 <aside class="sidebar-column">
-                    <!-- Creadores sugeridos -->
-                    <div class="sidebar-card">
+                    <!-- 🔥 BOTÓN CREADORES - CON MISMO ESTILO QUE LAS DEMÁS TARJETAS -->
+                    <div class="sidebar-card creadores-card">
                         <div class="sidebar-card__header">
-                            <h3>Creadores</h3>
-                            <a href="#" class="see-all">Ver todos <i class="pi pi-chevron-right"></i></a>
+                            <h3>
+                                <i class="pi pi-users" style="color: var(--brand); margin-right: 0.5rem;"></i>
+                                Creadores
+                            </h3>
+                            <button class="creadores-card__btn-link" @click="irAComunidadCreadores">
+                                Ver todos <i class="pi pi-chevron-right"></i>
+                            </button>
                         </div>
-                        <div class="creator-list">
-                            <div v-if="creadoresSugeridos.length === 0" class="empty-state">
-                                <p>No hay creadores disponibles.</p>
-                            </div>
-                            <div v-for="c in creadoresSugeridos" :key="c.nombre" class="creator-item">
-                                <AvatarCustom 
-                                    :image="getAvatarUrl(c.avatar)" 
-                                    :label="getInitial(c.nombre)"
-                                    size="large"
-                                />
-                                <div class="creator-item__info">
-                                    <span class="name">{{ c.nombre }} <i class="pi pi-check-circle"></i></span>
-                                    <span class="subs">{{ c.suscriptores }} suscriptores</span>
-                                </div>
-                                <div class="creator-item__actions">
-                                    <Button label="Seguir" outlined class="btn-follow" />
-                                    <Button label="Ver" text class="btn-profile" />
-                                </div>
-                            </div>
+                        <div class="creadores-card__content">
+                            <p class="creadores-card__desc">
+                                Explora contenido exclusivo de creadores verificados
+                            </p>
+                            <Button 
+                                label="Ir a comunidad de creadores" 
+                                icon="pi pi-arrow-right" 
+                                iconPos="right"
+                                class="creadores-card__btn"
+                                @click="irAComunidadCreadores"
+                            />
                         </div>
-                        <a href="#" class="explore-link">Explorar todos <i class="pi pi-chevron-right"></i></a>
                     </div>
 
-                    <!-- Monetiza tu contenido -->
-                    <div class="monetize-card">
+                    <!-- Monetiza tu contenido - SOLO PARA USUARIOS NO CREADORES -->
+                    <div v-if="usuario.rol !== 'creador' && usuario.rol !== 'admin'" class="monetize-card">
                         <img src="/images/creador.png" alt="Monetiza tu contenido" class="monetize-card__image" />
                         <div class="monetize-card__overlay"></div>
                         <div class="monetize-card__content">
                             <span class="monetize-card__icon"><i class="pi pi-crown"></i></span>
                             <h3>Monetiza tu contenido</h3>
                             <p>Conviértete en creador y genera ingresos con tus suscriptores.</p>
-                            <Button label="SER CREADOR" icon="pi pi-wallet" iconPos="right" />
+                            <Button 
+                                label="SER CREADOR" 
+                                icon="pi pi-wallet"
+                                iconPos="right" 
+                                @click="irACreador"
+                                class="btn-creator"
+                            />
                         </div>
                     </div>
 
                     <!-- Próximos eventos -->
-                    <div class="sidebar-card">
+                    <div class="sidebar-card eventos-card">
                         <div class="sidebar-card__header">
-                            <h3>Próximos eventos</h3>
-                            <a href="#" class="see-all">Ver todos</a>
+                            <h3>
+                                <i class="pi pi-calendar" style="color: var(--brand); margin-right: 0.5rem;"></i>
+                                Próximos eventos
+                            </h3>
+                            <a href="#" class="see-all">Ver todos <i class="pi pi-chevron-right"></i></a>
                         </div>
                         <div class="event-list">
                             <div v-if="proximosEventos.length === 0" class="empty-state">
+                                <i class="pi pi-calendar" style="font-size: 1.5rem; color: #ccc; margin-bottom: 0.5rem;"></i>
                                 <p>No hay eventos próximos.</p>
                             </div>
-                            <div v-for="e in proximosEventos" :key="e.titulo" class="event-item">
-                                <div class="event-item__date">
-                                    <strong>{{ e.dia }}</strong>
-                                    <span>{{ e.mes }}</span>
+                            <div v-for="e in proximosEventos" :key="e.id" class="event-item">
+                                <div class="event-item__image-wrapper">
+                                    <img :src="e.imagen" :alt="e.titulo" class="event-item__image" />
                                 </div>
+                                
                                 <div class="event-item__info">
-                                    <strong>{{ e.titulo }}</strong>
-                                    <span><i class="pi pi-map-marker"></i> {{ e.lugar }}</span>
-                                    <span><i class="pi pi-clock"></i> {{ e.fecha }}</span>
+                                    <div class="event-item__header">
+                                        <span class="event-item__date">
+                                            <strong>{{ e.dia }}</strong>
+                                            <span>{{ e.mes }}</span>
+                                        </span>
+                                        <span class="event-item__title">{{ e.titulo }}</span>
+                                    </div>
+                                    <div class="event-item__details">
+                                        <span class="event-item__meta">
+                                            <i class="pi pi-map-marker"></i> {{ e.lugar }}
+                                        </span>
+                                        <span class="event-item__meta">
+                                            <i class="pi pi-clock"></i> {{ e.nombre_dia }}, {{ e.fecha_completa }} - {{ e.fecha_hora }} hrs
+                                        </span>
+                                        <span v-if="e.asistentes !== undefined" class="event-item__asistentes">
+                                            <i class="pi pi-users"></i> {{ e.asistentes }} asistentes
+                                            <span v-if="e.capacidad > 0"> / {{ e.capacidad }} cupos</span>
+                                        </span>
+                                    </div>
+                                    <Button 
+                                        label="Ver evento" 
+                                        icon="pi pi-arrow-right" 
+                                        iconPos="right"
+                                        class="event-item__btn"
+                                        link
+                                    />
                                 </div>
-                                <img :src="e.imagen" :alt="e.titulo" class="event-item__image" />
                             </div>
+                        </div>
+                        <div class="eventos-footer">
+                            <a href="#" class="explore-link">Explorar todos los eventos <i class="pi pi-chevron-right"></i></a>
                         </div>
                     </div>
                 </aside>
@@ -970,6 +396,662 @@ onMounted(() => {
         </div>
     </AppLayout>
 </template>
+
+<script setup>
+import { reactive, computed, onMounted, ref, watch } from 'vue';
+import { Head, usePage, router, Link } from '@inertiajs/vue3';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import axios from 'axios';
+
+// Importaciones de PrimeVue
+import Button from 'primevue/button';
+import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
+import InputText from 'primevue/inputtext';
+import Dropdown from 'primevue/dropdown';
+import ConfirmDialog from 'primevue/confirmdialog';
+import { useConfirm } from 'primevue/useconfirm';
+
+// Importar componentes
+import AvatarCustom from '@/Components/AvatarCustom.vue';
+import ToastNotification from '@/Components/ToastNotification.vue';
+
+// Obtener datos desde Inertia
+const page = usePage();
+const confirm = useConfirm();
+
+// ============================================================
+// REFERENCIAS PARA TOAST
+// ============================================================
+const toastRef = ref(null);
+
+// ============================================================
+// PUBLICACIONES
+// ============================================================
+const publicaciones = ref(page.props.publicaciones || []);
+
+// ============================================================
+// FILTROS Y BÚSQUEDA
+// ============================================================
+const filtroBusqueda = ref('');
+const filtroOrden = ref({ label: 'Más recientes', value: 'reciente' });
+
+const opcionesOrden = [
+    { label: 'Más recientes', value: 'reciente' },
+    { label: 'Más antiguos', value: 'antiguo' },
+    { label: 'Más populares', value: 'popular' },
+    { label: 'Más comentados', value: 'comentado' },
+];
+
+// ============================================================
+// FUNCIÓN PARA FORMATEAR TIEMPO EN ESPAÑOL
+// ============================================================
+function formatearTiempo(fecha) {
+    if (!fecha) return 'Recién';
+    
+    const ahora = new Date();
+    const fechaDate = new Date(fecha);
+    const diffMs = ahora - fechaDate;
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHoras = Math.floor(diffMs / 3600000);
+    const diffDias = Math.floor(diffMs / 86400000);
+    const diffSemanas = Math.floor(diffDias / 7);
+    const diffMeses = Math.floor(diffDias / 30);
+    const diffAnios = Math.floor(diffDias / 365);
+
+    if (diffMin < 1) return 'Hace un momento';
+    if (diffMin < 60) return `Hace ${diffMin} minuto${diffMin > 1 ? 's' : ''}`;
+    if (diffHoras < 24) return `Hace ${diffHoras} hora${diffHoras > 1 ? 's' : ''}`;
+    if (diffDias < 7) return `Hace ${diffDias} día${diffDias > 1 ? 's' : ''}`;
+    if (diffSemanas < 4) return `Hace ${diffSemanas} semana${diffSemanas > 1 ? 's' : ''}`;
+    if (diffMeses < 12) return `Hace ${diffMeses} mes${diffMeses > 1 ? 'es' : ''}`;
+    return `Hace ${diffAnios} año${diffAnios > 1 ? 's' : ''}`;
+}
+
+// ============================================================
+// PUBLICACIONES FILTRADAS
+// ============================================================
+const publicacionesFiltradas = computed(() => {
+    let resultado = [...publicaciones.value];
+
+    if (filtroBusqueda.value.trim()) {
+        const busqueda = filtroBusqueda.value.toLowerCase().trim();
+        resultado = resultado.filter(post => 
+            post.autor.toLowerCase().includes(busqueda) ||
+            post.texto.toLowerCase().includes(busqueda) ||
+            post.rol.toLowerCase().includes(busqueda)
+        );
+    }
+
+    switch (filtroOrden.value.value) {
+        case 'reciente':
+            resultado.sort((a, b) => {
+                if (a.es_temporal && !b.es_temporal) return -1;
+                if (!a.es_temporal && b.es_temporal) return 1;
+                return new Date(b.created_at || b.id) - new Date(a.created_at || a.id);
+            });
+            break;
+        case 'antiguo':
+            resultado.sort((a, b) => new Date(a.created_at || a.id) - new Date(b.created_at || b.id));
+            break;
+        case 'popular':
+            resultado.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+            break;
+        case 'comentado':
+            resultado.sort((a, b) => (b.comentarios || 0) - (a.comentarios || 0));
+            break;
+        default:
+            break;
+    }
+
+    return resultado;
+});
+
+// ============================================================
+// ESTADO PARA COMENTARIOS
+// ============================================================
+const comentariosVisibles = ref({});
+const nuevoComentario = ref({});
+const comentando = ref({});
+
+function toggleComentarios(postId) {
+    comentariosVisibles.value[postId] = !comentariosVisibles.value[postId];
+    if (!nuevoComentario.value[postId]) {
+        nuevoComentario.value[postId] = '';
+    }
+}
+
+// ============================================================
+// REFERENCIAS PARA LOS INPUTS FILE
+// ============================================================
+const imageInput = ref(null);
+const videoInput = ref(null);
+
+// ============================================================
+// FUNCIONES PARA TOAST
+// ============================================================
+function showToast(type, title, message) {
+    if (toastRef.value) {
+        toastRef.value.showToast({
+            type: type,
+            title: title || (type === 'success' ? 'Éxito' : type === 'error' ? 'Error' : 'Información'),
+            message: message,
+            duration: 3000
+        });
+    }
+}
+
+function showSuccess(message, title = 'Éxito') {
+    showToast('success', title, message);
+}
+
+function showError(message, title = 'Error') {
+    showToast('error', title, message);
+}
+
+function showInfo(message, title = 'Información') {
+    showToast('info', title, message);
+}
+
+// ============================================================
+// DATOS DEL USUARIO
+// ============================================================
+const usuario = computed(() => {
+    const user = page.props.usuario || {};
+    let avatar = user.avatar || '/images/shared/avatar-default.jpg';
+    
+    if (avatar && !avatar.startsWith('http') && !avatar.startsWith('/')) {
+        avatar = '/storage/' + avatar;
+    }
+    
+    return {
+        id: user.id || null,
+        nombre: user.nombre || 'Invitado',
+        apodo: user.apodo || 'Invitado',
+        email: user.email || '',
+        avatar: avatar,
+        verificado: user.verificado || false,
+        rol: user.rol || 'invitado',
+        tiene_perfil: user.tiene_perfil || false,
+    };
+});
+
+// ============================================================
+// MÉTRICAS
+// ============================================================
+const metricas = computed(() => {
+    const data = page.props.metricas || [];
+    if (data.length > 0) {
+        return data.filter(m => m.titulo !== 'Grupos privados');
+    }
+    return [
+        { icon: 'pi-wave-pulse', titulo: 'Feed activo', desc: 'Publicaciones, fotos y conversaciones nuevas cada minuto.', valor: '0', etiqueta: 'cargando...' },
+        { icon: 'pi-users', titulo: 'Creadores', desc: 'Comparte y accede a contenido exclusivo de creadores verificados.', valor: '0', etiqueta: 'cargando...' },
+        { icon: 'pi-calendar', titulo: 'Eventos próximos', desc: 'Eventos exclusivos para la comunidad.', valor: '0', etiqueta: 'cargando...' },
+    ];
+});
+
+// ============================================================
+// PRÓXIMOS EVENTOS
+// ============================================================
+const proximosEventos = computed(() => page.props.proximosEventos || []);
+
+// ============================================================
+// ESTADO PARA NUEVA PUBLICACIÓN
+// ============================================================
+const nuevaPublicacion = reactive({ 
+    texto: '',
+    imagen: null,
+    video: null,
+    es_premium: false,
+    tipo_media: null,
+    previewUrl: null,
+});
+
+// ============================================================
+// FUNCIONES DE NAVEGACIÓN
+// ============================================================
+function irACreador() {
+    console.log('🔵 Click en SER CREADOR');
+    console.log('📋 Usuario:', usuario.value);
+    console.log('📋 Rol del usuario:', usuario.value.rol);
+    
+    if (!usuario.value.id) {
+        showError('Debes iniciar sesión para acceder a esta sección');
+        if (typeof route !== 'undefined' && route('login')) {
+            router.get(route('login'));
+        } else {
+            window.location.href = '/login';
+        }
+        return;
+    }
+
+    let destino = '';
+    const esCreador = usuario.value.rol === 'creador' || usuario.value.rol === 'admin';
+    
+    if (esCreador) {
+        destino = '/creador/comunidad';
+        console.log('🟢 Usuario es creador/admin, redirigiendo a:', destino);
+    } else {
+        destino = '/creador';
+        console.log('🟡 Usuario no es creador, redirigiendo a:', destino);
+    }
+
+    try {
+        if (esCreador) {
+            if (typeof route !== 'undefined' && route('creador.comunidad')) {
+                router.get(route('creador.comunidad'));
+                return;
+            }
+        } else {
+            if (typeof route !== 'undefined' && route('creador.index')) {
+                router.get(route('creador.index'));
+                return;
+            }
+        }
+        console.warn('⚠️ route() no disponible, usando navegación directa');
+        window.location.href = destino;
+    } catch (error) {
+        console.error('❌ Error al redirigir:', error);
+        window.location.href = destino;
+    }
+}
+
+// ============================================================
+// FUNCIÓN PARA IR A LA COMUNIDAD DE CREADORES
+// ============================================================
+function irAComunidadCreadores() {
+    console.log('🔵 Click en CREADORES');
+    try {
+        if (typeof route !== 'undefined' && route('creador.comunidad')) {
+            router.get(route('creador.comunidad'));
+            return;
+        }
+        // Fallback
+        window.location.href = '/creador/comunidad';
+    } catch (error) {
+        console.error('❌ Error al redirigir a comunidad de creadores:', error);
+        window.location.href = '/creador/comunidad';
+    }
+}
+
+// Función de respaldo
+function irACreadorDirecto() {
+    console.log('🔵 Click en SER CREADOR (directo)');
+    const esCreador = usuario.value.rol === 'creador' || usuario.value.rol === 'admin';
+    const destino = esCreador ? '/creador/comunidad' : '/creador';
+    window.location.href = destino;
+}
+
+// ============================================================
+// WATCH PARA ACTUALIZAR PREVISUALIZACIÓN
+// ============================================================
+watch(() => nuevaPublicacion.imagen, (newVal) => {
+    if (newVal) {
+        nuevaPublicacion.previewUrl = URL.createObjectURL(newVal);
+        nuevaPublicacion.tipo_media = 'imagen';
+    }
+});
+
+watch(() => nuevaPublicacion.video, (newVal) => {
+    if (newVal) {
+        nuevaPublicacion.previewUrl = URL.createObjectURL(newVal);
+        nuevaPublicacion.tipo_media = 'video';
+    }
+});
+
+// ============================================================
+// FUNCIÓN PARA PUBLICAR
+// ============================================================
+function publicar() {
+    if (!nuevaPublicacion.texto.trim() && !nuevaPublicacion.imagen && !nuevaPublicacion.video) {
+        showError('Escribe algo o adjunta un archivo para publicar');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('texto', nuevaPublicacion.texto);
+    formData.append('es_premium', nuevaPublicacion.es_premium ? 1 : 0);
+    
+    let tempMediaUrl = null;
+    let tempMediaType = 'texto';
+    
+    if (nuevaPublicacion.imagen) {
+        formData.append('imagen', nuevaPublicacion.imagen);
+        formData.append('tipo_media', 'imagen');
+        tempMediaUrl = URL.createObjectURL(nuevaPublicacion.imagen);
+        tempMediaType = 'imagen';
+    }
+    
+    if (nuevaPublicacion.video) {
+        formData.append('video', nuevaPublicacion.video);
+        formData.append('tipo_media', 'video');
+        tempMediaUrl = URL.createObjectURL(nuevaPublicacion.video);
+        tempMediaType = 'video';
+    }
+
+    const tempPost = {
+        id: Date.now(),
+        autor: usuario.value.nombre,
+        rol: usuario.value.rol === 'creador' ? 'Creador' : 'Usuario',
+        avatar: usuario.value.avatar,
+        tiempo: 'Hace un momento',
+        texto: nuevaPublicacion.texto,
+        media_url: tempMediaUrl,
+        media_type: tempMediaType,
+        imagen: tempMediaUrl,
+        likes: 0,
+        liked: false,
+        comentarios: 0,
+        comentarios_list: [],
+        premium: nuevaPublicacion.es_premium,
+        verificado: usuario.value.verificado,
+        es_temporal: true,
+        created_at: new Date().toISOString(),
+        usuario_id: usuario.value.id,
+    };
+
+    publicaciones.value.unshift(tempPost);
+
+    nuevaPublicacion.texto = '';
+    nuevaPublicacion.imagen = null;
+    nuevaPublicacion.video = null;
+    nuevaPublicacion.tipo_media = null;
+    nuevaPublicacion.previewUrl = null;
+    if (imageInput.value) imageInput.value = '';
+    if (videoInput.value) videoInput.value = '';
+
+    showSuccess('Publicando...');
+
+    router.post(route('comunidad.publicar'), formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: (response) => {
+            const realPosts = response.props?.publicaciones;
+            if (realPosts && realPosts.length > 0) {
+                const realPost = realPosts[0];
+                const index = publicaciones.value.findIndex(p => p.id === tempPost.id || p.es_temporal === true);
+                if (index !== -1) {
+                    publicaciones.value[index] = {
+                        ...realPost,
+                        id: realPost.id || tempPost.id,
+                        es_temporal: false,
+                    };
+                    showSuccess('Publicación creada correctamente');
+                } else {
+                    router.reload();
+                }
+            } else {
+                router.reload();
+            }
+        },
+        onError: (errors) => {
+            const index = publicaciones.value.findIndex(p => p.id === tempPost.id || p.es_temporal === true);
+            if (index !== -1) {
+                publicaciones.value.splice(index, 1);
+            }
+            if (tempMediaUrl) {
+                URL.revokeObjectURL(tempMediaUrl);
+            }
+            console.error('Error al publicar:', errors);
+            const errorMsg = errors?.imagen || errors?.video || errors?.texto || 'Error al publicar';
+            showError(typeof errorMsg === 'string' ? errorMsg : 'Error al publicar');
+        }
+    });
+}
+
+// ============================================================
+// FUNCIÓN PARA DAR LIKE
+// ============================================================
+function darLike(publicacionId) {
+    const post = publicaciones.value.find(p => p.id === publicacionId);
+    if (!post) return;
+
+    const nuevoLike = !post.liked;
+    const likesActuales = post.likes;
+    
+    post.liked = nuevoLike;
+    post.likes = nuevoLike ? post.likes + 1 : post.likes - 1;
+
+    axios.post(route('comunidad.like', publicacionId))
+        .then(response => {
+            const data = response.data;
+            if (data.success) {
+                post.likes = data.likes;
+                post.liked = data.liked;
+            }
+        })
+        .catch(error => {
+            post.liked = !nuevoLike;
+            post.likes = likesActuales;
+            showError('No se pudo procesar el like');
+            console.error('Error al dar like:', error);
+        });
+}
+
+// ============================================================
+// FUNCIÓN PARA ELIMINAR COMENTARIO
+// ============================================================
+function eliminarComentario(postId, comentarioId) {
+    confirm.require({
+        message: '¿Estás seguro de que quieres eliminar este comentario?',
+        header: 'Eliminar comentario',
+        icon: 'pi pi-exclamation-triangle',
+        acceptClass: 'p-button-danger',
+        accept: () => {
+            const post = publicaciones.value.find(p => p.id === postId);
+            if (!post) return;
+
+            const index = post.comentarios_list.findIndex(c => c.id === comentarioId);
+            if (index !== -1) {
+                post.comentarios_list.splice(index, 1);
+                post.comentarios = post.comentarios_list.length;
+                showInfo('Comentario eliminado');
+            }
+        },
+        reject: () => {}
+    });
+}
+
+// ============================================================
+// FUNCIÓN PARA COMENTAR
+// ============================================================
+function comentar(publicacionId) {
+    const texto = nuevoComentario.value[publicacionId];
+    if (!texto || !texto.trim()) {
+        showError('Escribe un comentario');
+        return;
+    }
+
+    comentando.value[publicacionId] = true;
+
+    axios.post(route('comunidad.comentar', publicacionId), { texto: texto })
+        .then(response => {
+            const data = response.data;
+            if (data.success) {
+                const post = publicaciones.value.find(p => p.id === publicacionId);
+                if (post) {
+                    post.comentarios_list.unshift({
+                        ...data.comentario,
+                        usuario_id: data.comentario.usuario_id || usuario.value.id
+                    });
+                    post.comentarios = data.total_comentarios;
+                    nuevoComentario.value[publicacionId] = '';
+                }
+                showSuccess(data.message);
+            }
+            comentando.value[publicacionId] = false;
+        })
+        .catch(error => {
+            comentando.value[publicacionId] = false;
+            showError('No se pudo agregar el comentario');
+            console.error('Error al comentar:', error);
+        });
+}
+
+// ============================================================
+// FUNCIÓN PARA COMPARTIR
+// ============================================================
+function compartirPublicacion(postId) {
+    const url = window.location.origin + '/comunidad/publicacion/' + postId;
+    
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+            showSuccess('Link copiado al portapapeles');
+        }).catch(() => {
+            copiarAlPortapapeles(url);
+        });
+    } else {
+        copiarAlPortapapeles(url);
+    }
+}
+
+function copiarAlPortapapeles(texto) {
+    const textarea = document.createElement('textarea');
+    textarea.value = texto;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        showSuccess('Link copiado al portapapeles');
+    } catch (err) {
+        showError('No se pudo copiar el link');
+    }
+    document.body.removeChild(textarea);
+}
+
+// ============================================================
+// FUNCIÓN PARA ELIMINAR PUBLICACIÓN
+// ============================================================
+function eliminarPublicacion(postId) {
+    confirm.require({
+        message: '¿Estás seguro de que quieres eliminar esta publicación?',
+        header: 'Eliminar publicación',
+        icon: 'pi pi-exclamation-triangle',
+        acceptClass: 'p-button-danger',
+        accept: () => {
+            const post = publicaciones.value.find(p => p.id === postId);
+            if (!post) return;
+
+            const index = publicaciones.value.findIndex(p => p.id === postId);
+            if (index !== -1) {
+                publicaciones.value.splice(index, 1);
+                showInfo('Publicación eliminada');
+            }
+
+            axios.delete(route('comunidad.eliminar', postId))
+                .then(response => {
+                    if (response.data.success) {
+                        showSuccess('Publicación eliminada correctamente');
+                    }
+                })
+                .catch(error => {
+                    if (post) {
+                        publicaciones.value.splice(index, 0, post);
+                    }
+                    showError('No se pudo eliminar la publicación');
+                    console.error('Error al eliminar:', error);
+                });
+        },
+        reject: () => {}
+    });
+}
+
+// ============================================================
+// FUNCIONES PARA MANEJAR ARCHIVOS
+// ============================================================
+function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 10 * 1024 * 1024) {
+        showError('La imagen no debe superar los 10MB');
+        event.target.value = '';
+        return;
+    }
+    if (!file.type.startsWith('image/')) {
+        showError('El archivo debe ser una imagen');
+        event.target.value = '';
+        return;
+    }
+    
+    if (nuevaPublicacion.video) {
+        nuevaPublicacion.video = null;
+        if (videoInput.value) videoInput.value = '';
+    }
+    
+    nuevaPublicacion.imagen = file;
+    nuevaPublicacion.tipo_media = 'imagen';
+}
+
+function handleVideoUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 50 * 1024 * 1024) {
+        showError('El video no debe superar los 50MB');
+        event.target.value = '';
+        return;
+    }
+    const validTypes = ['video/mp4', 'video/avi', 'video/quicktime', 'video/x-ms-wmv', 'video/x-flv', 'video/webm', 'video/mkv'];
+    if (!validTypes.includes(file.type)) {
+        showError('Formato de video no soportado. Usa MP4, AVI, MOV, WMV, FLV, WEBM o MKV');
+        event.target.value = '';
+        return;
+    }
+    
+    if (nuevaPublicacion.imagen) {
+        nuevaPublicacion.imagen = null;
+        if (imageInput.value) imageInput.value = '';
+    }
+    
+    nuevaPublicacion.video = file;
+    nuevaPublicacion.tipo_media = 'video';
+}
+
+function eliminarMedia() {
+    if (nuevaPublicacion.previewUrl) {
+        URL.revokeObjectURL(nuevaPublicacion.previewUrl);
+    }
+    nuevaPublicacion.imagen = null;
+    nuevaPublicacion.video = null;
+    nuevaPublicacion.tipo_media = null;
+    nuevaPublicacion.previewUrl = null;
+    if (imageInput.value) imageInput.value = '';
+    if (videoInput.value) videoInput.value = '';
+}
+
+// ============================================================
+// FUNCIONES UTILES
+// ============================================================
+function getInitial(name) {
+    if (!name) return '?';
+    return name.charAt(0).toUpperCase();
+}
+
+function getAvatarUrl(avatar) {
+    if (!avatar) return '/images/shared/avatar-default.jpg';
+    if (!avatar.startsWith('http') && !avatar.startsWith('/')) {
+        return '/storage/' + avatar;
+    }
+    return avatar;
+}
+
+// ============================================================
+// ON MOUNTED
+// ============================================================
+onMounted(() => {
+    console.log('=== 🚀 DATOS DE COMUNIDAD ===');
+    console.log('Publicaciones:', publicaciones.value);
+    console.log('Usuario:', usuario.value);
+    console.log('Eventos:', proximosEventos.value);
+    console.log('🔍 Route creador.index disponible?', typeof route !== 'undefined' && route('creador.index'));
+    console.log('🔍 Route creador.comunidad disponible?', typeof route !== 'undefined' && route('creador.comunidad'));
+});
+</script>
 
 <style scoped>
 /* =========================================================================
@@ -1075,64 +1157,6 @@ onMounted(() => {
   max-width: 440px;
   margin: 0.8rem 0 0;
   font-size: 0.85rem;
-}
-
-.hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.8rem;
-  margin-top: 1.5rem;
-}
-
-.hero__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 0.8rem;
-  border-radius: var(--radius-full);
-  border: 1px solid transparent;
-  padding: 0.6rem 1.4rem;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.hero__btn--primary {
-  background: var(--brand);
-  color: var(--white);
-}
-
-.hero__btn--primary:hover {
-  background: var(--brand-dark);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(200, 30, 58, 0.3);
-}
-
-.hero__btn--outline {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.hero__btn--outline:hover {
-  border-color: rgba(255, 255, 255, 0.4);
-  color: var(--white);
-}
-
-.hero__play-dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--white);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 8px;
 }
 
 .hero__media {
@@ -1519,7 +1543,7 @@ onMounted(() => {
 }
 
 /* =========================================================================
-   POST CARD - ESTILO REDES SOCIALES
+   POST CARD
    ========================================================================= */
 .post-card {
     background: #ffffff; 
@@ -1606,8 +1630,8 @@ onMounted(() => {
 }
 
 .post-card__delete:hover {
-    color: var(--error);
-    background: #FFF5F5;
+    color: #dc2626;
+    background: #FEE2E2;
 }
 
 .post-card__text { 
@@ -1852,8 +1876,8 @@ onMounted(() => {
 }
 
 .comment-delete:hover {
-    color: var(--error);
-    background: #FFF5F5;
+    color: #dc2626;
+    background: #FEE2E2;
 }
 
 .no-comments {
@@ -1884,6 +1908,8 @@ onMounted(() => {
 .sidebar-card__header h3 { 
     font-size: 0.85rem; 
     margin: 0; 
+    display: flex;
+    align-items: center;
 }
 
 .see-all { 
@@ -1902,77 +1928,67 @@ onMounted(() => {
     gap: 0.4rem;
 }
 
-.creator-list { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 0.6rem; 
+/* =========================================================================
+   CREADORES CARD - MISMO ESTILO QUE LAS DEMÁS
+   ========================================================================= */
+.creadores-card {
+    background: #ffffff;
+    border: 1px solid var(--line);
 }
 
-.creator-item { 
-    display: flex; 
-    align-items: center; 
-    gap: 0.5rem; 
+.creadores-card__content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
-.creator-item__info { 
-    display: flex; 
-    flex-direction: column; 
-    flex: 1; 
-    min-width: 0; 
+.creadores-card__desc {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.4;
 }
 
-.creator-item__info .name { 
-    font-size: 0.75rem; 
-    font-weight: 700; 
-    display: flex; 
-    align-items: center; 
-    gap: 0.2rem; 
-}
-
-.creator-item__info .name i { 
-    color: var(--brand); 
-    font-size: 0.6rem; 
-}
-
-.creator-item__info .subs { 
-    font-size: 0.6rem; 
-    color: var(--muted); 
-}
-
-.creator-item__actions { 
-    display: flex; 
-    gap: 0.2rem; 
-}
-
-.btn-follow { 
-    font-size: 0.6rem; 
-    padding: 0.2rem 0.5rem; 
-    border-radius: 6px; 
-}
-
-.btn-profile { 
-    font-size: 0.6rem; 
-    padding: 0.2rem 0.3rem; 
-}
-
-.explore-link {
-    display: block; 
-    text-align: left; 
-    margin-top: 0.6rem; 
-    padding-top: 0.6rem; 
-    border-top: 1px solid #f0f0f2;
-    color: var(--brand); 
-    font-size: 0.7rem; 
-    font-weight: 700; 
-    text-decoration: none;
+.creadores-card__btn-link {
+    color: var(--brand);
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
     transition: all 0.3s ease;
+    padding: 0;
 }
 
-.explore-link:hover {
+.creadores-card__btn-link:hover {
     color: var(--brand-dark);
+    gap: 0.4rem;
 }
 
-/* Monetiza */
+.creadores-card__btn {
+    width: 100%;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    font-size: 0.7rem !important;
+    padding: 0.4rem !important;
+    background: var(--brand) !important;
+    border-color: var(--brand) !important;
+    color: #fff !important;
+}
+
+.creadores-card__btn:hover {
+    background: var(--brand-dark) !important;
+    border-color: var(--brand-dark) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(200, 30, 58, 0.3);
+}
+
+/* =========================================================================
+   MONETIZE CARD
+   ========================================================================= */
 .monetize-card { 
     position: relative; 
     border-radius: var(--radius-md); 
@@ -2029,27 +2045,92 @@ onMounted(() => {
     padding: 0.3rem 0.8rem;
 }
 
-/* Eventos */
+.btn-creator :deep(.p-button) {
+    background: var(--brand) !important;
+    border-color: var(--brand) !important;
+    color: #fff !important;
+}
+
+.btn-creator :deep(.p-button):hover {
+    background: var(--brand-dark) !important;
+    border-color: var(--brand-dark) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(200, 30, 58, 0.3);
+}
+
+/* =========================================================================
+   EVENTOS
+   ========================================================================= */
+.eventos-card {
+    background: #ffffff;
+    border-radius: var(--radius-md);
+    padding: 0.8rem;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--line);
+}
+
 .event-list { 
     display: flex; 
     flex-direction: column; 
-    gap: 0.5rem; 
+    gap: 0.8rem; 
 }
 
 .event-item { 
-    display: flex; 
-    align-items: center; 
-    gap: 0.5rem; 
+    display: flex;
+    gap: 0.8rem;
+    padding: 0.6rem;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    transition: all 0.3s ease;
+    align-items: stretch;
+}
+
+.event-item:hover {
+    background: #ffffff;
+    border-color: var(--brand);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+
+.event-item__image-wrapper {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+}
+
+.event-item__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.event-item__info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: 0.2rem;
+}
+
+.event-item__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .event-item__date {
-    background: var(--brand-soft); 
-    color: var(--brand); 
-    border-radius: 6px; 
-    padding: 0.2rem 0.35rem;
-    text-align: center; 
-    line-height: 1.05; 
+    background: var(--brand-soft);
+    color: var(--brand);
+    border-radius: 6px;
+    padding: 0.2rem 0.4rem;
+    text-align: center;
+    line-height: 1.05;
     flex-shrink: 0;
+    min-width: 40px;
 }
 
 .event-item__date strong { 
@@ -2059,35 +2140,81 @@ onMounted(() => {
 
 .event-item__date span { 
     font-size: 0.45rem; 
-    letter-spacing: 0.05em; 
+    letter-spacing: 0.05em;
+    font-weight: 600;
 }
 
-.event-item__info { 
-    display: flex; 
-    flex-direction: column; 
-    flex: 1; 
-    min-width: 0; 
+.event-item__title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--ink);
 }
 
-.event-item__info strong { 
-    font-size: 0.72rem; 
-    margin-bottom: 0.05rem; 
+.event-item__details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
 }
 
-.event-item__info span { 
-    font-size: 0.6rem; 
-    color: var(--muted); 
-    display: flex; 
-    align-items: center; 
-    gap: 0.2rem; 
+.event-item__meta {
+    font-size: 0.6rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
 }
 
-.event-item__image { 
-    width: 36px; 
-    height: 36px; 
-    border-radius: 6px; 
-    object-fit: cover; 
-    flex-shrink: 0; 
+.event-item__meta i {
+    font-size: 0.55rem;
+    color: var(--brand);
+}
+
+.event-item__asistentes {
+    font-size: 0.55rem;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.event-item__asistentes i {
+    font-size: 0.5rem;
+    color: var(--brand);
+}
+
+.event-item__btn {
+    font-size: 0.6rem !important;
+    padding: 0.15rem 0 !important;
+    color: var(--brand) !important;
+    font-weight: 600 !important;
+    align-self: flex-start;
+}
+
+.event-item__btn:hover {
+    color: var(--brand-dark) !important;
+    gap: 0.5rem !important;
+}
+
+.eventos-footer {
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--line);
+}
+
+.explore-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    color: var(--brand);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.explore-link:hover {
+    color: var(--brand-dark);
+    gap: 0.4rem;
 }
 
 /* =========================================================================
@@ -2148,6 +2275,10 @@ onMounted(() => {
     .posts-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+    .event-item__image-wrapper {
+        width: 70px;
+        height: 70px;
+    }
 }
 
 @media (max-width: 768px) {
@@ -2187,14 +2318,6 @@ onMounted(() => {
     .post-card__actions button {
         font-size: 0.65rem;
     }
-    .hero__actions {
-        flex-direction: column;
-        width: 100%;
-    }
-    .hero__btn {
-        width: 100%;
-        justify-content: center;
-    }
     .comment-input-wrapper {
         flex-direction: column;
     }
@@ -2218,6 +2341,17 @@ onMounted(() => {
     .posts-grid {
         grid-template-columns: 1fr;
     }
+    .event-item {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .event-item__image-wrapper {
+        width: 100%;
+        height: 140px;
+    }
+    .event-item__header {
+        flex-wrap: wrap;
+    }
 }
 
 @media (max-width: 480px) {
@@ -2240,6 +2374,9 @@ onMounted(() => {
     }
     .hero__title {
         font-size: 1.2rem;
+    }
+    .event-item__image-wrapper {
+        height: 120px;
     }
 }
 </style>

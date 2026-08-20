@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class PerfilVerController extends Controller
@@ -68,6 +69,22 @@ class PerfilVerController extends Controller
                 ];
             }
 
+            // CORRECCIÓN: Asegurar que metadatos sea un array
+            $metadatos = $perfil->metadatos;
+            if (is_string($metadatos)) {
+                $metadatos = json_decode($metadatos, true) ?? [];
+            } elseif (!is_array($metadatos)) {
+                $metadatos = [];
+            }
+
+            // CORRECCIÓN: Mapear privacidad para el frontend
+            $privacidadMap = [
+                'publico' => 'todos',
+                'coincidencias' => 'matches',
+                'oculto' => 'nadie'
+            ];
+            $privacidadFrontend = $privacidadMap[$perfil->privacidad_fotos] ?? 'todos';
+
             $perfilData = [
                 'id' => $perfil->id,
                 'tipo' => $perfil->tipo ?? 'personal',
@@ -75,20 +92,23 @@ class PerfilVerController extends Controller
                 'intereses' => $perfil->intereses ?? [],
                 'pasatiempos' => $perfil->pasatiempos ?? [],
                 'fotos' => $fotosList,
-                'privacidad_fotos' => $perfil->privacidad_fotos ?? 'todos',
+                'privacidad_fotos' => $privacidadFrontend,
                 'esta_verificado' => $perfil->esta_verificado ?? false,
                 'ubicacion_ciudad' => $perfil->ubicacion_ciudad ?? $user->ciudad ?? '',
-                'metadatos' => $perfil->metadatos ?? [],
+                'metadatos' => $metadatos,
             ];
 
-            if (isset($perfil->metadatos['edad'])) {
-                $userData['edad'] = $perfil->metadatos['edad'];
+            if (isset($metadatos['edad'])) {
+                $userData['edad'] = $metadatos['edad'];
             }
-            if (isset($perfil->metadatos['ocupacion'])) {
-                $userData['ocupacion'] = $perfil->metadatos['ocupacion'];
+            if (isset($metadatos['ocupacion'])) {
+                $userData['ocupacion'] = $metadatos['ocupacion'];
             }
-            if (isset($perfil->metadatos['pareja'])) {
-                $perfilData['pareja'] = $perfil->metadatos['pareja'];
+            if (isset($metadatos['pareja'])) {
+                $perfilData['pareja'] = $metadatos['pareja'];
+            }
+            if (isset($metadatos['visibilidad_fotos'])) {
+                $perfilData['privacidad_fotos'] = $metadatos['visibilidad_fotos'];
             }
         }
 
@@ -103,13 +123,29 @@ class PerfilVerController extends Controller
      */
     public function actualizar(Request $request)
     {
+        Log::info('PerfilVerController@actualizar - INICIO');
+        
         $user = Auth::user();
         
         if (!$user) {
             return redirect()->route('login');
         }
 
+        Log::info('PerfilVerController@actualizar - Usuario autenticado', [
+            'user_id' => $user->id,
+            'email' => $user->email
+        ]);
+
         try {
+            // ============================================================
+            // LOG DE DATOS RECIBIDOS
+            // ============================================================
+            Log::info('PerfilVerController@actualizar - Datos recibidos', [
+                'all_data' => $request->all(),
+                'files_keys' => array_keys($request->allFiles()),
+                'total_fotos' => $request->input('total_fotos', 0)
+            ]);
+
             // ============================================================
             // VALIDACIÓN
             // ============================================================
@@ -132,6 +168,10 @@ class PerfilVerController extends Controller
                 'fotos_eliminar' => 'nullable|array',
             ]);
 
+            Log::info('PerfilVerController@actualizar - Validación exitosa', [
+                'validated_data' => $validated
+            ]);
+
             // ============================================================
             // ACTUALIZAR USUARIO
             // ============================================================
@@ -145,6 +185,7 @@ class PerfilVerController extends Controller
             }
             
             if (!empty($userData)) {
+                Log::info('PerfilVerController@actualizar - Actualizando usuario', $userData);
                 $user->update($userData);
             }
 
@@ -152,32 +193,61 @@ class PerfilVerController extends Controller
                 $fechaNacimiento = Carbon::now()->subYears($validated['edad'])->startOfDay();
                 $user->fecha_nacimiento = $fechaNacimiento;
                 $user->save();
+                Log::info('PerfilVerController@actualizar - Fecha de nacimiento establecida', [
+                    'edad' => $validated['edad'],
+                    'fecha' => $fechaNacimiento
+                ]);
             }
 
             // ============================================================
-            // PREPARAR METADATOS
+            // OBTENER PERFIL EXISTENTE
             // ============================================================
             $perfil = Perfil::where('usuario_id', $user->id)->first();
-            $metadatos = $perfil->metadatos ?? [];
             
+            // CORRECCIÓN: Asegurar que metadatos sea un array
+            $metadatos = [];
+            if ($perfil) {
+                $metadatos = $perfil->metadatos;
+                if (is_string($metadatos)) {
+                    $metadatos = json_decode($metadatos, true) ?? [];
+                } elseif (!is_array($metadatos)) {
+                    $metadatos = [];
+                }
+            }
+            
+            // ============================================================
+            // PREPARAR METADATOS
+            // ============================================================
             if (isset($validated['edad'])) {
                 $metadatos['edad'] = $validated['edad'];
             }
             if (isset($validated['ocupacion'])) {
                 $metadatos['ocupacion'] = $validated['ocupacion'];
             }
+            
+            // CORRECCIÓN: Mapear visibilidad de fotos para la BD
+            $visibilidadMap = [
+                'todos' => 'publico',
+                'matches' => 'coincidencias',
+                'nadie' => 'oculto'
+            ];
+            
             if (isset($validated['visibilidadFotos'])) {
                 $metadatos['visibilidad_fotos'] = $validated['visibilidadFotos'];
+                $privacidadBD = $visibilidadMap[$validated['visibilidadFotos']] ?? 'publico';
+            } else {
+                $privacidadBD = 'publico';
             }
 
             if (isset($validated['tipoPerfil']) && $validated['tipoPerfil'] === 'pareja' && isset($validated['pareja'])) {
                 $metadatos['pareja'] = [
                     'nombre1' => $validated['pareja']['nombre1'] ?? '',
                     'edad1' => $validated['pareja']['edad1'] ?? null,
-                    'nombre2' => $validated['pareja']['nombre2'] ?? '',
                     'edad2' => $validated['pareja']['edad2'] ?? null,
+                    'nombre2' => $validated['pareja']['nombre2'] ?? '',
                     'visibleParaAmbos' => $validated['pareja']['visibleParaAmbos'] ?? false,
                 ];
+                Log::info('PerfilVerController@actualizar - Datos de pareja configurados', $metadatos['pareja']);
             }
 
             // ============================================================
@@ -191,25 +261,51 @@ class PerfilVerController extends Controller
             if (isset($validated['bio'])) {
                 $perfilData['descripcion'] = $validated['bio'];
             }
+            
+            // CORRECCIÓN: Asegurar que intereses y pasatiempos sean arrays
             if (isset($validated['intereses']) && is_array($validated['intereses'])) {
                 $perfilData['intereses'] = $validated['intereses'];
+                Log::info('PerfilVerController@actualizar - Intereses guardados', [
+                    'count' => count($validated['intereses']),
+                    'intereses' => $validated['intereses']
+                ]);
+            } else {
+                $perfilData['intereses'] = [];
             }
+            
             if (isset($validated['buscando']) && is_array($validated['buscando'])) {
                 $perfilData['pasatiempos'] = $validated['buscando'];
+                Log::info('PerfilVerController@actualizar - Pasatiempos guardados', [
+                    'count' => count($validated['buscando']),
+                    'pasatiempos' => $validated['buscando']
+                ]);
+            } else {
+                $perfilData['pasatiempos'] = [];
             }
+            
             if (isset($validated['ciudad']) && !empty($validated['ciudad'])) {
                 $perfilData['ubicacion_ciudad'] = $validated['ciudad'];
             }
-            if (isset($validated['visibilidadFotos'])) {
-                $perfilData['privacidad_fotos'] = $validated['visibilidadFotos'];
-            }
+            
+            // CORRECCIÓN: Usar el valor mapeado para la BD
+            $perfilData['privacidad_fotos'] = $privacidadBD;
             
             $perfilData['metadatos'] = $metadatos;
+            
+            Log::info('PerfilVerController@actualizar - Datos a guardar en perfil', $perfilData);
             
             $perfil = Perfil::updateOrCreate(
                 ['usuario_id' => $user->id],
                 $perfilData
             );
+
+            // Recargar el perfil para asegurar que tenemos los datos actualizados
+            $perfil->refresh();
+
+            Log::info('PerfilVerController@actualizar - Perfil guardado/actualizado', [
+                'perfil_id' => $perfil->id,
+                'tipo' => $perfil->tipo
+            ]);
 
             // ============================================================
             // PROCESAR FOTOS
@@ -231,6 +327,7 @@ class PerfilVerController extends Controller
                         }
                         $foto->delete();
                         $fotosEliminadas++;
+                        Log::info('PerfilVerController@actualizar - Foto eliminada', ['foto_id' => $fotoId]);
                     }
                 }
             }
@@ -256,6 +353,7 @@ class PerfilVerController extends Controller
                     $file = $request->file("foto_{$i}_file");
 
                     if (!$file || !$file->isValid()) {
+                        Log::warning('PerfilVerController@actualizar - Foto nueva inválida', ['index' => $i]);
                         continue;
                     }
 
@@ -265,6 +363,10 @@ class PerfilVerController extends Controller
                     );
 
                     if ($validator->fails()) {
+                        Log::warning('PerfilVerController@actualizar - Foto nueva no pasa validación', [
+                            'index' => $i,
+                            'errors' => $validator->errors()->toArray()
+                        ]);
                         continue;
                     }
 
@@ -279,7 +381,7 @@ class PerfilVerController extends Controller
                         'ruta_foto' => $rutaFoto,
                         'es_principal' => $esPrincipal,
                         'fecha_subida' => now(),
-                        'permisos' => [$validated['visibilidadFotos'] ?? 'todos'],
+                        'permisos' => [$privacidadBD],
                     ]);
 
                     $idsExistentes[] = $nuevaFoto->id;
@@ -288,6 +390,11 @@ class PerfilVerController extends Controller
                     if ($esPrincipal) {
                         $fotoPrincipalRuta = $rutaFoto;
                     }
+
+                    Log::info('PerfilVerController@actualizar - Foto nueva creada', [
+                        'foto_id' => $nuevaFoto->id,
+                        'es_principal' => $esPrincipal
+                    ]);
 
                     continue;
                 }
@@ -299,6 +406,10 @@ class PerfilVerController extends Controller
                     $foto = $fotoId ? Fotos::where('perfil_id', $perfil->id)->where('id', $fotoId)->first() : null;
 
                     if (!$foto || !$file || !$file->isValid()) {
+                        Log::warning('PerfilVerController@actualizar - Reemplazo inválido', [
+                            'foto_id' => $fotoId,
+                            'has_file' => $file ? true : false
+                        ]);
                         continue;
                     }
 
@@ -309,6 +420,10 @@ class PerfilVerController extends Controller
 
                     if ($validator->fails()) {
                         $idsExistentes[] = $foto->id;
+                        Log::warning('PerfilVerController@actualizar - Reemplazo no pasa validación', [
+                            'foto_id' => $fotoId,
+                            'errors' => $validator->errors()->toArray()
+                        ]);
                         continue;
                     }
 
@@ -336,6 +451,11 @@ class PerfilVerController extends Controller
                         $fotoPrincipalRuta = $rutaNueva;
                     }
 
+                    Log::info('PerfilVerController@actualizar - Foto reemplazada', [
+                        'foto_id' => $foto->id,
+                        'ruta_nueva' => $rutaNueva
+                    ]);
+
                     continue;
                 }
 
@@ -345,6 +465,7 @@ class PerfilVerController extends Controller
                     $foto = $fotoId ? Fotos::where('perfil_id', $perfil->id)->where('id', $fotoId)->first() : null;
 
                     if (!$foto) {
+                        Log::warning('PerfilVerController@actualizar - Foto existente no encontrada', ['foto_id' => $fotoId]);
                         continue;
                     }
 
@@ -363,6 +484,11 @@ class PerfilVerController extends Controller
                         $fotoPrincipalRuta = $foto->ruta_foto;
                     }
 
+                    Log::info('PerfilVerController@actualizar - Foto existente actualizada', [
+                        'foto_id' => $foto->id,
+                        'es_principal' => $esPrincipal
+                    ]);
+
                     continue;
                 }
 
@@ -372,6 +498,7 @@ class PerfilVerController extends Controller
                     $foto = $ruta ? Fotos::where('perfil_id', $perfil->id)->where('ruta_foto', $ruta)->first() : null;
 
                     if (!$foto) {
+                        Log::warning('PerfilVerController@actualizar - Foto por ruta no encontrada', ['ruta' => $ruta]);
                         continue;
                     }
 
@@ -405,6 +532,7 @@ class PerfilVerController extends Controller
                         }
                         $foto->delete();
                         $fotosEliminadas++;
+                        Log::info('PerfilVerController@actualizar - Foto huérfana eliminada', ['foto_id' => $foto->id]);
                     }
                 }
             }
@@ -413,6 +541,7 @@ class PerfilVerController extends Controller
             if ($fotoPrincipalRuta) {
                 $user->foto_principal = $fotoPrincipalRuta;
                 $user->save();
+                Log::info('PerfilVerController@actualizar - Foto principal actualizada', ['ruta' => $fotoPrincipalRuta]);
             } else {
                 $fotoPrincipal = Fotos::where('perfil_id', $perfil->id)
                     ->where('es_principal', true)
@@ -421,6 +550,7 @@ class PerfilVerController extends Controller
                 if ($fotoPrincipal) {
                     $user->foto_principal = $fotoPrincipal->ruta_foto;
                     $user->save();
+                    Log::info('PerfilVerController@actualizar - Foto principal recuperada', ['ruta' => $fotoPrincipal->ruta_foto]);
                 } else {
                     $primeraFoto = Fotos::where('perfil_id', $perfil->id)->first();
                     if ($primeraFoto) {
@@ -428,9 +558,11 @@ class PerfilVerController extends Controller
                         $primeraFoto->save();
                         $user->foto_principal = $primeraFoto->ruta_foto;
                         $user->save();
+                        Log::info('PerfilVerController@actualizar - Primera foto establecida como principal', ['ruta' => $primeraFoto->ruta_foto]);
                     } else {
                         $user->foto_principal = null;
                         $user->save();
+                        Log::info('PerfilVerController@actualizar - Sin fotos, foto_principal null');
                     }
                 }
             }
@@ -438,24 +570,56 @@ class PerfilVerController extends Controller
             // ============================================================
             // VERIFICAR PERFIL COMPLETO
             // ============================================================
-            $totalFotos = Fotos::where('perfil_id', $perfil->id)->count();
+            $totalFotosGuardadas = Fotos::where('perfil_id', $perfil->id)->count();
             $tieneFotoPrincipal = !empty($user->foto_principal);
-            $interesesCount = count($perfil->intereses ?? []);
-            $pasatiemposCount = count($perfil->pasatiempos ?? []);
+            
+            // CORRECCIÓN: Asegurar que intereses y pasatiempos sean arrays
+            $intereses = $perfil->intereses ?? [];
+            if (is_string($intereses)) {
+                $intereses = json_decode($intereses, true) ?? [];
+            }
+            $pasatiempos = $perfil->pasatiempos ?? [];
+            if (is_string($pasatiempos)) {
+                $pasatiempos = json_decode($pasatiempos, true) ?? [];
+            }
+            
+            $interesesCount = count($intereses);
+            $pasatiemposCount = count($pasatiempos);
             $descripcionLength = strlen($perfil->descripcion ?? '');
+            
+            Log::info('PerfilVerController@actualizar - Evaluando completitud', [
+                'total_fotos' => $totalFotosGuardadas,
+                'tiene_foto_principal' => $tieneFotoPrincipal,
+                'intereses_count' => $interesesCount,
+                'pasatiempos_count' => $pasatiemposCount,
+                'descripcion_length' => $descripcionLength,
+                'tiene_ciudad' => !empty($user->ciudad)
+            ]);
             
             $completo = (
                 $tieneFotoPrincipal &&
-                $totalFotos >= 4 &&
+                $totalFotosGuardadas >= 4 &&
                 $interesesCount >= 3 &&
                 $pasatiemposCount >= 2 &&
                 $descripcionLength >= 50 &&
                 !empty($user->ciudad)
             );
             
-            $metadatos['perfil_completo'] = $completo;
-            $perfil->metadatos = $metadatos;
+            // Actualizar metadatos con la información de completitud
+            $metadatosActualizados = $perfil->metadatos;
+            if (is_string($metadatosActualizados)) {
+                $metadatosActualizados = json_decode($metadatosActualizados, true) ?? [];
+            } elseif (!is_array($metadatosActualizados)) {
+                $metadatosActualizados = [];
+            }
+            
+            $metadatosActualizados['perfil_completo'] = $completo;
+            $perfil->metadatos = $metadatosActualizados;
             $perfil->save();
+
+            Log::info('PerfilVerController@actualizar - Perfil completo', [
+                'completo' => $completo ? 'SI' : 'NO'
+            ]);
 
             // ============================================================
             // MENSAJES DE TOAST
@@ -481,6 +645,8 @@ class PerfilVerController extends Controller
                 $mensajeFinal = implode(' ', $mensajes);
             }
 
+            Log::info('PerfilVerController@actualizar - FINALIZADO CON ÉXITO');
+
             return redirect()->route('perfil.ver')->with('flash', [
                 'toast' => [
                     'type' => 'success',
@@ -491,6 +657,11 @@ class PerfilVerController extends Controller
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('PerfilVerController@actualizar - ERROR DE VALIDACIÓN', [
+                'errors' => $e->errors(),
+                'data' => $request->all()
+            ]);
+            
             $errors = $e->errors();
             $firstError = reset($errors)[0] ?? 'Error de validación';
             $field = key($errors);
@@ -523,11 +694,19 @@ class PerfilVerController extends Controller
                 ]);
             
         } catch (\Exception $e) {
+            Log::error('PerfilVerController@actualizar - ERROR INESPERADO', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'data' => $request->all()
+            ]);
+            
             return redirect()->route('perfil.ver')->with('flash', [
                 'toast' => [
                     'type' => 'error',
-                    'title' => 'Error',
-                    'message' => 'No se pudo actualizar el perfil. Por favor, intenta nuevamente.',
+                    'title' => 'Error del sistema',
+                    'message' => 'Ha ocurrido un error inesperado: ' . $e->getMessage(),
                     'duration' => 5000,
                 ]
             ]);

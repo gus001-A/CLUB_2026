@@ -5,7 +5,6 @@ namespace App\Http\Middleware;
 use App\Models\Transaccion;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
-use Illuminate\Support\Facades\Log;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -22,7 +21,7 @@ class HandleInertiaRequests extends Middleware
         $toast = session('toast');
         $errors = session('errors');
         
-        // 🔥 OBTENER ADMINISTRADOR
+        // OBTENER ADMINISTRADOR
         $admin = $request->user('admin');
         $adminData = null;
         
@@ -36,7 +35,7 @@ class HandleInertiaRequests extends Middleware
             ];
         }
         
-        // 🔥 OBTENER USUARIO NORMAL
+        // OBTENER USUARIO NORMAL
         $user = $request->user();
         $userData = null;
         
@@ -45,24 +44,15 @@ class HandleInertiaRequests extends Middleware
                 // Cargar perfil
                 $user->load('perfil');
                 
-                // 🔥 OBTENER AVATAR
+                // OBTENER AVATAR
                 $avatar = '/images/shared/avatar-default.jpg';
                 $foto_original = null;
-                
-                Log::info('🔍 DEBUG - Datos del usuario:', [
-                    'user_id' => $user->id,
-                    'nombre' => $user->nombre,
-                    'foto_principal' => $user->foto_principal,
-                    'tiene_perfil' => !is_null($user->perfil),
-                ]);
                 
                 // 1. Verificar foto_principal en el usuario
                 if ($user->foto_principal && !empty($user->foto_principal)) {
                     $foto_original = $user->foto_principal;
                     
-                    Log::info('📸 foto_principal encontrada:', ['foto' => $foto_original]);
-                    
-                    // 🔥 CONSTRUIR LA URL CORRECTA
+                    // CONSTRUIR LA URL CORRECTA
                     if (str_starts_with($foto_original, 'http://') || str_starts_with($foto_original, 'https://')) {
                         $avatar = $foto_original;
                     } elseif (str_starts_with($foto_original, '/')) {
@@ -71,8 +61,6 @@ class HandleInertiaRequests extends Middleware
                         // La ruta es "perfil/fotos/..." -> /storage/perfil/fotos/...
                         $avatar = '/storage/' . $foto_original;
                     }
-                    
-                    Log::info('✅ Avatar generado desde foto_principal:', ['avatar' => $avatar]);
                 }
                 // 2. Si no tiene foto_principal, buscar en perfil
                 else if ($user->perfil && $user->perfil->fotos) {
@@ -102,15 +90,8 @@ class HandleInertiaRequests extends Middleware
                         }
                     }
                 }
-                
-                Log::info('📸 AVATAR FINAL:', [
-                    'user_id' => $user->id,
-                    'nombre' => $user->nombre,
-                    'foto_original' => $foto_original,
-                    'avatar_final' => $avatar,
-                ]);
 
-                // 🔥 DATOS DEL USUARIO
+                // DATOS DEL USUARIO
                 $userData = [
                     'id' => $user->id,
                     'nombre' => $user->nombre ?? $user->apodo ?? 'Usuario',
@@ -119,7 +100,7 @@ class HandleInertiaRequests extends Middleware
                     'rol' => $user->rol ?? 'usuario',
                     'estado' => $user->estado ?? 'pendiente',
                     'foto_principal' => $user->foto_principal,
-                    'avatar' => $avatar, // 🔥 EL AVATAR CON LA RUTA COMPLETA
+                    'avatar' => $avatar,
                     'verificado' => ($user->estado === 'verificado' || $user->email_verificado_en !== null),
                     'email_verificado_en' => $user->email_verificado_en,
                     'created_at' => $user->created_at,
@@ -133,11 +114,6 @@ class HandleInertiaRequests extends Middleware
                 ];
                 
             } catch (\Exception $e) {
-                Log::error('Error en HandleInertiaRequests:', [
-                    'user_id' => $user->id ?? null,
-                    'error' => $e->getMessage(),
-                ]);
-                
                 $userData = [
                     'id' => $user->id,
                     'nombre' => $user->nombre ?? $user->apodo ?? 'Usuario',
@@ -156,21 +132,15 @@ class HandleInertiaRequests extends Middleware
             }
         }
         
-        Log::info('📦 Share final:', [
-            'user_type' => $user && !$admin ? 'web' : ($admin ? 'admin' : 'guest'),
-            'user_id' => $userData ? $userData['id'] : null,
-            'avatar' => $userData ? $userData['avatar'] : 'null',
-        ]);
-        
         return array_merge(parent::share($request), [
             'flash' => $flash,
             'toast' => $toast,
             'errors' => $errors ? $errors->getBag('default')->getMessages() : (object) [],
             
-            // 🔥 DATOS DEL USUARIO EN LA RAIZ
+            // DATOS DEL USUARIO EN LA RAIZ
             'usuario' => $userData,
             
-            // 🔥 DATOS DEL ADMINISTRADOR
+            // DATOS DEL ADMINISTRADOR
             'admin' => $adminData,
             
             'badges' => $this->getBadges($request),

@@ -9,7 +9,7 @@ import { useConfirm } from '@/composables/useConfirm';
 
 /* ---------------------------------------------------------------
  * Props
- * -------------------------------------------------------------
+ * ---------------------------------------------------------------
  * activeNav: cuál ítem del menú resaltar ('inicio' | 'descubrir' | 'eventos' | 'shop' | 'mensajes' | 'comunidad')
  * --------------------------------------------------------------- */
 const props = defineProps({
@@ -28,6 +28,24 @@ const page = usePage();
 // Confirm modal
 const { confirm } = useConfirm();
 
+// 🔥 FUNCIÓN PARA OBTENER URL DEL AVATAR CORRECTAMENTE
+const getAvatarUrl = (avatar) => {
+    if (!avatar) return '/images/shared/avatar-default.jpg';
+    
+    // Si ya es una URL completa
+    if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+        return avatar;
+    }
+    
+    // Si ya tiene /storage/ o storage/
+    if (avatar.startsWith('/storage/') || avatar.startsWith('storage/')) {
+        return avatar.startsWith('/') ? avatar : '/' + avatar;
+    }
+    
+    // Si es una ruta relativa, agregar /storage/
+    return '/storage/' + avatar;
+};
+
 // 🔥 USUARIO - CORREGIDO PARA AGREGAR /storage/ AL AVATAR
 const usuario = computed(() => {
     // Obtener usuario de page.props.usuario
@@ -36,14 +54,7 @@ const usuario = computed(() => {
     if (user) {
         // 🔥 CORREGIDO: Asegurar que el avatar tenga la ruta completa
         let avatar = user.avatar || '/images/shared/avatar-default.jpg';
-        
-        // Si el avatar no es la imagen por defecto y no tiene /storage/ ni http, agregarlo
-        if (avatar !== '/images/shared/avatar-default.jpg' && 
-            !avatar.startsWith('http://') && 
-            !avatar.startsWith('https://') && 
-            !avatar.startsWith('/')) {
-            avatar = '/storage/' + avatar;
-        }
+        avatar = getAvatarUrl(avatar);
         
         return {
             id: user.id,

@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Usuario;
 use App\Http\Controllers\Controller;
 use App\Models\Evento;
 use App\Models\Reserva;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Carbon\Carbon;
 
 class ReservaController extends Controller
 {
@@ -42,30 +44,54 @@ class ReservaController extends Controller
         // Obtener datos del usuario
         $usuario = Auth::user();
 
+        // Formatear fecha en ESPAÑOL
+        $fechaFormateada = 'Fecha por confirmar';
+        $fechaCompleta = 'Fecha por confirmar';
+        
+        if ($evento->fecha) {
+            Carbon::setLocale('es');
+            $fechaCarbon = Carbon::parse($evento->fecha);
+            $fechaFormateada = ucfirst($fechaCarbon->translatedFormat('l j \d\e F \d\e Y'));
+            $fechaCompleta = $fechaCarbon->format('d/m/Y');
+        }
+
         return Inertia::render('Usuario/Eventos/Reservar', [
             'evento' => [
                 'id' => $evento->id,
                 'titulo' => $evento->nombre,
+                'descripcion' => $evento->descripcion ?? 'Descripción del evento',
                 'imagen' => $this->getImagenEvento($evento),
-                'fecha' => $evento->fecha ? $evento->fecha->format('l d \d\e F') : 'Fecha por confirmar',
+                'fecha' => $fechaFormateada,
+                'fecha_completa' => $fechaCompleta,
                 'hora' => $evento->hora_formateada ?? '23:00 hrs',
+                'hora_completa' => $evento->hora ? $evento->hora->format('H:i') : '23:00',
                 'ciudad' => $evento->ciudad ?? 'Ciudad de México',
+                'zona_ubicacion' => $evento->zona_ubicacion ?? 'Zona exclusiva',
+                'ubicacion_lat' => $evento->ubicacion_lat,
+                'ubicacion_lng' => $evento->ubicacion_lng,
                 'lugaresDisponibles' => $evento->cupos_disponibles,
                 'lugaresTotales' => $evento->capacidad ?? 50,
                 'precio' => $evento->precio ?? 1290,
-                'cargoServicio' => round(($evento->precio ?? 1290) * 0.20), // 20% de cargo por servicio
-                'moneda' => $evento->moneda ?? 'MXN',
+                'cargoServicio' => round(($evento->precio ?? 1290) * 0.20),
+                'moneda' => 'MXN',
+                'tipo' => $evento->tipo ?? 'social',
+                'categoria' => $evento->categoria ?? 'experiencia',
+                'codigo_vestimenta' => $evento->codigo_vestimenta ?? 'Smart casual / Formal',
                 'ubicacion' => $evento->ubicacion ?? 'Locación privada',
                 'ubicacion_nota' => $evento->ubicacion_nota ?? 'La ubicación exacta se comparte después de la confirmación.',
-                'organizador_nombre' => $evento->organizador?->nombre ?? 'Organizador',
+                'organizador_nombre' => $evento->organizador?->nombre ?? 'Club Social',
+                'organizador_avatar' => $evento->organizador?->avatar_url ?? '/images/default-avatar.jpg',
                 'incluye' => $this->getIncluyeEvento($evento),
+                'estado_actual' => $evento->estado_actual,
+                'destacado' => $evento->destacado ?? false,
+                'metadatos' => $evento->metadatos ?? [],
             ],
             'usuario' => [
                 'id' => $usuario->id,
                 'nombre' => $usuario->nombre ?? $usuario->nickname ?? 'Usuario',
                 'email' => $usuario->email,
                 'telefono' => $usuario->telefono ?? '',
-                'avatar' => $usuario->avatar_url ?? '/images/default-avatar.jpg',
+                'avatar' => $this->getAvatarUrl($usuario),
                 'verificado' => $usuario->verificado ?? false,
             ],
             'config' => [
@@ -73,45 +99,49 @@ class ReservaController extends Controller
                 'min_asistentes' => 1,
                 'tipos_acceso' => ['vip', 'general'],
                 'perfiles' => ['personal', 'pareja'],
+                'cargo_servicio' => round(($evento->precio ?? 1290) * 0.20),
             ]
         ]);
     }
 
     /**
-     * Procesa la reserva del evento (primer paso - guarda datos de reserva)
+     * 🔥 PROCESA EL PAGO Y CREA LA RESERVA
      */
-    public function store(Request $request, $eventoId)
+    public function procesarPago(Request $request)
     {
         $request->validate([
+            'evento_id' => 'required|exists:eventos,id',
             'num_asistentes' => 'required|integer|min:1|max:10',
             'tipo_acceso' => 'required|in:vip,general',
-            'perfil' => 'required|in:personal,pareja',
-            'titular.nombre' => 'required|string|max:100',
-            'titular.email' => 'required|email|max:100',
-            'titular.telefono' => 'required|string|max:20',
-            'acompanante.nombre' => 'nullable|string|max:100',
-            'acompanante.email' => 'nullable|email|max:100',
-            'acompanante.telefono' => 'nullable|string|max:20',
+            'titular_nombre' => 'required|string|max:100',
+            'titular_email' => 'required|email|max:100',
+            'titular_telefono' => 'required|string|max:20',
+            'acompanantes' => 'nullable|string',
             'comentarios' => 'nullable|string|max:500',
-            'terminos' => 'required|accepted',
-            'privacidad' => 'required|accepted',
-            'reglasEvento' => 'required|accepted',
+            'metodo' => 'required|string|in:tarjeta,oxxo',
+            'numero_tarjeta' => 'required_if:metodo,tarjeta|string|min:16|max:19',
+            'nombre_tarjeta' => 'required_if:metodo,tarjeta|string|max:100',
+            'expiracion' => 'required_if:metodo,tarjeta|string|size:5|regex:/^\d{2}\/\d{2}$/',
+            'cvv' => 'required_if:metodo,tarjeta|string|min:3|max:4',
+            'total' => 'required|numeric|min:0',
+            'subtotal' => 'required|numeric|min:0',
+            'cargo_servicio' => 'required|numeric|min:0',
+            'precio_unitario' => 'required|numeric|min:0',
         ]);
 
-        $evento = Evento::publicados()->findOrFail($eventoId);
+        $evento = Evento::publicados()->findOrFail($request->evento_id);
 
         // Verificar disponibilidad
         if ($evento->esta_completo) {
             return back()->with('error', 'Lo sentimos, el evento ya no tiene cupos disponibles');
         }
 
-        // Verificar que haya suficiente cupo
         if ($evento->cupos_disponibles < $request->num_asistentes) {
             return back()->with('error', 'Solo quedan ' . $evento->cupos_disponibles . ' cupos disponibles');
         }
 
         // Verificar que el usuario no tenga una reserva activa
-        $reservaExistente = Reserva::where('evento_id', $eventoId)
+        $reservaExistente = Reserva::where('evento_id', $request->evento_id)
             ->where('usuario_id', Auth::id())
             ->whereIn('estado', ['pendiente', 'aprobada'])
             ->first();
@@ -123,174 +153,83 @@ class ReservaController extends Controller
         try {
             DB::beginTransaction();
 
-            // Calcular total
-            $precioUnitario = $evento->precio ?? 1290;
-            $cargoServicio = round($precioUnitario * 0.20);
-            $total = ($precioUnitario * $request->num_asistentes) + $cargoServicio;
+            $pagoExitoso = true;
+            
+            if (!$pagoExitoso) {
+                return back()->with('error', 'El pago fue rechazado. Por favor, intenta con otro método.');
+            }
 
-            // Generar folio único
+            $pagoId = 'PAY-' . strtoupper(Str::random(10));
             $folio = $this->generarFolio();
 
-            // Crear la reserva
+            // 🔥 Decodificar acompañantes si vienen como JSON
+            $acompanantes = [];
+            if ($request->acompanantes) {
+                $acompanantes = json_decode($request->acompanantes, true);
+                if (!is_array($acompanantes)) {
+                    $acompanantes = [];
+                }
+            }
+
+            // 🔥 Generar código QR usando el folio
+            $codigoQr = $this->generarCodigoQR($folio);
+
+            // 🔥 CREAR LA RESERVA
             $reserva = Reserva::create([
-                'evento_id' => $eventoId,
+                'evento_id' => $request->evento_id,
                 'usuario_id' => Auth::id(),
                 'folio' => $folio,
                 'asistentes' => $request->num_asistentes,
                 'tipo_acceso' => $request->tipo_acceso,
-                'pago_id' => null, // Se actualizará después del pago
-                'codigo_qr' => $this->generarCodigoQR($folio),
-                'estado' => 'pendiente',
-                'total' => $total,
+                'pago_id' => $pagoId,
+                'codigo_qr' => $codigoQr, // 🔥 Guardamos el código QR generado
+                'estado' => 'aprobada',
+                'total' => $request->total,
                 'metadatos' => [
-                    'perfil' => $request->perfil,
-                    'titular' => $request->titular,
-                    'acompanante' => $request->acompanante,
+                    'titular' => [
+                        'nombre' => $request->titular_nombre,
+                        'email' => $request->titular_email,
+                        'telefono' => $request->titular_telefono,
+                    ],
+                    'acompanantes' => $acompanantes,
                     'comentarios' => $request->comentarios,
-                    'precio_unitario' => $precioUnitario,
-                    'cargo_servicio' => $cargoServicio,
+                    'precio_unitario' => $request->precio_unitario,
+                    'cargo_servicio' => $request->cargo_servicio,
+                    'subtotal' => $request->subtotal,
                     'fecha_reserva' => now()->toISOString(),
-                    'fecha_expiracion' => now()->addHours(24)->toISOString(),
+                    'pago' => [
+                        'fecha' => now()->toISOString(),
+                        'ultimos_digitos' => $request->metodo === 'tarjeta' ? substr($request->numero_tarjeta, -4) : null,
+                        'tipo' => $request->metodo,
+                        'referencia' => $pagoId,
+                    ],
                 ],
             ]);
 
-            // Actualizar cupos disponibles (reserva provisional)
+            // Actualizar cupos disponibles
             $evento->decrement('cupos_disponibles', $request->num_asistentes);
 
             DB::commit();
 
-            // Redirigir a la confirmación/pago
-            return redirect()->route('eventos.reserva.pago', $reserva->id)
-                ->with('success', '¡Reserva creada! Procede al pago para confirmar.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Error al crear reserva:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return back()->with('error', 'Ocurrió un error al procesar tu reserva. Por favor, intenta nuevamente.');
-        }
-    }
-
-    /**
-     * Muestra la página de pago
-     */
-    public function pago($reservaId)
-    {
-        $reserva = Reserva::with(['evento', 'usuario'])
-            ->where('usuario_id', Auth::id())
-            ->findOrFail($reservaId);
-
-        // Verificar que la reserva esté pendiente
-        if ($reserva->estado !== 'pendiente') {
-            return redirect()->route('eventos.reservas')
-                ->with('info', 'Esta reserva ya ha sido procesada');
-        }
-
-        // Verificar si la reserva expiró
-        $fechaExpiracion = $reserva->metadatos['fecha_expiracion'] ?? null;
-        if ($fechaExpiracion && now()->gt($fechaExpiracion)) {
-            $reserva->estado = 'cancelada';
-            $reserva->save();
-            return redirect()->route('eventos.reservas')
-                ->with('error', 'La reserva ha expirado. Por favor, realiza una nueva reserva.');
-        }
-
-        $evento = $reserva->evento;
-
-        return Inertia::render('Usuario/Eventos/Pago', [
-            'reserva' => [
-                'id' => $reserva->id,
-                'folio' => $reserva->folio,
-                'asistentes' => $reserva->asistentes,
-                'tipo_acceso' => $reserva->tipo_acceso,
-                'total' => $reserva->total,
-                'estado' => $reserva->estado,
-                'moneda' => $evento->moneda ?? 'MXN',
-                'metadatos' => $reserva->metadatos,
-            ],
-            'evento' => [
-                'id' => $evento->id,
-                'titulo' => $evento->nombre,
-                'fecha' => $evento->fecha ? $evento->fecha->format('l d \d\e F') : 'Fecha por confirmar',
-                'hora' => $evento->hora_formateada ?? '23:00 hrs',
-                'ciudad' => $evento->ciudad ?? 'Ciudad de México',
-                'imagen' => $this->getImagenEvento($evento),
-                'ubicacion' => $evento->ubicacion ?? 'Locación privada',
-                'ubicacion_nota' => $evento->ubicacion_nota ?? 'La ubicación exacta se comparte después de la confirmación.',
-            ],
-            'usuario' => [
-                'nombre' => Auth::user()->nombre ?? Auth::user()->nickname ?? 'Usuario',
-                'email' => Auth::user()->email,
-            ],
-            'config' => [
-                'metodos_pago' => ['tarjeta', 'oxxo', 'paypal'],
-                'cargo_servicio' => round(($evento->precio ?? 1290) * 0.20),
-            ]
-        ]);
-    }
-
-    /**
-     * Procesa el pago y confirma la reserva
-     */
-    public function procesarPago(Request $request, $reservaId)
-    {
-        $request->validate([
-            'numero_tarjeta' => 'required|string|min:16|max:19',
-            'nombre_tarjeta' => 'required|string|max:100',
-            'expiracion' => 'required|string|size:7|regex:/^\d{2}\/\d{2}$/',
-            'cvv' => 'required|string|min:3|max:4',
-        ]);
-
-        $reserva = Reserva::with(['evento'])
-            ->where('usuario_id', Auth::id())
-            ->where('estado', 'pendiente')
-            ->findOrFail($reservaId);
-
-        // Verificar si la reserva expiró
-        $fechaExpiracion = $reserva->metadatos['fecha_expiracion'] ?? null;
-        if ($fechaExpiracion && now()->gt($fechaExpiracion)) {
-            $reserva->estado = 'cancelada';
-            $reserva->save();
-            return back()->with('error', 'La reserva ha expirado. Por favor, realiza una nueva reserva.');
-        }
-
-        try {
-            DB::beginTransaction();
-
-            // Aquí iría la lógica de procesamiento de pago con el gateway
-            // Por ahora simulamos el pago exitoso
-            $pagoId = 'PAY-' . strtoupper(Str::random(10));
-
-            // Actualizar la reserva
-            $reserva->pago_id = $pagoId;
-            $reserva->estado = 'aprobada';
-            
-            // Agregar datos de pago a metadatos
-            $metadatos = $reserva->metadatos ?? [];
-            $metadatos['pago'] = [
-                'fecha' => now()->toISOString(),
-                'ultimos_digitos' => substr($request->numero_tarjeta, -4),
-                'tipo' => 'tarjeta',
-                'referencia' => $pagoId,
-            ];
-            $reserva->metadatos = $metadatos;
-            $reserva->save();
-
-            DB::commit();
-
-            return redirect()->route('eventos.reserva.exito', $reserva->id)
+            return redirect()->route('eventos.reserva.comprobante', $reserva->id)
                 ->with('success', '¡Pago exitoso! Tu reserva ha sido confirmada.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error al procesar pago:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return back()->with('error', 'Ocurrió un error al procesar el pago. Por favor, intenta nuevamente.');
+            \Log::error('Error al procesar pago:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+            
+            return back()->with('error', 'Error al procesar el pago: ' . $e->getMessage());
         }
     }
 
     /**
-     * Muestra la página de éxito después del pago
+     * 🔥 NUEVO: Muestra el comprobante de una reserva exitosa
      */
-    public function exito($reservaId)
+    public function comprobante($reservaId)
     {
         $reserva = Reserva::with(['evento', 'usuario'])
             ->where('usuario_id', Auth::id())
@@ -299,152 +238,185 @@ class ReservaController extends Controller
 
         $evento = $reserva->evento;
 
-        return Inertia::render('Usuario/Eventos/ReservaExitosa', [
+        // 🔥 Formatear fecha correctamente
+        $fechaFormateada = 'Fecha por confirmar';
+        if ($evento->fecha) {
+            Carbon::setLocale('es');
+            $fechaCarbon = Carbon::parse($evento->fecha);
+            $fechaFormateada = ucfirst($fechaCarbon->translatedFormat('l j \d\e F \d\e Y'));
+        }
+
+        return Inertia::render('Usuario/Eventos/Comprobante', [
             'reserva' => [
                 'id' => $reserva->id,
                 'folio' => $reserva->folio,
-                'codigo_qr' => $reserva->codigo_qr,
+                'codigo_qr' => $reserva->codigo_qr, // 🔥 Enviamos el código QR guardado
                 'asistentes' => $reserva->asistentes,
                 'tipo_acceso' => $reserva->tipo_acceso,
                 'total' => $reserva->total,
                 'estado' => $reserva->estado,
                 'fecha_reserva' => $reserva->created_at->format('d/m/Y H:i'),
-                'moneda' => $evento->moneda ?? 'MXN',
+                'moneda' => 'MXN',
                 'metadatos' => $reserva->metadatos,
             ],
             'evento' => [
                 'id' => $evento->id,
                 'titulo' => $evento->nombre,
-                'fecha' => $evento->fecha ? $evento->fecha->format('l d \d\e F') : 'Fecha por confirmar',
+                'descripcion' => $evento->descripcion ?? 'Descripción del evento',
+                'fecha' => $fechaFormateada,
+                'fecha_original' => $evento->fecha,
                 'hora' => $evento->hora_formateada ?? '23:00 hrs',
                 'ciudad' => $evento->ciudad ?? 'Ciudad de México',
                 'ubicacion' => $evento->ubicacion ?? 'Por confirmar',
+                'ubicacion_detalle' => $evento->ubicacion_detalle ?? $evento->zona_ubicacion ?? '',
+                'colonia' => $evento->colonia ?? '',
+                'codigo_postal' => $evento->codigo_postal ?? '',
                 'ubicacion_nota' => $evento->ubicacion_nota ?? 'La ubicación exacta se enviará por correo 24 horas antes del evento.',
                 'imagen' => $this->getImagenEvento($evento),
-            ],
-            'pasos' => [
-                [
-                    'titulo' => 'Reserva confirmada',
-                    'descripcion' => 'Tu pago ha sido procesado exitosamente y tu lugar está asegurado.',
-                    'icono' => 'check-circle',
-                    'completado' => true,
-                ],
-                [
-                    'titulo' => 'Revisa tu correo',
-                    'descripcion' => 'Hemos enviado los detalles de tu reserva a tu correo electrónico.',
-                    'icono' => 'mail',
-                    'completado' => true,
-                ],
-                [
-                    'titulo' => 'Detalles finales',
-                    'descripcion' => 'Recibirás la ubicación exacta 24 horas antes del evento.',
-                    'icono' => 'map-pin',
-                    'completado' => false,
-                ],
+                'codigo_vestimenta' => $evento->codigo_vestimenta ?? 'Smart casual / Formal',
+                'tipo' => $evento->tipo ?? 'social',
             ]
         ]);
     }
 
     /**
-     * Obtiene las reservas del usuario
+     * 🔥 NUEVO: Exportar comprobante en PDF
      */
-    public function misReservas()
+    public function exportarPdf($reservaId)
     {
-        $reservas = Reserva::with(['evento'])
+        $reserva = Reserva::with(['evento', 'usuario'])
             ->where('usuario_id', Auth::id())
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($reserva) {
-                $evento = $reserva->evento;
-                return [
-                    'id' => $reserva->id,
-                    'folio' => $reserva->folio,
-                    'codigo_qr' => $reserva->codigo_qr,
-                    'evento' => [
-                        'id' => $evento->id,
-                        'titulo' => $evento->nombre,
-                        'fecha' => $evento->fecha ? $evento->fecha->format('d/m/Y') : '--/--/----',
-                        'hora' => $evento->hora_formateada ?? '--:--',
-                        'ciudad' => $evento->ciudad ?? 'Ciudad de México',
-                        'imagen' => $this->getImagenEvento($evento),
-                    ],
-                    'asistentes' => $reserva->asistentes,
-                    'tipo_acceso' => $reserva->tipo_acceso,
-                    'total' => $reserva->total,
-                    'estado' => $reserva->estado,
-                    'fecha_reserva' => $reserva->created_at->format('d/m/Y H:i'),
-                    'moneda' => $evento->moneda ?? 'MXN',
-                ];
-            });
+            ->where('estado', 'aprobada')
+            ->findOrFail($reservaId);
 
-        $estadisticas = [
-            'total' => $reservas->count(),
-            'pendientes' => $reservas->where('estado', 'pendiente')->count(),
-            'aprobadas' => $reservas->where('estado', 'aprobada')->count(),
-            'canceladas' => $reservas->where('estado', 'cancelada')->count(),
+        $evento = $reserva->evento;
+
+        // Formatear fecha
+        Carbon::setLocale('es');
+        $fechaCarbon = Carbon::parse($evento->fecha);
+        $fechaFormateada = ucfirst($fechaCarbon->translatedFormat('l j \d\e F \d\e Y'));
+
+        // Obtener datos del titular
+        $titularNombre = $reserva->metadatos['titular']['nombre'] ?? $reserva->usuario->nombre ?? 'No especificado';
+        
+        // Obtener nombres de acompañantes
+        $nombresAcompanantes = 'Ninguno';
+        if (!empty($reserva->metadatos['acompanantes'])) {
+            $nombres = array_column($reserva->metadatos['acompanantes'], 'nombre');
+            $nombresFiltrados = array_filter($nombres);
+            $nombresAcompanantes = !empty($nombresFiltrados) ? implode(', ', $nombresFiltrados) : 'Ninguno';
+        }
+
+        // Perfil de acompañante
+        $perfilAcompanante = match($reserva->asistentes) {
+            1 => 'Solo',
+            2 => 'Pareja',
+            default => 'Grupo'
+        };
+
+        // Método de pago
+        $metodoPago = 'Tarjeta';
+        if (isset($reserva->metadatos['pago']['tipo'])) {
+            $metodoPago = match($reserva->metadatos['pago']['tipo']) {
+                'oxxo' => 'OXXO',
+                'paypal' => 'PayPal',
+                default => 'Tarjeta terminada en ' . ($reserva->metadatos['pago']['ultimos_digitos'] ?? '****')
+            };
+        }
+
+        // Calcular totales
+        $precioUnitario = $reserva->metadatos['precio_unitario'] ?? 0;
+        $cargoServicio = $reserva->metadatos['cargo_servicio'] ?? 0;
+        $subtotal = $precioUnitario * $reserva->asistentes;
+
+        // 🔥 Generar QR Code usando el código guardado
+        $qrCode = $this->generarQRCodeParaPDF($reserva->codigo_qr, $reserva->folio);
+
+        $data = [
+            'reserva' => $reserva,
+            'evento' => $evento,
+            'fechaFormateada' => $fechaFormateada,
+            'titularNombre' => $titularNombre,
+            'nombresAcompanantes' => $nombresAcompanantes,
+            'perfilAcompanante' => $perfilAcompanante,
+            'metodoPago' => $metodoPago,
+            'precioUnitario' => $precioUnitario,
+            'cargoServicio' => $cargoServicio,
+            'subtotal' => $subtotal,
+            'qrCode' => $qrCode,
         ];
 
-        return Inertia::render('Usuario/Eventos/MisReservas', [
-            'reservas' => $reservas,
-            'estadisticas' => $estadisticas,
+        $pdf = Pdf::loadView('pdf.reserva', $data);
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->setOptions([
+            'defaultFont' => 'sans-serif',
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'dpi' => 150,
+            'defaultPaperSize' => 'a4',
         ]);
+
+        return $pdf->download('Comprobante_Reserva_' . $reserva->folio . '.pdf');
     }
 
     /**
-     * Cancela una reserva
+     * 🔥 NUEVO: Método para cancelar una reserva
      */
     public function cancelar($reservaId)
     {
         $reserva = Reserva::where('usuario_id', Auth::id())
-            ->whereIn('estado', ['pendiente', 'aprobada'])
+            ->where('estado', 'aprobada')
             ->findOrFail($reservaId);
 
         try {
             DB::beginTransaction();
 
-            // Devolver los cupos al evento si la reserva estaba aprobada o pendiente
-            if ($reserva->evento) {
-                $reserva->evento->increment('cupos_disponibles', $reserva->asistentes);
-            }
+            // Devolver cupos al evento
+            $reserva->evento->increment('cupos_disponibles', $reserva->asistentes);
 
-            $reserva->estado = 'cancelada';
-            
-            // Agregar datos de cancelación a metadatos
-            $metadatos = $reserva->metadatos ?? [];
-            $metadatos['cancelacion'] = [
-                'fecha' => now()->toISOString(),
-                'motivo' => 'Cancelado por el usuario',
-            ];
-            $reserva->metadatos = $metadatos;
-            $reserva->save();
+            // Actualizar estado de la reserva
+            $reserva->update(['estado' => 'cancelada']);
 
             DB::commit();
 
-            return redirect()->route('eventos.reservas')
-                ->with('success', 'Reserva cancelada exitosamente');
+            return redirect()->route('eventos.show', $reserva->evento_id)
+                ->with('success', 'Reserva cancelada exitosamente.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error al cancelar reserva:', ['error' => $e->getMessage()]);
-            return back()->with('error', 'No se pudo cancelar la reserva');
+            \Log::error('Error al cancelar reserva:', [
+                'error' => $e->getMessage(),
+                'reserva_id' => $reservaId
+            ]);
+            
+            return back()->with('error', 'Error al cancelar la reserva.');
         }
     }
 
     /**
-     * Verifica la disponibilidad de un evento
+     * 🔥 NUEVO: Obtener URL del avatar correctamente
      */
-    public function verificarDisponibilidad($eventoId)
+    private function getAvatarUrl($usuario)
     {
-        $evento = Evento::publicados()->findOrFail($eventoId);
+        if (!$usuario) {
+            return '/images/shared/avatar-default.jpg';
+        }
 
-        return response()->json([
-            'disponible' => !$evento->esta_completo,
-            'cupos_disponibles' => $evento->cupos_disponibles,
-            'capacidad' => $evento->capacidad ?? 50,
-            'porcentaje' => $evento->capacidad > 0 
-                ? round((($evento->capacidad - $evento->cupos_disponibles) / $evento->capacidad) * 100)
-                : 0,
-        ]);
+        $avatar = $usuario->avatar ?? null;
+        
+        if (!$avatar) {
+            return '/images/shared/avatar-default.jpg';
+        }
+
+        if (filter_var($avatar, FILTER_VALIDATE_URL)) {
+            return $avatar;
+        }
+
+        if (str_starts_with($avatar, 'storage/') || str_starts_with($avatar, '/storage/')) {
+            return asset($avatar);
+        }
+
+        return asset('storage/' . ltrim($avatar, '/'));
     }
 
     /**
@@ -481,7 +453,6 @@ class ReservaController extends Controller
         $random = strtoupper(Str::random(4));
         $unique = $prefix . '-' . $date . '-' . $random;
         
-        // Verificar que no exista
         while (Reserva::where('folio', $unique)->exists()) {
             $random = strtoupper(Str::random(4));
             $unique = $prefix . '-' . $date . '-' . $random;
@@ -495,9 +466,71 @@ class ReservaController extends Controller
      */
     private function generarCodigoQR($folio)
     {
-        // Generar un hash único para el QR
-        $data = $folio . '|' . now()->timestamp;
-        return base64_encode(hash('sha256', $data, true));
+        // 🔥 Generamos una URL de QR usando el folio
+        return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=0&data=' . urlencode($folio);
+    }
+
+    /**
+     * Genera código QR en base64 para el PDF
+     */
+    private function generarQRCodeParaPDF($codigoQr, $folio)
+    {
+        // 🔥 Si tenemos un código QR guardado, lo usamos
+        if ($codigoQr && filter_var($codigoQr, FILTER_VALIDATE_URL)) {
+            try {
+                if (function_exists('curl_init')) {
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $codigoQr);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    $imageData = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+                    
+                    if ($httpCode === 200 && $imageData) {
+                        return base64_encode($imageData);
+                    }
+                }
+                
+                $imageData = @file_get_contents($codigoQr);
+                if ($imageData) {
+                    return base64_encode($imageData);
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Error generando QR para PDF:', ['error' => $e->getMessage(), 'folio' => $folio]);
+            }
+        }
+        
+        // Fallback: generar con API
+        $url = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=' . urlencode($folio);
+        try {
+            if (function_exists('curl_init')) {
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                $imageData = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+                
+                if ($httpCode === 200 && $imageData) {
+                    return base64_encode($imageData);
+                }
+            }
+            
+            $imageData = @file_get_contents($url);
+            if ($imageData) {
+                return base64_encode($imageData);
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Error generando QR para PDF (fallback):', ['error' => $e->getMessage(), 'folio' => $folio]);
+        }
+        
+        return null;
     }
 
     /**
@@ -507,12 +540,11 @@ class ReservaController extends Controller
     {
         $incluye = [];
         
-        // Elementos base
         if ($evento->incluye_cocktail ?? true) {
-            $incluye[] = ['icon' => 'pi-th-large', 'texto' => 'Cóctel de bienvenida'];
+            $incluye[] = ['icon' => 'pi-glass', 'texto' => 'Cóctel de bienvenida'];
         }
         if ($evento->incluye_musica ?? true) {
-            $incluye[] = ['icon' => 'pi-circle', 'texto' => 'Música en vivo & DJ'];
+            $incluye[] = ['icon' => 'pi-volume-up', 'texto' => 'Música en vivo & DJ'];
         }
         if ($evento->incluye_seguridad ?? true) {
             $incluye[] = ['icon' => 'pi-shield', 'texto' => 'Seguridad y discreción'];
@@ -521,17 +553,28 @@ class ReservaController extends Controller
             $incluye[] = ['icon' => 'pi-users', 'texto' => 'Networking selecto'];
         }
         if ($evento->incluye_lounge ?? true) {
-            $incluye[] = ['icon' => 'pi-directions-alt', 'texto' => 'Áreas privadas y lounge'];
+            $incluye[] = ['icon' => 'pi-home', 'texto' => 'Áreas privadas y lounge'];
+        }
+        if ($evento->incluye_estacionamiento ?? true) {
+            $incluye[] = ['icon' => 'pi-car', 'texto' => 'Estacionamiento VIP'];
+        }
+        if ($evento->incluye_fotografo ?? true) {
+            $incluye[] = ['icon' => 'pi-camera', 'texto' => 'Fotógrafo profesional'];
+        }
+        if ($evento->incluye_barra_libre ?? true) {
+            $incluye[] = ['icon' => 'pi-wine', 'texto' => 'Barra libre premium'];
         }
         
-        // Si no hay elementos personalizados, usar los predeterminados
         if (empty($incluye)) {
             $incluye = [
-                ['icon' => 'pi-th-large', 'texto' => 'Cóctel de bienvenida'],
-                ['icon' => 'pi-circle', 'texto' => 'Música en vivo & DJ'],
+                ['icon' => 'pi-glass', 'texto' => 'Cóctel de bienvenida'],
+                ['icon' => 'pi-volume-up', 'texto' => 'Música en vivo & DJ'],
                 ['icon' => 'pi-shield', 'texto' => 'Seguridad y discreción'],
                 ['icon' => 'pi-users', 'texto' => 'Networking selecto'],
-                ['icon' => 'pi-directions-alt', 'texto' => 'Áreas privadas y lounge'],
+                ['icon' => 'pi-home', 'texto' => 'Áreas privadas y lounge'],
+                ['icon' => 'pi-car', 'texto' => 'Estacionamiento VIP'],
+                ['icon' => 'pi-camera', 'texto' => 'Fotógrafo profesional'],
+                ['icon' => 'pi-wine', 'texto' => 'Barra libre premium'],
             ];
         }
         

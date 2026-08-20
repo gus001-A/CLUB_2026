@@ -11,12 +11,14 @@ use App\Models\Comentario;
 use App\Models\LikePublicacion;
 use App\Models\Evento;
 use App\Models\Suscripcion;
+use App\Models\Reserva;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 class ComunidadController extends Controller
 {
@@ -52,13 +54,13 @@ class ComunidadController extends Controller
         $publicaciones = $this->getPublicaciones($user);
         $metricas = $this->getMetricas();
         $temasTendencia = $this->getTemasTendencia();
-        $creadoresSugeridos = $this->getCreadoresSugeridos($user);
         $proximosEventos = $this->getProximosEventos();
 
         Log::info('=== FIN ComunidadController@index ===', [
             'user_id' => $user->id,
             'avatar' => $usuarioData['avatar'],
             'publicaciones' => count($publicaciones),
+            'eventos' => count($proximosEventos),
         ]);
 
         return Inertia::render('Usuario/Comunidad', [
@@ -66,7 +68,6 @@ class ComunidadController extends Controller
             'metricas' => $metricas,
             'publicaciones' => $publicaciones,
             'temasTendencia' => $temasTendencia,
-            'creadoresSugeridos' => $creadoresSugeridos,
             'proximosEventos' => $proximosEventos,
         ]);
     }
@@ -126,11 +127,12 @@ class ComunidadController extends Controller
                         'avatar' => $this->getAvatarFromUser($com->usuario),
                         'texto' => $com->texto,
                         'tiempo' => $com->created_at->diffForHumans(),
+                        'usuario_id' => $com->usuario_id,
                     ];
                 })
                 ->toArray();
 
-            // 🔥 DETERMINAR TIPO DE MEDIA
+            // DETERMINAR TIPO DE MEDIA
             $tipoMedia = 'texto';
             $mediaUrl = null;
             $mediaThumbnail = null;
@@ -144,7 +146,6 @@ class ComunidadController extends Controller
                 if (in_array(strtolower($extension), $videoExtensions)) {
                     $tipoMedia = 'video';
                     $mediaUrl = asset('storage/' . $pub->imagen);
-                    // Thumbnail para video (puedes generar uno o usar imagen por defecto)
                     $mediaThumbnail = asset('images/video-thumbnail-default.jpg');
                 } else {
                     $tipoMedia = 'imagen';
@@ -169,7 +170,7 @@ class ComunidadController extends Controller
                 'avatar' => $avatarAutor,
                 'tiempo' => $pub->tiempo,
                 'texto' => $pub->texto,
-                'imagen' => $mediaUrl, // Para compatibilidad con la vista existente
+                'imagen' => $mediaUrl,
                 'media_url' => $mediaUrl,
                 'media_type' => $tipoMedia,
                 'media_thumbnail' => $mediaThumbnail,
@@ -179,6 +180,8 @@ class ComunidadController extends Controller
                 'comentarios_list' => $comentarios,
                 'premium' => $pub->es_premium,
                 'verificado' => $pub->usuario->estado === 'verificado',
+                'usuario_id' => $pub->usuario_id,
+                'created_at' => $pub->created_at,
             ];
         }
 
@@ -249,59 +252,175 @@ class ComunidadController extends Controller
     }
 
     /**
-     * Obtiene creadores sugeridos
-     */
-    private function getCreadoresSugeridos($user): array
-    {
-        $creadores = User::where('rol', 'creador')
-            ->where('id', '!=', $user->id)
-            ->limit(3)
-            ->get();
-
-        return $creadores->map(function($creador) {
-            $avatar = $this->getAvatarFromUser($creador);
-            $suscriptores = $creador->suscriptores()->count() ?? 0;
-
-            return [
-                'nombre' => $creador->nombre,
-                'avatar' => $avatar,
-                'suscriptores' => $suscriptores > 1000 ? number_format($suscriptores / 1000, 1) . 'K' : number_format($suscriptores),
-            ];
-        })->toArray();
-    }
-
-    /**
-     * Obtiene próximos eventos
+     * Obtiene próximos eventos con formato en español
      */
     private function getProximosEventos(): array
     {
+        Carbon::setLocale('es');
+        
         $eventos = Evento::where('fecha', '>=', now())
             ->where('estado', 'publicado')
             ->orderBy('fecha', 'asc')
-            ->limit(3)
+            ->limit(6)
             ->get();
 
         if ($eventos->count() > 0) {
             return $eventos->map(function($evento) {
+                // Obtener la imagen del evento
                 $imagen = '/images/comunidad/evento-default.jpg';
-                
                 if ($evento->imagen) {
-                    $imagen = asset('storage/' . $evento->imagen);
+                    if (filter_var($evento->imagen, FILTER_VALIDATE_URL)) {
+                        $imagen = $evento->imagen;
+                    } elseif (Storage::disk('public')->exists($evento->imagen)) {
+                        $imagen = asset('storage/' . $evento->imagen);
+                    } elseif (Storage::disk('public')->exists('eventos/' . $evento->imagen)) {
+                        $imagen = asset('storage/eventos/' . $evento->imagen);
+                    }
                 }
 
+                // Formatear fecha en español
+                $fecha = Carbon::parse($evento->fecha);
+                
+                $meses = [
+                    'January' => 'Enero',
+                    'February' => 'Febrero',
+                    'March' => 'Marzo',
+                    'April' => 'Abril',
+                    'May' => 'Mayo',
+                    'June' => 'Junio',
+                    'July' => 'Julio',
+                    'August' => 'Agosto',
+                    'September' => 'Septiembre',
+                    'October' => 'Octubre',
+                    'November' => 'Noviembre',
+                    'December' => 'Diciembre',
+                ];
+                
+                $dias = [
+                    'Monday' => 'Lunes',
+                    'Tuesday' => 'Martes',
+                    'Wednesday' => 'Miércoles',
+                    'Thursday' => 'Jueves',
+                    'Friday' => 'Viernes',
+                    'Saturday' => 'Sábado',
+                    'Sunday' => 'Domingo',
+                ];
+
+                $nombreMes = $meses[$fecha->format('F')] ?? $fecha->format('F');
+                $nombreDia = $dias[$fecha->format('l')] ?? $fecha->format('l');
+
+                // Calcular asistentes usando el modelo Reserva
+                $asistentesCount = 0;
+                try {
+                    $asistentesCount = Reserva::where('evento_id', $evento->id)
+                        ->where('estado', 'aprobada')
+                        ->sum('asistentes') ?? 0;
+                } catch (\Exception $e) {
+                    Log::warning('Error al contar asistentes', [
+                        'evento_id' => $evento->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+
+                $capacidad = $evento->capacidad ?? 0;
+                $disponible = $capacidad === 0 || $asistentesCount < $capacidad;
+
                 return [
-                    'dia' => $evento->fecha->format('d'),
-                    'mes' => strtoupper($evento->fecha->format('M')),
-                    'titulo' => $evento->nombre,
-                    'lugar' => $evento->ciudad,
-                    'fecha' => $evento->fecha->format('D, d M · h:i A'),
-                    'imagen' => $imagen,
                     'id' => $evento->id,
+                    'dia' => $fecha->format('d'),
+                    'mes' => strtoupper(substr($nombreMes, 0, 3)),
+                    'nombre_mes' => $nombreMes,
+                    'nombre_dia' => $nombreDia,
+                    'titulo' => $evento->nombre,
+                    'lugar' => $evento->ciudad ?? 'Por definir',
+                    'direccion' => $evento->zona_ubicacion ?? '',
+                    'fecha_completa' => $fecha->format('d/m/Y'),
+                    'fecha_hora' => $evento->hora ? Carbon::parse($evento->hora)->format('H:i') : 'Por definir',
+                    'descripcion' => $evento->descripcion ?? '',
+                    'imagen' => $imagen,
+                    'disponible' => $disponible,
+                    'asistentes' => $asistentesCount,
+                    'capacidad' => $capacidad,
+                    'precio' => $evento->precio ?? 0,
                 ];
             })->toArray();
         }
 
-        return [];
+        // Eventos de muestra si no hay en la base de datos
+        return [
+            [
+                'id' => 1,
+                'dia' => '28',
+                'mes' => 'DIC',
+                'nombre_mes' => 'Diciembre',
+                'nombre_dia' => 'Sábado',
+                'titulo' => 'Noche de Gala Fin de Año',
+                'lugar' => 'Salón Principal',
+                'direccion' => 'Av. Reforma 123',
+                'fecha_completa' => '28/12/2025',
+                'fecha_hora' => '20:00',
+                'descripcion' => 'Celebración especial con cena, baile y sorpresas.',
+                'imagen' => '/images/comunidad/evento-gala.jpg',
+                'disponible' => true,
+                'asistentes' => 45,
+                'capacidad' => 100,
+                'precio' => 500,
+            ],
+            [
+                'id' => 2,
+                'dia' => '15',
+                'mes' => 'ENE',
+                'nombre_mes' => 'Enero',
+                'nombre_dia' => 'Miércoles',
+                'titulo' => 'Networking Creativo',
+                'lugar' => 'Espacio Coworking',
+                'direccion' => 'Calle Creativa 45',
+                'fecha_completa' => '15/01/2026',
+                'fecha_hora' => '18:30',
+                'descripcion' => 'Conecta con otros creadores y expande tu red.',
+                'imagen' => '/images/comunidad/evento-networking.jpg',
+                'disponible' => true,
+                'asistentes' => 12,
+                'capacidad' => 50,
+                'precio' => 150,
+            ],
+            [
+                'id' => 3,
+                'dia' => '22',
+                'mes' => 'ENE',
+                'nombre_mes' => 'Enero',
+                'nombre_dia' => 'Jueves',
+                'titulo' => 'Taller de Fotografía',
+                'lugar' => 'Estudio Creativo',
+                'direccion' => 'Av. Arte 78',
+                'fecha_completa' => '22/01/2026',
+                'fecha_hora' => '10:00',
+                'descripcion' => 'Aprende técnicas avanzadas de fotografía con expertos.',
+                'imagen' => '/images/comunidad/evento-foto.jpg',
+                'disponible' => true,
+                'asistentes' => 8,
+                'capacidad' => 20,
+                'precio' => 250,
+            ],
+            [
+                'id' => 4,
+                'dia' => '10',
+                'mes' => 'FEB',
+                'nombre_mes' => 'Febrero',
+                'nombre_dia' => 'Martes',
+                'titulo' => 'Festival de Música Independiente',
+                'lugar' => 'Parque Central',
+                'direccion' => 'Av. Principal 100',
+                'fecha_completa' => '10/02/2026',
+                'fecha_hora' => '14:00',
+                'descripcion' => 'Disfruta de bandas emergentes y ambiente festivo.',
+                'imagen' => '/images/comunidad/evento-musica.jpg',
+                'disponible' => true,
+                'asistentes' => 30,
+                'capacidad' => 200,
+                'precio' => 100,
+            ],
+        ];
     }
 
     // ============================================================
@@ -318,13 +437,12 @@ class ComunidadController extends Controller
         try {
             $request->validate([
                 'texto' => ['nullable', 'string', 'max:5000'],
-                'imagen' => ['nullable', 'image', 'max:10240'], // 10MB máximo
-                'video' => ['nullable', 'file', 'mimes:mp4,avi,mov,wmv,flv,webm,mkv,m4v,3gp', 'max:51200'], // 50MB máximo
+                'imagen' => ['nullable', 'image', 'max:10240'],
+                'video' => ['nullable', 'file', 'mimes:mp4,avi,mov,wmv,flv,webm,mkv,m4v,3gp', 'max:51200'],
                 'es_premium' => ['boolean'],
                 'tipo_media' => ['nullable', 'in:imagen,video'],
             ]);
 
-            // Validar que al menos tenga texto o un archivo
             if (!$request->texto && !$request->hasFile('imagen') && !$request->hasFile('video')) {
                 return redirect()->back()->with('error', 'Debes escribir algo o adjuntar un archivo para publicar.');
             }
@@ -339,7 +457,6 @@ class ComunidadController extends Controller
                 'metadatos' => [],
             ];
 
-            // Subir imagen si existe
             if ($request->hasFile('imagen')) {
                 $path = $request->file('imagen')->store('publicaciones', 'public');
                 $data['imagen'] = $path;
@@ -347,21 +464,18 @@ class ComunidadController extends Controller
                 Log::info('Imagen subida', ['path' => $path]);
             }
 
-            // Subir video si existe
             if ($request->hasFile('video')) {
                 $path = $request->file('video')->store('publicaciones/videos', 'public');
-                $data['imagen'] = $path; // Usamos el mismo campo 'imagen' pero ahora puede ser video
+                $data['imagen'] = $path;
                 $data['metadatos']['tipo_media'] = 'video';
                 $data['metadatos']['video_path'] = $path;
                 Log::info('Video subido', ['path' => $path]);
             }
 
-            // Si no hay imagen pero se envió tipo_media como imagen, crear placeholder
             if ($request->tipo_media === 'imagen' && !$request->hasFile('imagen')) {
                 return redirect()->back()->with('error', 'Selecciona una imagen para publicar.');
             }
 
-            // Si no hay video pero se envió tipo_media como video, crear placeholder
             if ($request->tipo_media === 'video' && !$request->hasFile('video')) {
                 return redirect()->back()->with('error', 'Selecciona un video para publicar.');
             }
@@ -472,6 +586,7 @@ class ComunidadController extends Controller
                         'texto' => $comentario->texto,
                         'tiempo' => $comentario->created_at->diffForHumans(),
                         'verificado' => $comentario->usuario ? $comentario->usuario->estado === 'verificado' : false,
+                        'usuario_id' => $comentario->usuario_id,
                     ];
                 });
 
@@ -519,7 +634,6 @@ class ComunidadController extends Controller
 
             $publicacion->increment('comentarios_count');
 
-            // Obtener el comentario con los datos del usuario
             $comentario->load('usuario');
             
             $avatar = $this->getAvatarFromUser($comentario->usuario);
@@ -537,6 +651,7 @@ class ComunidadController extends Controller
                     'avatar' => $avatar,
                     'texto' => $comentario->texto,
                     'tiempo' => $comentario->created_at->diffForHumans(),
+                    'usuario_id' => $comentario->usuario_id,
                 ],
                 'total_comentarios' => $publicacion->fresh()->comentarios_count,
                 'message' => 'Comentario agregado correctamente',
@@ -575,13 +690,11 @@ class ComunidadController extends Controller
                 ], 403);
             }
 
-            // Eliminar imagen o video si existe
             if ($publicacion->imagen && Storage::disk('public')->exists($publicacion->imagen)) {
                 Storage::disk('public')->delete($publicacion->imagen);
                 Log::info('Archivo multimedia eliminado', ['path' => $publicacion->imagen]);
             }
 
-            // Si hay video en metadatos, eliminarlo también
             if (isset($publicacion->metadatos['video_path']) && Storage::disk('public')->exists($publicacion->metadatos['video_path'])) {
                 Storage::disk('public')->delete($publicacion->metadatos['video_path']);
                 Log::info('Video eliminado', ['path' => $publicacion->metadatos['video_path']]);

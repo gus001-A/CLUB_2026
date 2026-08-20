@@ -1,11 +1,11 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import UserLayout from '@/Layouts/UserLayout.vue';
 import AppIcon from '@/Components/AppIcon.vue';
 
 // Props recibidas del controlador
-defineProps({
+const props = defineProps({
   eventosProximos: {
     type: Array,
     default: () => []
@@ -74,6 +74,57 @@ function handleScrollTo(event, sectionId) {
   // Esta función se pasa al layout y se ejecuta desde allí
   // El layout maneja el scroll
 }
+
+// Función para manejar errores de carga de imágenes
+function handleImageError(event) {
+  const img = event.target;
+  console.warn('Error cargando imagen:', img.src);
+  // Si no es la imagen por defecto, intentar cargarla
+  if (!img.src.includes('default.jpg')) {
+    img.src = '/images/events/default.jpg';
+  } else {
+    // Si ya es la default y falla, mostrar un color de fondo
+    img.style.display = 'none';
+    img.parentElement.style.backgroundColor = '#2a2a2a';
+    // Mostrar un texto alternativo
+    const fallback = document.createElement('div');
+    fallback.className = 'user-image-fallback';
+    fallback.innerHTML = '📷';
+    img.parentElement.appendChild(fallback);
+  }
+}
+
+// Función para verificar si la imagen existe antes de mostrarla
+async function loadImageWithFallback(url, imgElement) {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    if (!response.ok) {
+      throw new Error('Image not found');
+    }
+    imgElement.src = url;
+  } catch (error) {
+    console.warn('Fallback para imagen:', url);
+    imgElement.src = '/images/events/default.jpg';
+  }
+}
+
+// Depuración: mostrar las URLs de las imágenes en consola
+console.log('Eventos próximos recibidos:', props.eventosProximos);
+console.log('URLs de imágenes:', props.eventosProximos.map(e => ({
+  titulo: e.titulo,
+  imagen: e.imagen,
+  fechaCompleta: e.fechaCompleta
+})));
+
+// Al montar el componente, verificar las imágenes
+onMounted(() => {
+  props.eventosProximos.forEach(evento => {
+    const img = document.querySelector(`img[data-event-id="${evento.id}"]`);
+    if (img) {
+      loadImageWithFallback(evento.imagen, img);
+    }
+  });
+});
 </script>
 
 <template>
@@ -92,15 +143,15 @@ function handleScrollTo(event, sectionId) {
             <a href="#servicios" class="user-btn user-btn--primary user-btn--lg" @click="handleScrollTo($event, 'servicios')">
               Explorar experiencias <span aria-hidden="true">→</span>
             </a>
-            <button type="button" class="user-btn user-btn--outline user-btn--lg">
+            <Link :href="route('register.invite')" class="user-btn user-btn--outline user-btn--lg">
               <span class="user-play-dot">▶</span>
               Ver cómo funciona
-            </button>
+            </Link>
           </div>
         </div>
 
         <div class="user-hero__media">
-          <img src="/images/hero-couple.jpg" alt="Pareja en un ambiente exclusivo y privado" class="user-hero__img" />
+          <img src="/images/hero-couple.jpg" alt="Pareja en un ambiente exclusivo y privado" class="user-hero__img" @error="handleImageError" />
           <div class="user-hero__fade"></div>
         </div>
       </div>
@@ -129,12 +180,12 @@ function handleScrollTo(event, sectionId) {
         <p class="user-body user-about__text">
           Club de Fantasías es la comunidad exclusiva para adultos que buscan conexiones reales, experiencias auténticas y momentos inolvidables en un entorno seguro, discreto y confiable.
         </p>
-        <a href="#servicios" class="user-btn user-btn--primary user-btn--lg" @click="handleScrollTo($event, 'servicios')">
+        <Link :href="route('register.invite')" class="user-btn user-btn--primary user-btn--lg">
           Únete a nuestra comunidad <span aria-hidden="true">→</span>
-        </a>
+        </Link>
       </div>
       <div class="user-about__media">
-        <img src="/images/about-couple.jpg" alt="Pareja compartiendo un momento" />
+        <img src="/images/about-couple.jpg" alt="Pareja compartiendo un momento" @error="handleImageError" />
       </div>
     </section>
 
@@ -175,11 +226,13 @@ function handleScrollTo(event, sectionId) {
       <div class="user-services__grid">
         <article v-for="s in services" :key="s.title" class="user-service-card">
           <div class="user-service-card__media">
-            <img :src="s.image" :alt="s.title" />
+            <img :src="s.image" :alt="s.title" @error="handleImageError" />
           </div>
           <h3 class="user-service-card__title">{{ s.title }}</h3>
           <p class="user-service-card__text">{{ s.text }}</p>
-          <a href="#" class="user-link">Saber más <span aria-hidden="true">→</span></a>
+          <Link :href="route('register.invite')" class="user-link">
+            Conocer más <span aria-hidden="true">→</span>
+          </Link>
         </article>
       </div>
     </section>
@@ -200,7 +253,7 @@ function handleScrollTo(event, sectionId) {
         </a>
       </div>
       <div class="user-events-hero__media">
-        <img src="/images/events-hero.jpg" alt="Evento privado de la comunidad" />
+        <img src="/images/events-hero.jpg" alt="Evento privado de la comunidad" @error="handleImageError" />
       </div>
     </section>
 
@@ -209,7 +262,7 @@ function handleScrollTo(event, sectionId) {
       <p class="user-eyebrow user-eyebrow--center">Tipos de experiencias</p>
       <div class="user-experiences__grid">
         <div v-for="e in experienceTypes" :key="e.label" class="user-experiences__item">
-          <img :src="e.image" :alt="e.label" />
+          <img :src="e.image" :alt="e.label" @error="handleImageError" />
           <div class="user-experiences__overlay"></div>
           <span class="user-experiences__label">{{ e.label }}</span>
         </div>
@@ -231,7 +284,13 @@ function handleScrollTo(event, sectionId) {
       <div v-if="hayEventos" class="user-upcoming__grid">
         <article v-for="(ev, index) in eventosProximos" :key="ev.id" class="user-event-card" :style="{ animationDelay: (index * 0.15) + 's' }">
           <div class="user-event-card__media">
-            <img :src="ev.imagen" :alt="ev.titulo" />
+            <img 
+              :data-event-id="ev.id"
+              :src="ev.imagen" 
+              :alt="ev.titulo" 
+              @error="handleImageError"
+              loading="lazy"
+            />
             <div class="user-event-card__badge">
               <span class="user-event-card__badge-icon">✦</span>
               Evento exclusivo
@@ -254,13 +313,15 @@ function handleScrollTo(event, sectionId) {
             </div>
             <h3 class="user-event-card__title">{{ ev.titulo }}</h3>
             <p class="user-event-card__text">{{ ev.texto }}</p>
+            <!-- Fecha completa en español -->
+            <p class="user-event-card__fecha" v-if="ev.fechaCompleta">
+              <AppIcon name="calendar" class="user-event-card__icon" />
+              {{ ev.fechaCompleta }}
+            </p>
             <div class="user-event-card__footer">
-              <a href="#" class="user-link">
+              <Link :href="route('register.invite')" class="user-link">
                 Ver detalles <span aria-hidden="true">→</span>
-              </a>
-              <button class="user-event-card__btn">
-                <AppIcon name="heart" class="user-event-card__heart" />
-              </button>
+              </Link>
             </div>
           </div>
         </article>
@@ -289,7 +350,7 @@ function handleScrollTo(event, sectionId) {
     <!-- ================= CTA COMUNIDAD ================= -->
     <section class="user-cta">
       <div class="user-cta__bg-wrapper">
-        <img src="/images/cta-band.jpg" alt="" class="user-cta__bg" />
+        <img src="/images/cta-band.jpg" alt="" class="user-cta__bg" @error="handleImageError" />
         <div class="user-cta__overlay"></div>
       </div>
       <div class="user-cta__content">
@@ -382,12 +443,6 @@ function handleScrollTo(event, sectionId) {
             </button>
             <p v-if="f.open" class="user-faq__answer">{{ f.a }}</p>
           </div>
-        </div>
-
-        <div class="user-help">
-          <p class="user-mission__card-title">¿Necesitas ayuda?</p>
-          <p class="user-help__text">Nuestro equipo está listo para asesorarte en lo que necesites.</p>
-          <a href="#" class="user-btn user-btn--primary user-btn--sm">Hablar por WhatsApp</a>
         </div>
       </div>
     </section>
@@ -1150,40 +1205,42 @@ function handleScrollTo(event, sectionId) {
   font-size: 0.78rem;
   color: var(--muted);
   line-height: 1.6;
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.5rem;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
+/* Nueva estilo para la fecha en español */
+.user-event-card__fecha {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  color: var(--brand);
+  margin: 0 0 0.75rem;
+  font-weight: 500;
+}
+
 .user-event-card__footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding-top: 0.75rem;
   border-top: 1px solid var(--line);
 }
 
-.user-event-card__btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.4rem 0.6rem;
-  border-radius: var(--radius-sm);
-  transition: all 0.3s ease;
-  color: var(--muted-light);
-}
-
-.user-event-card__btn:hover {
-  background: rgba(200, 30, 58, 0.06);
-  color: var(--brand);
-  transform: scale(1.1);
-}
-
-.user-event-card__heart {
-  font-size: 18px;
-  color: currentColor;
+/* Fallback para imágenes */
+.user-image-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: #666;
+  background: #2a2a2a;
 }
 
 /* =========================================================================
@@ -1543,34 +1600,6 @@ function handleScrollTo(event, sectionId) {
   color: var(--muted);
   line-height: 1.6;
   margin: 0;
-}
-
-.user-help {
-  margin-top: 1.5rem;
-  background: var(--ink);
-  color: var(--white);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  transition: transform 0.3s ease;
-}
-
-.user-help:hover {
-  transform: translateY(-4px);
-}
-
-.user-help .user-mission__card-title {
-  color: var(--white);
-}
-
-.user-help__text {
-  font-size: 0.75rem;
-  color: #D8D4D1;
-  line-height: 1.6;
-  margin: 0.3rem 0 0;
-}
-
-.user-help .user-btn {
-  margin-top: 1rem;
 }
 
 /* =========================================================================
