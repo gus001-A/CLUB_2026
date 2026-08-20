@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ItemPedido;
 use App\Models\Pedido;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -59,7 +60,7 @@ class ShopController extends Controller
             'numero_pedido' => $p->numero_pedido,
             'usuario' => $p->usuario,
             'total_items' => $p->items->sum('cantidad'),
-            'miniaturas' => $p->items->take(3)->map(fn ($i) => $i->producto?->imagenes[0] ?? null)->filter()->values(),
+            'miniaturas' => $p->items->take(3)->map(fn ($i) => $this->resolverUrl($i->producto?->imagen_principal))->filter()->values(),
             'total' => $p->total,
             'metodo_pago' => $p->metodo_pago,
             'estado' => $p->estado,
@@ -76,7 +77,7 @@ class ShopController extends Controller
             ->get()
             ->map(fn ($r) => [
                 'nombre' => $r->producto?->nombre ?? 'Producto eliminado',
-                'imagen' => $r->producto?->imagenes[0] ?? null,
+                'imagen' => $this->resolverUrl($r->producto?->imagen_principal),
                 'unidades' => (int) $r->unidades,
                 'ingresos' => (float) $r->ingresos,
             ]);
@@ -139,6 +140,71 @@ class ShopController extends Controller
         ]);
     }
 
+    /**
+     * Vista "Ver todos los pedidos": listado completo con más filtros
+     * y desglose por estado/método — separado del dashboard de Shop.
+     */
+    public function todos(Request $request): Response
+    {
+        $query = Pedido::with(['usuario:id,nombre,apodo', 'items.producto:id,nombre,imagenes'])->where('estado', '!=', 'carrito');
+
+        if ($search = $request->string('q')->trim()->value()) {
+            $query->where(function ($q) use ($search) {
+                $q->where('numero_pedido', 'like', "%{$search}%")
+                    ->orWhereHas('usuario', fn ($u) => $u->where('nombre', 'like', "%{$search}%")->orWhere('apodo', 'like', "%{$search}%"));
+            });
+        }
+        if ($estado = $request->string('estado')->value()) {
+            $query->where('estado', $estado);
+        }
+        if ($metodo = $request->string('metodo')->value()) {
+            $query->where('metodo_pago', $metodo);
+        }
+        if ($desde = $request->date('desde')) {
+            $query->where('created_at', '>=', $desde->startOfDay());
+        }
+        if ($hasta = $request->date('hasta')) {
+            $query->where('created_at', '<=', $hasta->endOfDay());
+        }
+
+        $pedidos = $query->latest()->paginate(10)->withQueryString();
+        $pedidos->through(fn ($p) => [
+            'id' => $p->id,
+            'numero_pedido' => $p->numero_pedido,
+            'usuario' => $p->usuario,
+            'total_items' => $p->items->sum('cantidad'),
+            'miniaturas' => $p->items->take(3)->map(fn ($i) => $this->resolverUrl($i->producto?->imagen_principal))->filter()->values(),
+            'total' => $p->total,
+            'metodo_pago' => $p->metodo_pago,
+            'estado' => $p->estado,
+            'created_at' => $p->created_at,
+        ]);
+
+        // --- Desglose por estado (mismos valores que usa el filtro) ---
+        $estadoLabelMap = ['pagado' => 'Procesando', 'enviado' => 'Enviado', 'entregado' => 'Completado', 'cancelado' => 'Cancelado'];
+        $porEstado = Pedido::where('estado', '!=', 'carrito')
+            ->selectRaw('estado, COUNT(*) as cantidad')
+            ->groupBy('estado')
+            ->get()
+            ->map(fn ($r) => ['estado' => $r->estado, 'label' => $estadoLabelMap[$r->estado] ?? $r->estado, 'cantidad' => (int) $r->cantidad]);
+
+        // --- Desglose por método de pago ---
+        $metodoLabelMap = ['tarjeta_credito' => 'Tarjeta de Crédito', 'tarjeta_debito' => 'Tarjeta de Débito', 'paypal' => 'PayPal', 'transferencia' => 'Transferencia', 'otro' => 'Otro'];
+        $porMetodo = Pedido::where('estado', '!=', 'carrito')
+            ->selectRaw('COALESCE(metodo_pago, "otro") as metodo_pago, COUNT(*) as cantidad')
+            ->groupBy('metodo_pago')
+            ->get()
+            ->map(fn ($r) => ['metodo' => $r->metodo_pago, 'label' => $metodoLabelMap[$r->metodo_pago] ?? $r->metodo_pago, 'cantidad' => (int) $r->cantidad]);
+
+        return Inertia::render('Admin/Shop/Pedidos', [
+            'pedidos' => $pedidos,
+            'filtros' => $request->only(['q', 'estado', 'metodo', 'desde', 'hasta']),
+            'porEstado' => $porEstado,
+            'porMetodo' => $porMetodo,
+            'totalGeneral' => Pedido::where('estado', '!=', 'carrito')->count(),
+        ]);
+    }
+
     public function show(Pedido $pedido): Response
     {
         $pedido->load(['usuario', 'items.producto']);
@@ -163,7 +229,7 @@ class ShopController extends Controller
                     'producto' => $i->producto ? [
                         'nombre' => $i->producto->nombre,
                         'sku' => $i->producto->sku,
-                        'imagen' => $i->producto->imagenes[0] ?? null,
+                        'imagen' => $this->resolverUrl($i->producto->imagen_principal),
                     ] : ['nombre' => 'Producto eliminado', 'sku' => '—', 'imagen' => null],
                     'cantidad' => $i->cantidad,
                     'precio' => $i->precio,
@@ -203,5 +269,19 @@ class ShopController extends Controller
         };
 
         return response()->streamDownload($callback, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    /** Mismo criterio que Evento/Contenido/Producto: URL externa igual, ruta interna resuelta al disco público. */
+    private function resolverUrl(?string $ruta): ?string
+    {
+        if (! $ruta) {
+            return null;
+        }
+
+        if (str_starts_with($ruta, 'http://') || str_starts_with($ruta, 'https://')) {
+            return $ruta;
+        }
+
+        return Storage::disk('public')->url($ruta);
     }
 }

@@ -45,7 +45,6 @@ class DashboardController extends Controller
             : null;
 
         return Inertia::render('Admin/Dashboard', [
-
             'stats' => [
                 'usuariosTotales' => User::count(),
                 'usuariosNuevosHoy' => User::where('created_at', '>=', $hoy)->count(),
@@ -123,7 +122,9 @@ class DashboardController extends Controller
                     'titulo' => $e->nombre,
                     'fecha' => $e->fecha_formateada,
                     'estado' => $e->estado, // borrador/programado/publicado/cancelado
-                    'imagen' => $e->imagen,
+                    // imagen_url (accessor) resuelve rutas de storage a URL completa;
+                    // la columna cruda "imagen" solo trae el path relativo y no carga en el <img>.
+                    'imagen' => $e->imagen_url,
                 ]),
 
             // Actualmente no se usa en el template (las 5 acciones están hardcodeadas
@@ -252,7 +253,7 @@ class DashboardController extends Controller
             ->concat($eventos)
             ->concat($contenidos)
             ->sortByDesc('fecha')
-            ->take(6)
+            ->take(5)
             ->values()
             ->all();
     }

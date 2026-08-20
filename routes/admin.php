@@ -1,13 +1,17 @@
 <?php
 
 use App\Http\Controllers\Admin\CobroController;
+use App\Http\Controllers\Admin\ConfiguracionController;
 use App\Http\Controllers\Admin\ContenidoController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EventoController;
 use App\Http\Controllers\Admin\InvitacionController;
+use App\Http\Controllers\Admin\ModeracionController;
+use App\Http\Controllers\Admin\ProductoController;
 use App\Http\Controllers\Admin\ReporteController;
 use App\Http\Controllers\Admin\SeguridadController;
 use App\Http\Controllers\Admin\ShopController;
+use App\Http\Controllers\Admin\SoporteController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Auth\LoginController;
 use Illuminate\Support\Facades\Route;
@@ -64,37 +68,54 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('/eventos/{evento}', [EventoController::class, 'update'])->name('eventos.update');
         Route::delete('/eventos/{evento}', [EventoController::class, 'destroy'])->name('eventos.destroy');
 
-        // --- Contenido ---
+        // --- Contenido (solo monitoreo: index + show, sin crear/editar/eliminar) ---
         Route::get('/contenido', [ContenidoController::class, 'index'])->name('contenido.index');
-        Route::get('/contenido/crear', [ContenidoController::class, 'create'])->name('contenido.create');
-        Route::post('/contenido', [ContenidoController::class, 'store'])->name('contenido.store');
         Route::get('/contenido/{contenido}', [ContenidoController::class, 'show'])->name('contenido.show');
-        Route::get('/contenido/{contenido}/editar', [ContenidoController::class, 'edit'])->name('contenido.edit');
-        Route::patch('/contenido/{contenido}', [ContenidoController::class, 'update'])->name('contenido.update');
-        Route::delete('/contenido/{contenido}', [ContenidoController::class, 'destroy'])->name('contenido.destroy');
 
-        // --- Shop ---
+        // --- Shop (Pedidos) ---
         Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
         Route::get('/shop/exportar', [ShopController::class, 'exportar'])->name('shop.exportar');
+        Route::get('/shop/todos', [ShopController::class, 'todos'])->name('shop.todos');
         Route::get('/shop/{pedido}', [ShopController::class, 'show'])->name('shop.show');
         Route::post('/shop/{pedido}/estado', [ShopController::class, 'actualizarEstado'])->name('shop.actualizar-estado');
 
-        // --- Reportes ---
-        Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
-        Route::post('/reportes/{reporte}/revisar', [ReporteController::class, 'marcarRevisado'])->name('reportes.revisar');
-        Route::post('/reportes/{reporte}/resolver', [ReporteController::class, 'resolver'])->name('reportes.resolver');
-        Route::post('/reportes/{reporte}/bloquear', [ReporteController::class, 'bloquearReportado'])->name('reportes.bloquear');
-        Route::delete('/reportes/{reporte}', [ReporteController::class, 'destroy'])->name('reportes.destroy');
+        // --- Productos ---
+        Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index');
+        Route::get('/productos/crear', [ProductoController::class, 'create'])->name('productos.create');
+        Route::post('/productos', [ProductoController::class, 'store'])->name('productos.store');
+        Route::get('/productos/todos', [ProductoController::class, 'todos'])->name('productos.todos');
+        Route::get('/productos/{producto}', [ProductoController::class, 'show'])->name('productos.show');
+        Route::get('/productos/{producto}/editar', [ProductoController::class, 'edit'])->name('productos.edit');
+        Route::patch('/productos/{producto}', [ProductoController::class, 'update'])->name('productos.update');
+        Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])->name('productos.destroy');
 
-        // --- Modulares / Coming Soon ---
-        Route::get('/mensajes', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Mensajes']))->name('mensajes.index');
-        Route::get('/configuracion', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Configuración']))->name('configuracion.index');
-        Route::get('/soporte', fn () => \Inertia\Inertia::render('Admin/ComingSoon', ['modulo' => 'Soporte']))->name('soporte.index');
+        // --- Reportes analíticos (hub + reportes individuales, PDF/Excel) ---
+        Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
+        Route::get('/reportes/{tipo}/exportar-pdf', [ReporteController::class, 'exportarPdf'])->name('reportes.exportar-pdf');
+        Route::get('/reportes/{tipo}/exportar-excel', [ReporteController::class, 'exportarExcel'])->name('reportes.exportar-excel');
+        Route::get('/reportes/{tipo}', [ReporteController::class, 'detalle'])->name('reportes.detalle');
+
+        // --- Soporte (moderación de reportes entre usuarios: acoso, perfil falso, spam...) ---
+        Route::get('/soporte', [ModeracionController::class, 'index'])->name('soporte.index');
+        Route::post('/soporte/{reporte}/revisar', [ModeracionController::class, 'marcarRevisado'])->name('soporte.revisar');
+        Route::post('/soporte/{reporte}/resolver', [ModeracionController::class, 'resolver'])->name('soporte.resolver');
+        Route::post('/soporte/{reporte}/bloquear', [ModeracionController::class, 'bloquearReportado'])->name('soporte.bloquear');
+        Route::delete('/soporte/{reporte}', [ModeracionController::class, 'destroy'])->name('soporte.destroy');
 
         // --- Seguridad ---
         Route::get('/seguridad', [SeguridadController::class, 'index'])->name('seguridad.index');
-        Route::patch('/seguridad/perfil', [SeguridadController::class, 'actualizarPerfil'])->name('seguridad.perfil');
+        Route::patch('/seguridad/email', [SeguridadController::class, 'actualizarEmail'])->name('seguridad.email');
         Route::patch('/seguridad/password', [SeguridadController::class, 'actualizarPassword'])->name('seguridad.password');
-        Route::post('/seguridad/{administrador}/toggle-activo', [SeguridadController::class, 'toggleActivo'])->name('seguridad.toggle-activo');
+        Route::post('/seguridad/administradores/{administrador}/toggle', [SeguridadController::class, 'toggleActivo'])->name('seguridad.toggle-activo');
+
+        // --- Configuración ---
+        Route::get('/configuracion', [ConfiguracionController::class, 'index'])->name('configuracion.index');
+        Route::patch('/configuracion', [ConfiguracionController::class, 'actualizar'])->name('configuracion.actualizar');
+
+        // --- Mensajes (bandeja de soporte admin ↔ usuario) ---
+        Route::get('/mensajes', [SoporteController::class, 'index'])->name('mensajes.index');
+        Route::post('/mensajes/iniciar', [SoporteController::class, 'iniciar'])->name('mensajes.iniciar');
+        Route::post('/mensajes/{soporte}/enviar', [SoporteController::class, 'enviar'])->name('mensajes.enviar');
+        Route::post('/mensajes/{soporte}/cerrar', [SoporteController::class, 'cerrar'])->name('mensajes.cerrar');
     });
 });

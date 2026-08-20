@@ -6,13 +6,29 @@ use App\Http\Controllers\Controller;
 use App\Models\Contenido;
 use App\Models\Interaccion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ContenidoController extends Controller
 {
+    /**
+     * El admin solo monitorea el contenido que suben los creadores: bitácora,
+     * filtros y estadísticas. No hay create/store/edit/update/destroy aquí
+     * — eso es exclusivo del panel de creadores.
+     */
     public function index(Request $request): Response
     {
+        // Salvavidas: si un contenido "programado" ya pasó su fecha/hora y
+        // nadie lo ha visto, lo publicamos aquí. Esto NO sustituye un
+        // scheduler real — solo cubre cuando un admin entra al panel. Si el
+        // sitio público depende de que esto pase puntual sin que nadie abra
+        // el admin, hace falta un comando con schedule:everyMinute() en
+        // routes/console.php (o el Kernel, según tu versión de Laravel).
+        // NOTA: esto no es "editar contenido" en el sentido de que el admin
+        // decide algo — solo confirma un estado que el creador ya programó.
+        $this->promoverProgramados();
+
         $total = Contenido::count();
         $publicados = Contenido::where('estado', 'publicado')->count();
         $borradores = Contenido::where('estado', 'borrador')->count();
@@ -35,7 +51,8 @@ class ContenidoController extends Controller
             $query->where('estado', $estado);
         }
 
-        $contenidos = $query->latest()->paginate(5)->withQueryString();
+        $contenidos = $query->withCount(['interacciones as vistas' => fn ($q) => $q->where('tipo', 'vista')])
+            ->latest()->paginate(5)->withQueryString();
         $contenidos->through(fn ($c) => [
             'id' => $c->id,
             'titulo' => $c->titulo ?: 'Sin título',
@@ -43,8 +60,8 @@ class ContenidoController extends Controller
             'categoria' => $c->categoria,
             'estado' => $c->estado,
             'created_at' => $c->created_at,
-            'vistas' => $c->interacciones()->where('tipo', 'vista')->count(),
-            'imagen' => $c->archivos[0] ?? null,
+            'vistas' => $c->vistas,
+            'imagen' => $this->resolverUrl($c->archivos[0] ?? null),
         ]);
 
         $tiposContenido = Contenido::selectRaw('tipo, COUNT(*) as cantidad')->groupBy('tipo')->pluck('cantidad', 'tipo');
@@ -78,11 +95,13 @@ class ContenidoController extends Controller
             'contenidos' => $contenidos,
             'filtros' => $request->only(['q', 'tipo', 'estado', 'periodo_stats']),
             'tiposContenido' => [
+                'foto' => $tiposContenido['foto'] ?? 0,
                 'video' => $tiposContenido['video'] ?? 0,
-                'articulo' => $tiposContenido['articulo'] ?? 0,
                 'galeria' => $tiposContenido['galeria'] ?? 0,
                 'audio' => $tiposContenido['audio'] ?? 0,
+                'articulo' => $tiposContenido['articulo'] ?? 0,
                 'documento' => $tiposContenido['documento'] ?? 0,
+                'exclusivo' => $tiposContenido['exclusivo'] ?? 0,
             ],
             'contenidoReciente' => Contenido::latest()->take(4)->get()->map(fn ($c) => [
                 'id' => $c->id,
@@ -90,7 +109,7 @@ class ContenidoController extends Controller
                 'tipo' => $c->tipo,
                 'estado' => $c->estado,
                 'created_at' => $c->created_at,
-                'imagen' => $c->archivos[0] ?? null,
+                'imagen' => $this->resolverUrl($c->archivos[0] ?? null),
             ]),
             'estadisticas' => [
                 'vistasPorDia' => $vistasPorDia,
@@ -114,44 +133,12 @@ class ContenidoController extends Controller
         };
     }
 
-    public function create(Request $request): Response
+    /** Publica el contenido programado cuya fecha/hora ya se cumplió. */
+    private function promoverProgramados(): void
     {
-        return Inertia::render('Admin/Contenido/Create', [
-            'tipoPreseleccionado' => $request->query('tipo'),
-        ]);
-    }
-
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'titulo' => ['required', 'string', 'max:255'],
-            'categoria' => ['nullable', 'string', 'max:255'],
-            'descripcion' => ['nullable', 'string'],
-            'tipo' => ['required', 'in:foto,video,galeria,audio,articulo,documento,exclusivo'],
-            'visibilidad' => ['required', 'in:publico,suscriptores,individual'],
-            'estado' => ['required', 'in:borrador,publicado,programado,archivado'],
-            'precio' => ['required', 'numeric', 'min:0'],
-            'es_premium' => ['boolean'],
-            'archivos' => [
-                'required', 'array',
-                function ($attribute, $value, $fail) use ($request) {
-                    $minimo = $request->input('tipo') === 'galeria' ? 3 : 1;
-                    if (count($value) < $minimo) {
-                        $fail($minimo === 3 ? 'Una galería debe tener al menos 3 fotos.' : 'Agrega al menos un archivo.');
-                    }
-                },
-            ],
-            'archivos.*' => ['string', 'max:2048'],
-            'etiquetas' => ['nullable', 'array'],
-            'etiquetas.*' => ['string', 'max:50'],
-            'programado_en' => ['nullable', 'required_if:estado,programado', 'date'],
-        ]);
-
-        $contenido = Contenido::create($data + [
-            'creador_id' => auth('admin')->id(),
-        ]);
-
-        return redirect()->route('admin.contenido.index')->with('success', "Contenido \"{$contenido->titulo}\" creado correctamente.");
+        Contenido::where('estado', 'programado')
+            ->where('programado_en', '<=', now())
+            ->update(['estado' => 'publicado']);
     }
 
     public function show(Contenido $contenido): Response
@@ -160,54 +147,35 @@ class ContenidoController extends Controller
         $contenido->likes = $contenido->interacciones()->where('tipo', 'like')->count();
         $contenido->comentarios = $contenido->interacciones()->where('tipo', 'comentario')->count();
 
+        $data = $contenido->toArray();
+        $data['archivos'] = $this->resolverArchivos($contenido->archivos);
+
         return Inertia::render('Admin/Contenido/Show', [
-            'contenido' => $contenido,
+            'contenido' => $data,
         ]);
     }
 
-    public function edit(Contenido $contenido): Response
+    /**
+     * Convierte una ruta guardada en storage (ej. "contenido/archivo.jpg") en
+     * su URL pública. Si ya es una URL externa (http/https), la deja igual
+     * — mismo criterio que ya usan en Evento.imagen.
+     */
+    private function resolverUrl(?string $ruta): ?string
     {
-        return Inertia::render('Admin/Contenido/Edit', [
-            'contenido' => $contenido,
-        ]);
+        if (! $ruta) {
+            return null;
+        }
+
+        if (str_starts_with($ruta, 'http://') || str_starts_with($ruta, 'https://')) {
+            return $ruta;
+        }
+
+        return Storage::disk('public')->url($ruta);
     }
 
-    public function update(Request $request, Contenido $contenido)
+    /** Resuelve un array completo de rutas a sus URLs públicas. */
+    private function resolverArchivos(?array $rutas): array
     {
-        $data = $request->validate([
-            'titulo' => ['required', 'string', 'max:255'],
-            'categoria' => ['nullable', 'string', 'max:255'],
-            'descripcion' => ['nullable', 'string'],
-            'tipo' => ['required', 'in:foto,video,galeria,audio,articulo,documento,exclusivo'],
-            'visibilidad' => ['required', 'in:publico,suscriptores,individual'],
-            'estado' => ['required', 'in:borrador,publicado,programado,archivado'],
-            'precio' => ['required', 'numeric', 'min:0'],
-            'es_premium' => ['boolean'],
-            'archivos' => [
-                'required', 'array',
-                function ($attribute, $value, $fail) use ($request) {
-                    $minimo = $request->input('tipo') === 'galeria' ? 3 : 1;
-                    if (count($value) < $minimo) {
-                        $fail($minimo === 3 ? 'Una galería debe tener al menos 3 fotos.' : 'Agrega al menos un archivo.');
-                    }
-                },
-            ],
-            'archivos.*' => ['string', 'max:2048'],
-            'etiquetas' => ['nullable', 'array'],
-            'etiquetas.*' => ['string', 'max:50'],
-            'programado_en' => ['nullable', 'required_if:estado,programado', 'date'],
-        ]);
-
-        $contenido->update($data);
-
-        return redirect()->route('admin.contenido.index')->with('success', "Contenido \"{$contenido->titulo}\" actualizado correctamente.");
-    }
-
-    public function destroy(Contenido $contenido)
-    {
-        $titulo = $contenido->titulo ?: 'Sin título';
-        $contenido->delete();
-
-        return back()->with('success', "Contenido \"{$titulo}\" eliminado correctamente.");
+        return array_values(array_filter(array_map(fn ($r) => $this->resolverUrl($r), $rutas ?? [])));
     }
 }

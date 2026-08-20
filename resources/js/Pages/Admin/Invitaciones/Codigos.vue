@@ -62,14 +62,12 @@ const estadoLabel = { aceptada: 'Aceptado', pendiente: 'Pendiente', expirada: 'E
                 </Link>
             </div>
 
-            <div class="admin-card flex flex-col justify-between">
+            <div class="admin-card overflow-hidden flex flex-col justify-between">
                 <div class="flex flex-col flex-1">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
-                        <div>
-                            <h1 class="text-xl font-semibold text-gray-900">Todos los códigos generados</h1>
-                            <p class="text-sm text-gray-500 mt-0.5">{{ codigos.total }} códigos en total</p>
-                        </div>
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-list text-brand"></i> Todos los códigos generados</span>
                     </div>
+                    <p class="text-sm px-6 pt-4" style="color:var(--muted)">{{ codigos.total }} códigos en total</p>
 
                     <!-- Filtros -->
                     <div class="flex flex-wrap items-center gap-3 px-6 py-5">

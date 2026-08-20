@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Administrador;
 use App\Models\Creador;
+<<<<<<< HEAD
 use App\Models\Fotos;
+=======
+>>>>>>> Gabriel
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -142,6 +145,7 @@ class UsuarioController extends Controller
 
     public function show(User $usuario): Response
     {
+<<<<<<< HEAD
         // Cargar relaciones (combinando ambas versiones)
         $usuario->load('perfil', 'creador');
         
@@ -204,31 +208,13 @@ class UsuarioController extends Controller
                 }
             }
         }
+=======
+        $usuario->load('perfil', 'creador');
+>>>>>>> Gabriel
 
-        // ============================================================
-        // PREPARAR DATOS DEL PERFIL
-        // ============================================================
-        $perfilData = null;
-        if ($usuario->perfil) {
-            $perfilData = [
-                'id' => $usuario->perfil->id,
-                'tipo' => $usuario->perfil->tipo ?? 'personal',
-                'descripcion' => $usuario->perfil->descripcion ?? '',
-                'biografia' => $usuario->perfil->biografia ?? '',
-                'intereses' => $usuario->perfil->intereses ?? [],
-                'pasatiempos' => $usuario->perfil->pasatiempos ?? [],
-                'fotos' => $fotos,
-                'privacidad_fotos' => $usuario->perfil->privacidad_fotos ?? 'todos',
-                'esta_verificado' => $usuario->perfil->esta_verificado ?? false,
-                'estado_verificacion' => $usuario->perfil->esta_verificado ? 'verificado' : 'pendiente',
-                'puntuacion_compatibilidad' => $usuario->perfil->puntuacion_compatibilidad ?? 0,
-                'ubicacion_ciudad' => $usuario->perfil->ubicacion_ciudad ?? $usuario->ciudad ?? '',
-                'metadatos' => $usuario->perfil->metadatos ?? [],
-                'created_at' => $usuario->perfil->created_at,
-                'updated_at' => $usuario->perfil->updated_at,
-            ];
-        }
+        $perfil = $usuario->perfil;
 
+<<<<<<< HEAD
         // Log para debug
         \Log::info('Fotos en show:', [
             'user_id' => $usuario->id,
@@ -236,6 +222,13 @@ class UsuarioController extends Controller
             'total_fotos' => count($fotos),
             'fotos' => $fotos
         ]);
+=======
+        $perfilData = $perfil ? [
+            'foto' => $this->getFotoUrl($perfil->foto ?? null),
+            'biografia' => $perfil->biografia ?? null,
+            'genero' => $perfil->genero ?? null,
+        ] : null;
+>>>>>>> Gabriel
 
         return Inertia::render('Admin/Usuarios/Show', [
             'usuario' => [
@@ -252,6 +245,7 @@ class UsuarioController extends Controller
                 'created_at' => $usuario->created_at,
                 'updated_at' => $usuario->updated_at,
                 'perfil' => $perfilData,
+                'creador' => $usuario->creador,
             ],
         ]);
     }
@@ -345,7 +339,10 @@ class UsuarioController extends Controller
      */
     public function toggleBloqueo(Request $request, $id)
     {
+<<<<<<< HEAD
         // Primero intentar encontrar en Users
+=======
+>>>>>>> Gabriel
         $usuario = User::find($id);
 
         if ($usuario) {
@@ -369,7 +366,10 @@ class UsuarioController extends Controller
 
     public function destroy(Request $request, $id)
     {
+<<<<<<< HEAD
         // Primero intentar encontrar en Users
+=======
+>>>>>>> Gabriel
         $usuario = User::find($id);
 
         if ($usuario) {

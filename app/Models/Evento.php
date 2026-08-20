@@ -230,6 +230,15 @@ class Evento extends Model
     {
         $this->attributes['ciudad'] = $value ? mb_strtoupper($value, 'UTF-8') : $value;
     }
+<<<<<<< HEAD
+=======
+
+    // Mutator: mismo criterio que ciudad, la zona/lugar exacto también en mayúsculas
+    public function setZonaUbicacionAttribute($value)
+    {
+        $this->attributes['zona_ubicacion'] = $value ? mb_strtoupper($value, 'UTF-8') : $value;
+    }
+>>>>>>> Gabriel
 
     /**
      * Boot del modelo para manejar eventos de eliminar

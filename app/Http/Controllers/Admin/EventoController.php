@@ -5,13 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Evento;
 use App\Models\Reserva;
-use App\Models\FotosEvento;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
 
 class EventoController extends Controller
 {
@@ -69,17 +67,16 @@ class EventoController extends Controller
             $query->where('tipo', $tipo);
         }
 
-        $eventos = $query->orderBy('fecha')->paginate(3)->withQueryString();
+        $eventos = $query->orderBy('fecha')->paginate(2)->withQueryString();
         $eventos->through(fn ($e) => [
             'id' => $e->id,
             'nombre' => $e->nombre,
-            'imagen' => $e->imagen,
+            'imagen' => $e->imagen_url,
             'tipo' => $e->tipo,
             'fecha' => $e->fecha,
             'hora_formateada' => $e->hora_formateada,
             'ciudad' => $e->ciudad,
             'estado_display' => $this->estadoDisplay($e, $hoy),
-            'cantidad_fotos' => $e->fotos()->count(),
         ]);
 
         // --- Calendario del mes solicitado (o el actual) ---
@@ -121,12 +118,11 @@ class EventoController extends Controller
                 ->map(fn ($e) => [
                     'id' => $e->id,
                     'nombre' => $e->nombre,
-                    'imagen' => $e->imagen,
+                    'imagen' => $e->imagen_url,
                     'fecha' => $e->fecha->format('d-m-Y'),
                     'hora_formateada' => $e->hora_formateada,
                     'ciudad' => $e->ciudad,
                     'estado_display' => $this->estadoDisplay($e, $hoy),
-                    'fotos_count' => $e->fotos()->count(),
                 ]),
             'estadisticas' => [
                 'total' => $totalPeriodo,
@@ -172,7 +168,7 @@ class EventoController extends Controller
         $eventos->through(fn ($e) => [
             'id' => $e->id,
             'nombre' => $e->nombre,
-            'imagen' => $e->imagen,
+            'imagen' => $e->imagen_url,
             'tipo' => $e->tipo,
             'fecha' => $e->fecha,
             'hora_formateada' => $e->hora_formateada,
@@ -214,8 +210,26 @@ class EventoController extends Controller
 
     public function store(Request $request)
     {
-        Log::info('=== INICIO store evento ===');
+        $data = $request->validate([
+            'nombre' => ['required', 'string', 'max:255'],
+            'descripcion' => ['nullable', 'string'],
+            'fecha' => ['required', 'date'],
+            'hora' => ['required'],
+            'ciudad' => ['required', 'string', 'max:255'],
+            'zona_ubicacion' => ['nullable', 'string', 'max:255'],
+            'precio' => ['required', 'numeric', 'min:0'],
+            'capacidad' => ['nullable', 'integer', 'min:1'],
+            'tipo' => ['required', 'in:vip,general'],
+            'categoria' => ['nullable', 'string', 'max:255'],
+            'codigo_vestimenta' => ['nullable', 'string', 'max:255'],
+            'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
+            'imagen' => ['nullable', 'file', 'image', 'max:10240'],
+            'destacado' => ['boolean'],
+        ]);
 
+        unset($data['imagen']);
+
+<<<<<<< HEAD
         try {
             $data = $request->validate([
                 'nombre' => ['required', 'string', 'max:255'],
@@ -328,11 +342,22 @@ class EventoController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             return back()->with('error', 'Error al crear el evento: ' . $e->getMessage());
+=======
+        $evento = Evento::create($data + ['organizador_id' => \Illuminate\Support\Facades\Auth::guard('admin')->id()]);
+
+        if ($request->hasFile('imagen')) {
+            $evento->update([
+                'imagen' => $request->file('imagen')->store('eventos/' . $evento->id, 'public'),
+            ]);
+>>>>>>> Gabriel
         }
+
+        return redirect()->route('admin.eventos.index')->with('success', "Evento \"{$evento->nombre}\" creado correctamente.");
     }
 
     public function show(Evento $evento): Response
     {
+<<<<<<< HEAD
         $hoy = now()->toDateString();
         $evento->estado_display = $this->estadoDisplay($evento, $hoy);
 
@@ -357,38 +382,32 @@ class EventoController extends Controller
             'fecha_primera' => $fotos->first() ? $fotos->first()['fecha_subida'] : null,
             'fecha_ultima' => $fotos->last() ? $fotos->last()['fecha_subida'] : null,
         ];
+=======
+        $evento->load('organizador:id,nombre');
+        $evento->estado_display = $this->estadoDisplay($evento, now()->toDateString());
+
+        $data = $evento->toArray();
+        $data['imagen'] = $evento->imagen_url;
+>>>>>>> Gabriel
 
         return Inertia::render('Admin/Eventos/Show', [
-            'evento' => array_merge($evento->toArray(), [
-                'estado_display' => $evento->estado_display,
-                'fotos' => $fotos,
-                'stats_fotos' => $statsFotos,
-            ]),
+            'evento' => $data,
         ]);
     }
 
     public function edit(Evento $evento): Response
     {
-        // Cargar fotos del evento para el formulario de edición
-        $fotos = $evento->fotos()->orderBy('created_at', 'asc')->get()->map(function($foto) {
-            return [
-                'id' => $foto->id,
-                'nombre_imagen' => $foto->nombre_imagen,
-                'ruta' => $foto->ruta,
-                'url' => asset('storage/' . $foto->ruta),
-                'fecha_subida' => $foto->fecha_subida_formateada,
-            ];
-        });
+        $data = $evento->toArray();
+        $data['imagen'] = $evento->imagen_url;
 
         return Inertia::render('Admin/Eventos/Edit', [
-            'evento' => array_merge($evento->toArray(), [
-                'fotos' => $fotos,
-            ]),
+            'evento' => $data,
         ]);
     }
 
     public function update(Request $request, Evento $evento)
     {
+<<<<<<< HEAD
         Log::info('=== INICIO update evento ===', ['evento_id' => $evento->id]);
 
         try {
@@ -538,207 +557,70 @@ class EventoController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             return back()->with('error', 'Error al actualizar el evento: ' . $e->getMessage());
+=======
+        $data = $request->validate([
+            'nombre' => ['required', 'string', 'max:255'],
+            'descripcion' => ['nullable', 'string'],
+            'fecha' => ['required', 'date'],
+            'hora' => ['required'],
+            'ciudad' => ['required', 'string', 'max:255'],
+            'zona_ubicacion' => ['nullable', 'string', 'max:255'],
+            'ubicacion_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'ubicacion_lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'precio' => ['required', 'numeric', 'min:0'],
+            'capacidad' => ['nullable', 'integer', 'min:1'],
+            'tipo' => ['required', 'in:vip,general'],
+            'categoria' => ['nullable', 'string', 'max:255'],
+            'codigo_vestimenta' => ['nullable', 'string', 'max:255'],
+            'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
+            'imagen' => ['nullable', 'file', 'image', 'max:10240'],
+            'eliminar_imagen' => ['boolean'],
+            'destacado' => ['boolean'],
+        ]);
+
+        if ($request->hasFile('imagen')) {
+            $this->borrarImagenSiEsPropia($evento->imagen);
+            $data['imagen'] = $request->file('imagen')->store('eventos/' . $evento->id, 'public');
+        } elseif ($request->boolean('eliminar_imagen')) {
+            $this->borrarImagenSiEsPropia($evento->imagen);
+            $data['imagen'] = null;
+        } else {
+            // Ni archivo nuevo ni "eliminar imagen" marcado: no tocar la
+            // imagen que ya tenía. Sin este unset, el formulario mandaba
+            // 'imagen' vacío igual y se pisaba la imagen existente con null.
+            unset($data['imagen']);
+>>>>>>> Gabriel
         }
+        unset($data['eliminar_imagen']);
+
+        $evento->update($data);
+
+        return redirect()->route('admin.eventos.index')->with('success', "Evento \"{$evento->nombre}\" actualizado correctamente.");
     }
 
     public function destroy(Evento $evento)
     {
-        Log::info('=== INICIO destroy evento ===', ['evento_id' => $evento->id]);
+        $nombre = $evento->nombre;
 
-        try {
-            $nombre = $evento->nombre;
+        $this->borrarImagenSiEsPropia($evento->imagen);
 
-            // ============================================================
-            // ELIMINAR TODAS LAS FOTOS DEL EVENTO
-            // ============================================================
-            $fotos = $evento->fotos;
-            foreach ($fotos as $foto) {
-                // Eliminar archivo físico
-                if (Storage::disk('public')->exists($foto->ruta)) {
-                    Storage::disk('public')->delete($foto->ruta);
-                    Log::debug('Foto eliminada del storage', [
-                        'evento_id' => $evento->id,
-                        'foto_id' => $foto->id,
-                        'path' => $foto->ruta
-                    ]);
-                }
-                $foto->delete();
-            }
-            
-            // Eliminar imagen principal
-            if ($evento->imagen && Storage::disk('public')->exists($evento->imagen)) {
-                Storage::disk('public')->delete($evento->imagen);
-                Log::debug('Imagen principal eliminada del storage', [
-                    'evento_id' => $evento->id,
-                    'path' => $evento->imagen
-                ]);
-            }
+        $carpetaEvento = 'eventos/' . $evento->id;
+        if (Storage::disk('public')->exists($carpetaEvento)) {
+            Storage::disk('public')->deleteDirectory($carpetaEvento);
+        }
 
-            // Eliminar la carpeta del evento si está vacía
-            $carpetaEvento = 'eventos/' . $evento->id;
-            if (Storage::disk('public')->exists($carpetaEvento)) {
-                Storage::disk('public')->deleteDirectory($carpetaEvento);
-                Log::debug('Carpeta del evento eliminada', [
-                    'evento_id' => $evento->id,
-                    'folder' => $carpetaEvento
-                ]);
-            }
+        $evento->delete();
 
-            // Eliminar el evento
-            $evento->delete();
+        return redirect()->route('admin.eventos.index')->with('success', "Evento \"{$nombre}\" eliminado correctamente.");
+    }
 
-            Log::info('=== FIN destroy evento - EXITOSO ===', [
-                'evento_id' => $evento->id,
-                'nombre' => $nombre,
-                'fotos_eliminadas' => $fotos->count()
-            ]);
-
-            return back()->with('success', "Evento \"{$nombre}\" eliminado correctamente.");
-
-        } catch (\Exception $e) {
-            Log::error('ERROR en destroy evento', [
-                'evento_id' => $evento->id,
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            return back()->with('error', 'Error al eliminar el evento: ' . $e->getMessage());
+    /** Borra del disco solo si es una ruta interna (no una URL externa). */
+    private function borrarImagenSiEsPropia(?string $ruta): void
+    {
+        if ($ruta && ! str_starts_with($ruta, 'http://') && ! str_starts_with($ruta, 'https://')) {
+            Storage::disk('public')->delete($ruta);
         }
     }
-
-    // ============================================================
-    // MÉTODOS ADICIONALES PARA FOTOS
-    // ============================================================
-
-    /**
-     * Subir foto a un evento existente
-     */
-    public function subirFoto(Request $request, Evento $evento)
-    {
-        Log::info('=== INICIO subirFoto ===', ['evento_id' => $evento->id]);
-
-        try {
-            $request->validate([
-                'foto' => ['required', 'image', 'max:2048'],
-                'nombre' => ['nullable', 'string', 'max:255'],
-            ]);
-
-            $nombreImagen = $request->nombre ?? 'foto_' . now()->timestamp;
-            $path = $request->file('foto')->store('eventos/' . $evento->id . '/fotos', 'public');
-
-            $foto = FotosEvento::create([
-                'evento_id' => $evento->id,
-                'nombre_imagen' => $nombreImagen,
-                'ruta' => $path,
-                'usuario_subio' => auth()->id(),
-                'fecha_subida' => now(),
-            ]);
-
-            Log::info('Foto subida exitosamente', [
-                'evento_id' => $evento->id,
-                'foto_id' => $foto->id,
-                'path' => $path
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'foto' => [
-                    'id' => $foto->id,
-                    'nombre_imagen' => $foto->nombre_imagen,
-                    'url' => asset('storage/' . $foto->ruta),
-                    'fecha_subida' => $foto->fecha_subida_formateada,
-                ],
-                'message' => 'Foto subida correctamente'
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('ERROR en subirFoto', [
-                'evento_id' => $evento->id,
-                'error' => $e->getMessage()
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al subir la foto: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Eliminar foto de un evento
-     */
-    public function eliminarFoto(Request $request, Evento $evento, $fotoId)
-    {
-        Log::info('=== INICIO eliminarFoto ===', [
-            'evento_id' => $evento->id,
-            'foto_id' => $fotoId
-        ]);
-
-        try {
-            $foto = FotosEvento::where('evento_id', $evento->id)
-                ->where('id', $fotoId)
-                ->first();
-
-            if (!$foto) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Foto no encontrada'
-                ], 404);
-            }
-
-            // Eliminar archivo físico
-            if (Storage::disk('public')->exists($foto->ruta)) {
-                Storage::disk('public')->delete($foto->ruta);
-            }
-
-            $foto->delete();
-
-            Log::info('Foto eliminada exitosamente', [
-                'evento_id' => $evento->id,
-                'foto_id' => $fotoId
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Foto eliminada correctamente'
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('ERROR en eliminarFoto', [
-                'evento_id' => $evento->id,
-                'foto_id' => $fotoId,
-                'error' => $e->getMessage()
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al eliminar la foto: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Obtener fotos de un evento (API)
-     */
-    public function obtenerFotos(Evento $evento)
-    {
-        $fotos = $evento->fotos()->orderBy('created_at', 'desc')->get()->map(function($foto) {
-            return [
-                'id' => $foto->id,
-                'nombre_imagen' => $foto->nombre_imagen,
-                'url' => asset('storage/' . $foto->ruta),
-                'fecha_subida' => $foto->fecha_subida_formateada,
-                'usuario_subio' => $foto->usuario ? $foto->usuario->name : 'Desconocido',
-            ];
-        });
-
-        return response()->json([
-            'success' => true,
-            'fotos' => $fotos,
-            'total' => $fotos->count()
-        ]);
-    }
-
-    // ============================================================
-    // MÉTODO PRIVADO PARA ESTADO
-    // ============================================================
 
     private function estadoDisplay(Evento $e, string $hoy): string
     {

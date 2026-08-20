@@ -16,6 +16,10 @@ return new class extends Migration
             $table->enum('tipo', ['spam', 'inapropiado', 'falso', 'acoso', 'otro']);
             $table->text('descripcion')->nullable();
             $table->enum('estado', ['pendiente', 'revisado', 'resuelto'])->default('pendiente');
+            // Qué admin atendió el reporte (lo marcó revisado/resuelto/bloqueó
+            // al reportado). Nullable porque un reporte "pendiente" todavía
+            // no lo atiende nadie.
+            $table->foreignId('atendido_por_admin_id')->nullable()->constrained('administradores')->nullOnDelete();
             $table->json('metadatos')->nullable();
             $table->timestamps();
             $table->softDeletes();

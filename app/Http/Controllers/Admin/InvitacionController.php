@@ -22,7 +22,15 @@ class InvitacionController extends Controller
             ->whereNotNull('expira_en')
             ->where('expira_en', '<=', $ahora)
             ->count();
-        $pendientes = $total - $aceptadas - $expiradas;
+        // No vencidas ni aceptadas, pero ya alcanzaron su límite de usos —
+        // mismo criterio que estadoDisplay(). Antes no se restaban de
+        // "pendientes", así que un código ya utilizado se contaba (mal)
+        // como pendiente en los KPIs y en la dona de resumen.
+        $utilizadas = CodigoInvitacion::whereNull('usado_en')
+            ->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))
+            ->whereColumn('contador_usos', '>=', 'usos_maximos')
+            ->count();
+        $pendientes = $total - $aceptadas - $expiradas - $utilizadas;
 
         $query = CodigoInvitacion::with('creadoPorAdmin:id,nombre');
 
@@ -39,6 +47,7 @@ class InvitacionController extends Controller
                 'aceptada' => $query->whereNotNull('usado_en'),
                 'pendiente' => $query->whereNull('usado_en')->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))->whereColumn('contador_usos', '<', 'usos_maximos'),
                 'expirada' => $query->whereNull('usado_en')->whereNotNull('expira_en')->where('expira_en', '<=', $ahora),
+                'utilizada' => $query->whereNull('usado_en')->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))->whereColumn('contador_usos', '>=', 'usos_maximos'),
                 default => null,
             };
         }
@@ -89,6 +98,7 @@ class InvitacionController extends Controller
                 'aceptadas' => $aceptadas,
                 'pendientes' => max($pendientes, 0),
                 'expiradas' => $expiradas,
+                'utilizadas' => $utilizadas,
                 'tasaAceptacion' => $total > 0 ? round(($aceptadas / $total) * 100) : 0,
             ],
             'invitaciones' => $invitaciones,

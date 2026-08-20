@@ -16,7 +16,7 @@ return new class extends Migration
             $table->json('intereses')->nullable();
             $table->json('pasatiempos')->nullable();
             $table->json('fotos')->nullable();
-            $table->enum('privacidad_fotos', ['publico', 'coincidencias', 'oculto'])->default('publico');
+            $table->enum('privacidad_fotos', ['todos', 'matches', 'nadie'])->default('todos');
             $table->enum('estado_verificacion', ['pendiente', 'verificado', 'rechazado'])->default('pendiente');
             $table->boolean('esta_verificado')->default(false);
             $table->integer('puntuacion_compatibilidad')->nullable();

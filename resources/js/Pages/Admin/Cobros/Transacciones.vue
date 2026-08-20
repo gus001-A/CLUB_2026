@@ -76,21 +76,21 @@ const estadoDotColores = {
             </div>
 
             <!-- Encabezado + totales generales -->
-            <div class="admin-card p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 class="text-xl font-semibold text-gray-900">Todas las Transacciones</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">{{ totalRegistros }} registros en total &middot; {{ money(totalGeneral) }} acumulado</p>
+            <div class="admin-card overflow-hidden mb-6">
+                <div class="admin-card-header">
+                    <span class="admin-card-header-title"><i class="pi pi-history text-brand"></i> Todas las Transacciones</span>
+                    <a :href="route('admin.cobros.exportar', { q: q || undefined, tipo: tipo || undefined, desde: desde || undefined, hasta: hasta || undefined })"
+                        class="admin-btn-primary self-start sm:self-auto" style="padding:0.4rem 0.85rem;font-size:0.75rem">
+                        <i class="pi pi-download text-xs"></i> Exportar
+                    </a>
                 </div>
-                <a :href="route('admin.cobros.exportar', { q: q || undefined, tipo: tipo || undefined, desde: desde || undefined, hasta: hasta || undefined })"
-                    class="admin-btn-primary self-start sm:self-auto">
-                    <i class="pi pi-download"></i> Exportar
-                </a>
+                <p class="text-sm px-6 py-4" style="color:var(--muted)">{{ totalRegistros }} registros en total &middot; {{ money(totalGeneral) }} acumulado</p>
             </div>
 
             <!-- Desglose por estado -->
-            <div class="flex flex-col lg:flex-row gap-4 mb-6 w-full">
+            <div class="admin-estado-grid gap-4 mb-6 w-full">
                 <button v-for="e in porEstado" :key="e.estado" type="button" @click="estado = (estado === e.estado ? '' : e.estado)"
-                    class="w-full lg:flex-1 min-w-0 admin-card px-5 py-4 text-left transition"
+                    class="min-w-0 admin-card px-5 py-4 text-left transition"
                     :class="estado === e.estado ? 'ring-2 ring-brand/40' : 'hover:border-gray-300'">
                     <div class="flex items-center gap-2 mb-1.5">
                         <span class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: estadoDotColores[e.estado] }"></span>
@@ -102,9 +102,11 @@ const estadoDotColores = {
             </div>
 
             <!-- Desglose por tipo -->
-            <div class="admin-card p-6 mb-6">
-                <h2 class="text-sm font-semibold text-gray-900 mb-4">Desglose por tipo</h2>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="admin-card overflow-hidden mb-6">
+                <div class="admin-card-header">
+                    <span class="admin-card-header-title"><i class="pi pi-chart-bar text-brand"></i> Desglose por tipo</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-6">
                     <div v-for="t in porTipo" :key="t.tipo">
                         <p class="text-xs text-gray-400 mb-1">{{ t.label }}</p>
                         <p class="text-base font-bold text-gray-900">{{ money(t.total) }}</p>
@@ -114,10 +116,10 @@ const estadoDotColores = {
             </div>
 
             <!-- Tabla completa -->
-            <div class="admin-card flex flex-col justify-between">
+            <div class="admin-card overflow-hidden flex flex-col justify-between">
                 <div class="flex flex-col flex-1">
-                    <div class="px-6 pt-6">
-                        <h2 class="text-lg font-semibold text-gray-900">Historial completo</h2>
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-list text-brand"></i> Historial completo</span>
                     </div>
 
                     <!-- Filtros -->

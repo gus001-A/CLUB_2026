@@ -125,19 +125,15 @@ const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Exp
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
             <!-- Fila 1: Datos del invitado (50%) + Resumen de la invitación (50%) -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
+            <div class="admin-two-col-grid gap-6 mb-6 w-full items-stretch">
 
                 <!-- Datos del invitado -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
-                        <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0"
-                            style="width:44px;height:44px">
-                            <i class="pi pi-user text-sm"></i>
-                        </div>
-                        <h2 class="font-semibold text-gray-900 text-lg">Datos del invitado</h2>
+                <div class="min-w-0 admin-card overflow-hidden">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-user text-brand"></i> Datos del invitado</span>
                     </div>
 
-                    <div class="space-y-4">
+                    <div class="space-y-4 p-6">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Nombre completo *</label>
@@ -210,15 +206,11 @@ const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Exp
                 </div>
 
                 <!-- Resumen de la invitación -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex items-center gap-3 pb-4 mb-5 border-b border-gray-100">
-                        <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0"
-                            style="width:44px;height:44px">
-                            <i class="pi pi-file text-sm"></i>
-                        </div>
-                        <h2 class="font-semibold text-gray-900 text-lg">Resumen de la invitación</h2>
+                <div class="min-w-0 admin-card overflow-hidden">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-file text-brand"></i> Resumen de la invitación</span>
                     </div>
-                    <dl class="space-y-3 text-sm">
+                    <dl class="space-y-3 text-sm p-6">
                         <div class="flex justify-between">
                             <dt class="text-gray-400">Tipo de invitación:</dt>
                             <dd class="text-gray-800 font-medium">{{ tipoLabel }}</dd>
@@ -252,17 +244,14 @@ const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Exp
             </div>
 
             <!-- Fila 2: Código de invitación + acciones (50%) + Invitaciones recientes (50%) -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
+            <div class="admin-two-col-grid gap-6 mb-6 w-full items-stretch">
 
                 <!-- Código de invitación + botones (todo en una sola tarjeta) -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex items-center gap-3 pb-4 mb-4 border-b border-gray-100">
-                        <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0"
-                            style="width:44px;height:44px">
-                            <i class="pi pi-key text-sm"></i>
-                        </div>
-                        <h2 class="font-semibold text-gray-900 text-lg">Código de invitación</h2>
+                <div class="min-w-0 admin-card overflow-hidden">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-key text-brand"></i> Código de invitación</span>
                     </div>
+                    <div class="p-6">
                     <p class="text-sm text-gray-500 mb-3">Genera un código único que tu invitado usará para registrarse.</p>
 
                     <div class="flex items-center gap-3 mb-4">
@@ -293,37 +282,31 @@ const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Exp
                     <!-- Cancelar / Enviar invitación (ahora dentro de la misma tarjeta) -->
                     <div class="flex items-center justify-between pt-4 border-t border-gray-100">
                         <Link :href="route('admin.invitaciones.index')"
-                            class="text-sm text-gray-500 hover:text-gray-700 px-5 py-2.5 border border-gray-300 rounded-xl">
+                            class="admin-btn-secondary">
                             Cancelar
                         </Link>
-                        <button type="button" @click="submit" :disabled="form.processing"
-                            class="bg-brand hover:bg-brand-dark text-white font-medium px-6 py-2.5 rounded-xl text-sm disabled:opacity-50 flex items-center gap-2 shadow-sm">
+                        <button type="button" @click="submit" :disabled="form.processing" class="admin-btn-primary disabled:opacity-50">
                             <i class="pi" :class="form.processing ? 'pi-spin pi-spinner' : 'pi-send'"></i>
                             {{ form.processing ? 'Enviando...' : 'Enviar invitación' }}
                         </button>
                     </div>
+                    </div>
                 </div>
 
                 <!-- Invitaciones recientes -->
-                <div class="w-full lg:w-1/2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between">
                     <div>
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="flex items-center gap-3">
-                                <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0"
-                                    style="width:44px;height:44px">
-                                    <i class="pi pi-clock text-sm"></i>
-                                </div>
-                                <h2 class="font-semibold text-gray-900 text-lg">Invitaciones recientes</h2>
-                            </div>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-clock text-brand"></i> Invitaciones recientes</span>
                             <Link :href="route('admin.invitaciones.index')" class="text-xs font-semibold text-brand hover:underline">
                                 Ver todas
                             </Link>
                         </div>
 
-                        <ul class="space-y-3">
+                        <ul class="space-y-3 p-6">
                             <li v-for="inv in invitacionesRecientes" :key="inv.id" class="flex items-center justify-between gap-2">
                                 <div class="flex items-center gap-2.5 min-w-0">
-                                    <div class="w-9 h-9 min-w-[36px] max-w-[36px] rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
+                                    <div class="rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0" style="width:36px;height:36px">
                                         <i class="pi pi-user text-xs"></i>
                                     </div>
                                     <div class="min-w-0">

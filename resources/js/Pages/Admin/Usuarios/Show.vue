@@ -1,7 +1,11 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
+<<<<<<< HEAD
 import { computed } from 'vue';
+=======
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+>>>>>>> Gabriel
 import { useFormatters } from '@/composables/useFormatters';
 
 const props = defineProps({
@@ -12,6 +16,31 @@ const { formatDate: formatDateBase } = useFormatters();
 const formatDate = (v) => formatDateBase(v, { month: 'long' });
 
 const perfil = computed(() => props.usuario.perfil || null);
+<<<<<<< HEAD
+=======
+
+// Fotos del perfil del usuario (vienen dentro de usuario.perfil.fotos)
+const fotos = computed(() => perfil.value?.fotos || []);
+const fotoPrincipal = computed(() => fotos.value.find((f) => f.es_principal) || fotos.value[0] || null);
+
+// Marca qué índices de la galería fallaron al cargar, para mostrar un aviso
+// en vez de un ícono de imagen rota.
+const erroresImagenes = ref({});
+function manejarErrorImagen(idx) {
+    erroresImagenes.value[idx] = true;
+}
+
+function formatDateTime(v) {
+    if (!v) return '—';
+    return new Date(v).toLocaleString('es-MX', { 
+        day: '2-digit', 
+        month: 'long', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+>>>>>>> Gabriel
 
 function edad(fechaNacimiento) {
     if (!fechaNacimiento) return null;
@@ -54,6 +83,53 @@ const verificacionColores = {
 };
 
 const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
+<<<<<<< HEAD
+=======
+
+// Estado para el modal de imágenes
+const modalVisible = ref(false);
+const modalImageIndex = ref(0);
+
+function openModal(index) {
+    if (!fotos.value.length) return;
+    modalImageIndex.value = index;
+    modalVisible.value = true;
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+    modalVisible.value = false;
+    document.body.style.overflow = 'auto';
+}
+
+function nextImage() {
+    if (modalImageIndex.value < fotos.value.length - 1) {
+        modalImageIndex.value++;
+    }
+}
+
+function prevImage() {
+    if (modalImageIndex.value > 0) {
+        modalImageIndex.value--;
+    }
+}
+
+function handleKeydown(e) {
+    if (!modalVisible.value) return;
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'ArrowRight') nextImage();
+    if (e.key === 'ArrowLeft') prevImage();
+}
+
+onMounted(() => {
+    document.addEventListener('keydown', handleKeydown);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('keydown', handleKeydown);
+    document.body.style.overflow = 'auto';
+});
+>>>>>>> Gabriel
 </script>
 
 <template>
@@ -69,12 +145,22 @@ const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
             </Link>
 
             <!-- Banner de perfil -->
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+            <div class="admin-card overflow-hidden mb-6">
                 <div style="height:8px;background:linear-gradient(90deg,#C81E3A,#E85C74)"></div>
                 <div class="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div class="flex items-center gap-4">
+<<<<<<< HEAD
                         <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0 font-bold overflow-hidden" style="width:64px;height:64px;font-size:1.5rem">
                             <img v-if="fotos[0]" :src="fotos[0]" class="w-full h-full object-cover" />
+=======
+                        <div class="rounded-full text-brand flex items-center justify-center shrink-0 font-bold overflow-hidden" style="background:var(--brand-soft);width:64px;height:64px;font-size:1.5rem">
+                            <img 
+                                v-if="fotoPrincipal && fotoPrincipal.url" 
+                                :src="fotoPrincipal.url" 
+                                class="w-full h-full object-cover" 
+                                @error="manejarErrorImagen(0)"
+                            />
+>>>>>>> Gabriel
                             <span v-else>{{ usuario.nombre?.charAt(0)?.toUpperCase() || 'U' }}</span>
                         </div>
                         <div>
@@ -87,8 +173,12 @@ const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0 flex-wrap">
+<<<<<<< HEAD
                         <span class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize bg-gray-100 text-gray-600">{{ usuario.rol }}</span>
                         <span v-if="perfil" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand/10 text-brand">{{ tipoLabel[perfil.tipo] }}</span>
+=======
+                        <span v-if="perfil" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-brand" style="background:var(--brand-soft)">{{ tipoLabel[perfil.tipo] || 'Personal' }}</span>
+>>>>>>> Gabriel
                         <span class="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize" :class="estadoColores[usuario.estado]">{{ usuario.estado }}</span>
                     </div>
                 </div>
@@ -99,8 +189,13 @@ const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
                 <!-- Columna izquierda: datos + perfil -->
                 <div class="w-full lg:w-2/3 min-w-0 flex flex-col gap-6">
 
+<<<<<<< HEAD
                     <!-- Descripción / bio -->
                     <div v-if="perfil?.descripcion" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+=======
+                    <!-- Descripción -->
+                    <div v-if="perfil?.descripcion" class="admin-card p-6">
+>>>>>>> Gabriel
                         <h2 class="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
                             <i class="pi pi-align-left text-brand text-xs"></i> {{ usuario.nombre }}: Descripción
                         </h2>
@@ -108,46 +203,54 @@ const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
                     </div>
 
                     <!-- Datos de la cuenta -->
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <div class="admin-card p-6">
                         <h2 class="text-sm font-bold text-gray-900 mb-4">Datos de la cuenta</h2>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div style="width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center" class="rounded-lg bg-brand/10 text-brand"><i class="pi pi-envelope text-sm"></i></div>
+                                <div class="rounded-lg text-brand flex items-center justify-center shrink-0" style="width:40px;height:40px;background:var(--brand-soft)"><i class="pi pi-envelope text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Correo</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ usuario.email }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div style="width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center" class="rounded-lg bg-brand/10 text-brand"><i class="pi pi-phone text-sm"></i></div>
+                                <div class="rounded-lg text-brand flex items-center justify-center shrink-0" style="width:40px;height:40px;background:var(--brand-soft)"><i class="pi pi-phone text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Teléfono</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ usuario.telefono || '—' }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div style="width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center" class="rounded-lg bg-brand/10 text-brand"><i class="pi pi-map-marker text-sm"></i></div>
+                                <div class="rounded-lg text-brand flex items-center justify-center shrink-0" style="width:40px;height:40px;background:var(--brand-soft)"><i class="pi pi-map-marker text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Ciudad</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ usuario.ciudad || perfil?.ubicacion_ciudad || '—' }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                                <div style="width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center" class="rounded-lg bg-brand/10 text-brand"><i class="pi pi-calendar text-sm"></i></div>
+                                <div class="rounded-lg text-brand flex items-center justify-center shrink-0" style="width:40px;height:40px;background:var(--brand-soft)"><i class="pi pi-calendar text-sm"></i></div>
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Fecha de nacimiento</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ formatDate(usuario.fecha_nacimiento) }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
+<<<<<<< HEAD
                                 <div style="width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center" class="rounded-lg bg-brand/10 text-brand"><i class="pi pi-ticket text-sm"></i></div>
+=======
+                                <div class="rounded-lg text-brand flex items-center justify-center shrink-0" style="width:40px;height:40px;background:var(--brand-soft)"><i class="pi pi-clock text-sm"></i></div>
+>>>>>>> Gabriel
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Código de invitación</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ usuario.codigo_invitacion || '—' }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
+<<<<<<< HEAD
                                 <div style="width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center" class="rounded-lg bg-brand/10 text-brand"><i class="pi pi-clock text-sm"></i></div>
+=======
+                                <div class="rounded-lg text-brand flex items-center justify-center shrink-0" style="width:40px;height:40px;background:var(--brand-soft)"><i class="pi pi-user text-sm"></i></div>
+>>>>>>> Gabriel
                                 <div>
                                     <p class="text-[11px] text-gray-400 uppercase font-medium">Registrado el</p>
                                     <p class="text-sm font-semibold text-gray-800">{{ formatDate(usuario.created_at) }}</p>
@@ -157,12 +260,12 @@ const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
                     </div>
 
                     <!-- Intereses y pasatiempos -->
-                    <div v-if="intereses.length || pasatiempos.length" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <div v-if="intereses.length || pasatiempos.length" class="admin-card p-6">
                         <h2 class="text-sm font-bold text-gray-900 mb-4">Intereses y pasatiempos</h2>
                         <div v-if="intereses.length" class="mb-4">
                             <p class="text-[11px] text-gray-400 uppercase font-medium mb-2">Intereses</p>
                             <div class="flex flex-wrap gap-2">
-                                <span v-for="(i, idx) in intereses" :key="idx" class="px-3 py-1 rounded-full text-xs font-medium bg-brand/10 text-brand">{{ i }}</span>
+                                <span v-for="(i, idx) in intereses" :key="idx" class="px-3 py-1 rounded-full text-xs font-medium text-brand" style="background:var(--brand-soft)">{{ i }}</span>
                             </div>
                         </div>
                         <div v-if="pasatiempos.length">
@@ -172,6 +275,7 @@ const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
                             </div>
                         </div>
                     </div>
+<<<<<<< HEAD
 
                     <!-- Galería -->
                     <div v-if="fotos.length" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -182,9 +286,11 @@ const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
                             </div>
                         </div>
                     </div>
+=======
+>>>>>>> Gabriel
 
                     <!-- Perfil de Creador (solo si rol = creador) -->
-                    <div v-if="usuario.rol === 'creador'" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <div v-if="usuario.rol === 'creador'" class="admin-card p-6">
                         <h2 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
                             <i class="pi pi-star text-brand text-xs"></i> Perfil de Creador
                         </h2>
@@ -208,7 +314,7 @@ const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
                             <div v-if="usuario.creador.categorias?.length" class="mb-3">
                                 <p class="text-[11px] text-gray-400 uppercase font-medium mb-2">Categorías</p>
                                 <div class="flex flex-wrap gap-2">
-                                    <span v-for="(c, idx) in usuario.creador.categorias" :key="idx" class="px-3 py-1 rounded-full text-xs font-medium bg-brand/10 text-brand">{{ c }}</span>
+                                    <span v-for="(c, idx) in usuario.creador.categorias" :key="idx" class="px-3 py-1 rounded-full text-xs font-medium text-brand" style="background:var(--brand-soft)">{{ c }}</span>
                                 </div>
                             </div>
                             <p v-if="usuario.creador.metodo_pago" class="text-sm text-gray-600">
@@ -224,7 +330,7 @@ const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
                 <div class="w-full lg:w-1/3 min-w-0 flex flex-col gap-6">
 
                     <!-- Verificación -->
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-center">
+                    <div class="admin-card p-6 text-center">
                         <div
                             class="mx-auto mb-3 rounded-full flex items-center justify-center"
                             :class="perfil ? (verificacionColores[perfil.estado_verificacion] || 'bg-gray-100 text-gray-500') : 'bg-gray-100 text-gray-400'"
@@ -243,7 +349,7 @@ const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
                     </div>
 
                     <!-- Resumen del perfil -->
-                    <div v-if="perfil" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <div v-if="perfil" class="admin-card p-6">
                         <h2 class="text-sm font-bold text-gray-900 mb-4">Resumen del perfil</h2>
                         <dl class="space-y-3 text-sm">
                             <div class="flex justify-between">
@@ -264,9 +370,47 @@ const tipoLabel = { personal: 'Personal', pareja: 'En pareja' };
                             </div>
                         </dl>
                     </div>
-                    <div v-else class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-center text-sm text-gray-400">
+                    <div v-else class="admin-card p-6 text-center text-sm text-gray-400">
                         Este usuario todavía no ha completado su perfil.
                     </div>
+<<<<<<< HEAD
+=======
+
+                    <!-- Galería de fotos -->
+                    <div v-if="fotos.length" class="admin-card p-6">
+                        <h2 class="text-sm font-bold text-gray-900 mb-4 flex items-center justify-between">
+                            <span>Fotos ({{ fotos.length }})</span>
+                            <span class="text-xs font-normal text-gray-400">Click para ampliar</span>
+                        </h2>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div 
+                                v-for="(foto, idx) in fotos.slice(0, 6)" 
+                                :key="foto.id || idx" 
+                                class="relative aspect-square rounded-xl overflow-hidden bg-gray-100 cursor-pointer hover:ring-2 hover:ring-brand transition-all"
+                                @click="openModal(idx)"
+                            >
+                                <img 
+                                    :src="foto.url" 
+                                    class="w-full h-full object-cover" 
+                                    :alt="`Foto ${idx + 1}`"
+                                    @error="manejarErrorImagen(idx)"
+                                />
+                                <div v-if="foto.es_principal" class="absolute top-1 right-1 bg-brand text-white text-xs px-1.5 py-0.5 rounded-full">
+                                    <i class="pi pi-star text-[8px]"></i>
+                                </div>
+                                <div v-if="erroresImagenes[idx]" class="absolute inset-0 flex items-center justify-center bg-gray-200 text-gray-500 text-xs">
+                                    Error al cargar
+                                </div>
+                            </div>
+                            <div v-if="fotos.length > 6" 
+                                class="aspect-square rounded-xl bg-gray-200 flex items-center justify-center text-gray-500 font-semibold cursor-pointer hover:bg-gray-300 transition-colors"
+                                @click="openModal(6)"
+                            >
+                                +{{ fotos.length - 6 }} más
+                            </div>
+                        </div>
+                    </div>
+>>>>>>> Gabriel
                 </div>
 
             </div>

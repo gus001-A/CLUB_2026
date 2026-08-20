@@ -1,11 +1,16 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
 import { useToast } from '@/composables/useToast';
+<<<<<<< HEAD
 
 const toast = useToast();
 const imagenValida = ref(null);
+=======
+import { ref } from 'vue';
+
+const toast = useToast();
+>>>>>>> Gabriel
 
 const form = useForm({
     nombre: '',
@@ -22,9 +27,29 @@ const form = useForm({
     categoria: '',
     codigo_vestimenta: '',
     estado: 'borrador',
+<<<<<<< HEAD
     imagen: '',
+=======
+    imagen: null, // File
+>>>>>>> Gabriel
     destacado: false,
 });
+
+const preview = ref(null);
+
+function onFileChange(event) {
+    const file = event.target.files?.[0] || null;
+    if (preview.value) URL.revokeObjectURL(preview.value);
+    form.imagen = file;
+    preview.value = file ? URL.createObjectURL(file) : null;
+    event.target.value = '';
+}
+
+function quitarImagen() {
+    if (preview.value) URL.revokeObjectURL(preview.value);
+    form.imagen = null;
+    preview.value = null;
+}
 
 function submit() {
     const obligatorios = ['nombre', 'fecha', 'hora', 'ciudad', 'tipo', 'estado'];
@@ -34,7 +59,15 @@ function submit() {
         return;
     }
 
+<<<<<<< HEAD
     form.post(route('admin.eventos.store'));
+=======
+    form.post(route('admin.eventos.store'), {
+        forceFormData: true,
+        onSuccess: () => toast.success('Evento creado correctamente.'),
+        onError: () => toast.error('Revisa los datos del formulario.'),
+    });
+>>>>>>> Gabriel
 }
 </script>
 
@@ -192,31 +225,28 @@ function submit() {
                     </div>
                 </div>
 
-                <div class="space-y-4">
+                <div class="space-y-4 admin-file-input">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Imagen (URL)</label>
-                        <input v-model="form.imagen" type="text" placeholder="https://..." class="admin-input px-3 py-2.5" />
-                        <p class="text-xs text-gray-400 mt-1">
-                            Debe ser el link directo al archivo (termina en .jpg, .png, .webp...), no a una página de producto.
-                        </p>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Imagen</label>
+                        <div class="flex items-center gap-2">
+                            <label class="admin-input px-3 py-2.5 flex items-center gap-2 cursor-pointer text-gray-500 hover:border-brand transition">
+                                <i class="pi pi-upload text-xs shrink-0"></i>
+                                <span class="truncate text-sm">{{ form.imagen ? form.imagen.name : 'Seleccionar imagen...' }}</span>
+                                <input type="file" class="hidden" accept="image/*" @change="onFileChange" />
+                            </label>
+                            <button v-if="form.imagen" type="button" @click="quitarImagen" title="Quitar"
+                                class="shrink-0 rounded-lg border border-gray-200 text-red-500 hover:bg-red-50 flex items-center justify-center"
+                                style="width:36px;height:36px">
+                                <i class="pi pi-trash text-xs"></i>
+                            </button>
+                        </div>
+                        <p v-if="form.errors.imagen" class="text-red-600 text-xs mt-1">{{ form.errors.imagen }}</p>
 
-                        <!-- Vista previa en vivo -->
-                        <div v-if="form.imagen" class="mt-3">
+                        <!-- Vista previa -->
+                        <div v-if="preview" class="mt-3">
                             <div class="w-full rounded-xl overflow-hidden border border-gray-200 bg-gray-50" style="height:160px">
-                                <img
-                                    :src="form.imagen"
-                                    class="w-full h-full object-cover"
-                                    @load="imagenValida = true"
-                                    @error="imagenValida = false"
-                                />
+                                <img :src="preview" class="w-full h-full object-cover" />
                             </div>
-                            <p v-if="imagenValida === false" class="text-red-600 text-xs mt-1.5 flex items-center gap-1">
-                                <i class="pi pi-exclamation-triangle"></i>
-                                Esta URL no cargó una imagen. Revisa que sea el link directo al archivo.
-                            </p>
-                            <p v-else-if="imagenValida === true" class="text-green-600 text-xs mt-1.5 flex items-center gap-1">
-                                <i class="pi pi-check-circle"></i> Se ve bien.
-                            </p>
                         </div>
                     </div>
 

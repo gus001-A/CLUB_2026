@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\Hash;
+use App\Models\CodigoInvitacion;
 
 class Administrador extends Authenticatable
 {
@@ -16,25 +17,34 @@ class Administrador extends Authenticatable
 
     protected $fillable = [
         'nombre',
-        'nickname', 
+        'nickname',
         'email',
         'password',
         'esta_activo',
         'ultimo_acceso_en',
         'ultimo_acceso_ip',
         'telefono',
-        'email_verificado_en', 
+        'email_verificado_en',
+        'foto_perfil_url',
+        'autenticacion_doble_habilitada',
+        'autenticacion_doble_secreto',
+        'autenticacion_doble_codigos_recuperacion',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        // El secreto TOTP y los códigos de recuperación nunca deben llegar
+        // al frontend, ni por accidente al serializar el modelo completo.
+        'autenticacion_doble_secreto',
+        'autenticacion_doble_codigos_recuperacion',
     ];
 
     protected $casts = [
         'esta_activo' => 'boolean',
         'ultimo_acceso_en' => 'datetime',
         'email_verificado_en' => 'datetime',
+        'autenticacion_doble_habilitada' => 'boolean',
     ];
 
     /**

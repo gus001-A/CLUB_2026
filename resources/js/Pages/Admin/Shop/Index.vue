@@ -1,5 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import KpiCard from '@/Components/KpiCard.vue';
+import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
 import { Doughnut } from 'vue-chartjs';
@@ -64,7 +66,7 @@ const estadoColores = {
 const estadoLabel = { pagado: 'Procesando', enviado: 'Enviado', entregado: 'Completado', cancelado: 'Cancelado' };
 const metodoLabel = { tarjeta_credito: 'Tarjeta de Crédito', tarjeta_debito: 'Tarjeta de Débito', paypal: 'PayPal', transferencia: 'Transferencia', otro: 'Otro' };
 
-const doughnutColors = ['#C81E3A', '#E85C74', '#F4A9B5', '#FBD3D9', '#FDE8EA'];
+const doughnutColors = ['#C81E3A', '#F5A623', '#10B981', '#2563EB', '#8B5CF6', '#EC4899', '#0EA5E9', '#84CC16'];
 const doughnutData = computed(() => ({
     labels: props.ventasPorCategoria.map((c) => c.categoria),
     datasets: [{
@@ -101,85 +103,62 @@ function irA(a) {
 
         <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
 
-            <!-- Columna izquierda: KPIs + Pedidos | Columna derecha: Resumen de Ventas + Acciones Rápidas -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
+            <!-- Fila 1: KPIs + Pedidos | Resumen de Ventas + Acciones Rápidas -->
+            <div class="admin-shop-main-grid gap-6 mb-6 w-full">
 
                 <!-- Columna izquierda -->
-                <div class="w-full lg:flex-[3] min-w-0 flex flex-col gap-6">
+                <div class="min-w-0 flex flex-col gap-6" style="grid-area:izquierda">
 
                     <!-- KPIs -->
                     <div class="flex flex-col sm:flex-row gap-4">
-                        <div class="w-full sm:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-400">Pedidos Totales</p>
-                                <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.pedidosTotales }}</p>
-                            </div>
-                            <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                                <i class="pi pi-shopping-cart text-lg"></i>
-                            </div>
+                        <div class="w-full sm:flex-1 min-w-0">
+                            <KpiCard label="Pedidos Totales" :value="stats.pedidosTotales" icon="pi-shopping-cart" />
                         </div>
-                        <div class="w-full sm:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-400">Ventas Totales</p>
-                                <p class="text-2xl font-semibold text-gray-800 mt-1">{{ money(stats.ventasTotales) }}</p>
-                                <p v-if="stats.variacion !== null" class="text-xs mt-1 font-medium" :class="stats.variacion >= 0 ? 'text-green-600' : 'text-red-500'">
-                                    {{ stats.variacion >= 0 ? '+' : '' }}{{ stats.variacion }}% vs mes anterior
-                                </p>
-                            </div>
-                            <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                                <i class="pi pi-dollar text-lg"></i>
-                            </div>
+                        <div class="w-full sm:flex-1 min-w-0">
+                            <KpiCard label="Ventas Totales" :value="money(stats.ventasTotales)" icon="pi-dollar"
+                                :hint="stats.variacion !== null ? `${stats.variacion >= 0 ? '+' : ''}${stats.variacion}% vs mes anterior` : 'Sin datos del mes anterior'"
+                                :hint-color="stats.variacion === null ? 'text-gray-400' : (stats.variacion >= 0 ? 'text-green-600' : 'text-red-500')" />
                         </div>
-                        <div class="w-full sm:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-5 min-h-[120px] flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-400">Pedidos Completados</p>
-                                <p class="text-2xl font-semibold text-gray-800 mt-1">{{ stats.pedidosCompletados }}</p>
-                                <p class="text-xs text-gray-400 mt-1 font-medium">{{ stats.porcentajeCompletados }}% del total</p>
-                            </div>
-                            <div class="rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                                <i class="pi pi-clock text-lg"></i>
-                            </div>
+                        <div class="w-full sm:flex-1 min-w-0">
+                            <KpiCard label="Pedidos Completados" :value="stats.pedidosCompletados" icon="pi-clock"
+                                :hint="`${stats.porcentajeCompletados}% del total`" hint-color="text-gray-400" />
                         </div>
                     </div>
 
                     <!-- Pedidos -->
-                    <div id="tabla-pedidos" class="flex-1 bg-white rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between">
+                    <div id="tabla-pedidos" class="flex-1 admin-card overflow-hidden flex flex-col justify-between">
                         <div class="flex flex-col flex-1">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 pt-6">
-                                <div>
-                                    <h2 class="text-xl font-semibold text-gray-900">Pedidos</h2>
-                                    <p class="text-xs text-gray-500 mt-0.5">Consulta y administra los pedidos de la tienda.</p>
-                                </div>
+                            <div class="admin-card-header">
+                                <span class="admin-card-header-title"><i class="pi pi-shopping-cart text-brand"></i> Pedidos</span>
                             </div>
+                            <p class="text-xs px-6 pt-4" style="color:var(--muted)">Consulta y administra los pedidos de la tienda.</p>
 
                             <div class="flex flex-col sm:flex-row flex-wrap gap-3 px-6 py-4">
                                 <div class="relative flex-1 min-w-[160px]">
                                     <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                                    <input v-model="q" type="text" placeholder="Buscar pedido, usuario..."
-                                        class="w-full rounded-xl border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-brand focus:ring-brand">
+                                    <input v-model="q" type="text" placeholder="Buscar pedido, usuario..." class="admin-input pl-10 py-2" />
                                 </div>
-                                <select v-model="estado" class="rounded-xl border-gray-300 text-sm px-3 py-2 focus:border-brand focus:ring-brand">
+                                <select v-model="estado" class="admin-input w-auto py-2">
                                     <option value="">Todos los estados</option>
                                     <option value="pagado">Procesando</option>
                                     <option value="enviado">Enviado</option>
                                     <option value="entregado">Completado</option>
                                     <option value="cancelado">Cancelado</option>
                                 </select>
-                                <select v-model="metodo" class="rounded-xl border-gray-300 text-sm px-3 py-2 focus:border-brand focus:ring-brand">
+                                <select v-model="metodo" class="admin-input w-auto py-2">
                                     <option value="">Todos los métodos</option>
                                     <option value="tarjeta_credito">Tarjeta de Crédito</option>
                                     <option value="tarjeta_debito">Tarjeta de Débito</option>
                                     <option value="paypal">PayPal</option>
                                     <option value="transferencia">Transferencia</option>
                                 </select>
-                                <a :href="route('admin.shop.exportar', { estado: estado || undefined })"
-                                    class="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 shrink-0 shadow-sm">
+                                <a :href="route('admin.shop.exportar', { estado: estado || undefined })" class="admin-btn-primary shrink-0">
                                     <i class="pi pi-download text-xs"></i> Exportar
                                 </a>
                             </div>
 
                             <div class="overflow-x-auto flex-1 flex flex-col">
-                                <table class="w-full text-left text-sm min-w-[760px] flex-1">
+                                <table class="w-full text-left text-sm min-w-[760px]">
                                 <thead>
                                     <tr class="border-y border-gray-100 bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider">
                                         <th class="pl-6 pr-4 py-3 font-semibold">Pedido</th>
@@ -218,8 +197,7 @@ function irA(a) {
                                         <td class="px-3 py-3.5 text-gray-500 text-xs whitespace-nowrap">{{ formatDate(p.created_at) }}</td>
                                         <td class="pl-2 pr-6 py-3.5 whitespace-nowrap">
                                             <div class="flex justify-center items-center gap-1.5">
-                                                <Link :href="route('admin.shop.show', p.id)" title="Ver detalle"
-                                                    class="w-8 h-8 min-w-[32px] max-w-[32px] rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition flex items-center justify-center">
+                                                <Link :href="route('admin.shop.show', p.id)" title="Ver detalle" class="admin-table-action text-gray-600">
                                                     <i class="pi pi-eye text-xs"></i>
                                                 </Link>
                                             </div>
@@ -234,82 +212,74 @@ function irA(a) {
                         </div>
 
                         <!-- Paginación / footer -->
-                        <div v-if="pedidos.last_page > 1" class="border-t border-gray-100 px-6 py-4 flex items-center justify-between">
-                            <p class="text-xs text-gray-500">Mostrando {{ pedidos.from }}–{{ pedidos.to }} de {{ pedidos.total }}</p>
-                            <div class="flex gap-1">
-                                <template v-for="(link, i) in pedidos.links" :key="i">
-                                    <Link v-if="link.url" :href="link.url" preserve-scroll preserve-state v-html="link.label"
-                                        class="px-3 py-1.5 rounded-lg text-xs"
-                                        :class="link.active ? 'bg-brand text-white' : 'hover:bg-gray-100 text-gray-600'" />
-                                    <span v-else class="px-3 py-1.5 text-gray-300 text-xs" v-html="link.label" />
-                                </template>
-                            </div>
+                        <div v-if="pedidos.last_page > 1" class="border-t border-gray-100 px-6 py-4">
+                            <Pagination :data="pedidos" />
                         </div>
                         <div v-else class="border-t border-gray-100 py-3.5 text-center">
-                            <Link :href="route('admin.shop.index')" class="text-brand font-medium hover:underline text-xs">
+                            <Link :href="route('admin.shop.todos')" class="text-brand font-medium hover:underline text-xs">
                                 Ver todos los pedidos
                             </Link>
                         </div>
                     </div>
                 </div>
 
-                <!-- Columna derecha -->
-                <div class="w-full lg:flex-1 min-w-0 flex flex-col gap-6">
-
-                    <!-- Resumen de Ventas -->
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <h2 class="font-semibold text-gray-900 text-base">Resumen de Ventas</h2>
-                            <select v-model="periodo" class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 focus:outline-none focus:border-brand">
-                                <option value="dia">Hoy</option>
-                                <option value="semana">Esta semana</option>
-                                <option value="mes">Este mes</option>
-                            </select>
+                <!-- Resumen de Ventas -->
+                <div class="min-w-0 admin-card overflow-hidden" style="grid-area:resumen">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-chart-bar text-brand"></i> Resumen de Ventas</span>
+                        <select v-model="periodo" class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:border-brand">
+                            <option value="dia">Hoy</option>
+                            <option value="semana">Esta semana</option>
+                            <option value="mes">Este mes</option>
+                        </select>
+                    </div>
+                    <div class="space-y-2.5 text-xs p-5">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Subtotal</span>
+                            <span class="font-semibold text-gray-800">{{ money(resumen.subtotal) }}</span>
                         </div>
-                        <div class="space-y-2.5 text-xs">
-                            <div class="flex justify-between">
-                                <span class="text-gray-500">Subtotal</span>
-                                <span class="font-semibold text-gray-800">{{ money(resumen.subtotal) }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-500">Envíos</span>
-                                <span class="font-semibold text-gray-800">{{ money(resumen.envios) }}</span>
-                            </div>
-                            <div class="border-t border-gray-100 pt-2.5 flex justify-between">
-                                <span class="font-semibold text-gray-700 text-sm">Ventas Totales</span>
-                                <span class="font-bold text-brand text-sm">{{ money(resumen.ventasTotales) }}</span>
-                            </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Envíos</span>
+                            <span class="font-semibold text-gray-800">{{ money(resumen.envios) }}</span>
+                        </div>
+                        <div class="border-t border-gray-100 pt-2.5 flex justify-between">
+                            <span class="font-semibold text-gray-700 text-sm">Ventas Totales</span>
+                            <span class="font-bold text-brand text-sm">{{ money(resumen.ventasTotales) }}</span>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Acciones Rápidas -->
-                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4 px-2 pt-2">Acciones Rápidas</h2>
-                        <div class="space-y-3">
-                            <button v-for="a in accionesRapidas" :key="a.label" type="button" @click="irA(a)"
-                                class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group text-left">
-                                <div class="rounded-full bg-red-50 text-brand flex items-center justify-center shrink-0" style="width:44px;height:44px">
-                                    <i class="pi text-sm" :class="a.icon"></i>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">{{ a.label }}</p>
-                                    <p class="text-xs text-gray-400">{{ a.desc }}</p>
-                                </div>
-                            </button>
-                        </div>
+                <!-- Acciones Rápidas -->
+                <div class="min-w-0 admin-card overflow-hidden" style="grid-area:acciones">
+                    <div class="admin-card-header">
+                        <span class="admin-card-header-title"><i class="pi pi-bolt text-brand"></i> Acciones Rápidas</span>
+                    </div>
+                    <div class="space-y-3 p-4">
+                        <button v-for="a in accionesRapidas" :key="a.label" type="button" @click="irA(a)"
+                            class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition group text-left">
+                            <div class="admin-icon-circle" style="width:44px;height:44px">
+                                <i class="pi text-sm" :class="a.icon"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 group-hover:text-brand transition">{{ a.label }}</p>
+                                <p class="text-xs text-gray-400">{{ a.desc }}</p>
+                            </div>
+                        </button>
                     </div>
                 </div>
             </div>
 
             <!-- Fila 2: Productos Más Vendidos | Ventas por Categoría -->
-            <div class="flex flex-col lg:flex-row gap-6 mb-6 w-full items-stretch">
+            <div class="admin-two-col-grid gap-6 mb-6 w-full">
 
-                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between">
                     <div>
-                        <h2 class="font-semibold text-gray-900 text-lg mb-4">Productos Más Vendidos</h2>
-                        <ul class="space-y-3.5">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-star text-brand"></i> Productos Más Vendidos</span>
+                        </div>
+                        <ul class="space-y-3.5 p-6">
                             <li v-for="(p, i) in masVendidos" :key="i" class="flex items-center gap-3">
-                                <div class="w-9 h-9 min-w-[36px] max-w-[36px] rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 overflow-hidden">
+                                <div class="rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 overflow-hidden" style="width:36px;height:36px">
                                     <img v-if="p.imagen" :src="p.imagen" class="w-full h-full object-cover" />
                                     <i v-else class="pi pi-box text-sm"></i>
                                 </div>
@@ -324,9 +294,12 @@ function irA(a) {
                     </div>
                 </div>
 
-                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between">
                     <div>
-                        <h2 class="font-semibold text-gray-900 text-lg mb-4">Ventas por Categoría</h2>
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-chart-pie text-brand"></i> Ventas por Categoría</span>
+                        </div>
+                        <div class="p-6">
                         <div v-if="ventasPorCategoria.length" class="relative mx-auto" style="height:160px;width:160px">
                             <Doughnut :data="doughnutData" :options="{ maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '70%' }" />
                             <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -345,17 +318,20 @@ function irA(a) {
                                 <span class="text-gray-800 font-semibold">{{ money(c.total) }}</span>
                             </li>
                         </ul>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Fila 3: Métodos de Pago | Actividad Reciente -->
-            <div class="flex flex-col lg:flex-row gap-6 w-full items-stretch">
+            <div class="admin-two-col-grid gap-6 w-full">
 
-                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between">
                     <div>
-                        <h2 class="font-semibold text-gray-900 text-lg mb-5">Métodos de Pago</h2>
-                        <div class="space-y-5">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-credit-card text-brand"></i> Métodos de Pago</span>
+                        </div>
+                        <div class="space-y-5 p-6">
                             <div v-for="m in metodosPago" :key="m.metodo">
                                 <div class="flex items-center justify-between text-sm mb-2">
                                     <span class="text-gray-600">{{ metodoLabel[m.metodo] }}</span>
@@ -370,12 +346,14 @@ function irA(a) {
                     </div>
                 </div>
 
-                <div class="w-full lg:flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between">
                     <div>
-                        <h2 class="font-semibold text-gray-900 text-lg mb-4">Actividad Reciente</h2>
-                        <ul class="space-y-3.5">
+                        <div class="admin-card-header">
+                            <span class="admin-card-header-title"><i class="pi pi-history text-brand"></i> Actividad Reciente</span>
+                        </div>
+                        <ul class="space-y-3.5 p-6">
                             <li v-for="(a, i) in actividadReciente" :key="i" class="flex items-start gap-3">
-                                <div class="rounded-full bg-red-50 text-brand flex items-center justify-center shrink-0 text-xs" style="width:36px;height:36px;min-width:36px">
+                                <div class="admin-icon-circle text-xs" style="width:36px;height:36px;min-width:36px">
                                     <i class="pi" :class="a.icon"></i>
                                 </div>
                                 <div class="text-xs">
