@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Evento;
 use App\Models\Reserva;
+use App\Models\FotosEvento;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use Carbon\Carbon;
@@ -210,26 +212,8 @@ class EventoController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:255'],
-            'descripcion' => ['nullable', 'string'],
-            'fecha' => ['required', 'date'],
-            'hora' => ['required'],
-            'ciudad' => ['required', 'string', 'max:255'],
-            'zona_ubicacion' => ['nullable', 'string', 'max:255'],
-            'precio' => ['required', 'numeric', 'min:0'],
-            'capacidad' => ['nullable', 'integer', 'min:1'],
-            'tipo' => ['required', 'in:vip,general'],
-            'categoria' => ['nullable', 'string', 'max:255'],
-            'codigo_vestimenta' => ['nullable', 'string', 'max:255'],
-            'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
-            'imagen' => ['nullable', 'file', 'image', 'max:10240'],
-            'destacado' => ['boolean'],
-        ]);
+        Log::info('=== INICIO store evento ===');
 
-        unset($data['imagen']);
-
-<<<<<<< HEAD
         try {
             $data = $request->validate([
                 'nombre' => ['required', 'string', 'max:255'],
@@ -244,15 +228,16 @@ class EventoController extends Controller
                 'categoria' => ['nullable', 'string', 'max:255'],
                 'codigo_vestimenta' => ['nullable', 'string', 'max:255'],
                 'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
-                'imagen' => ['nullable', 'image', 'max:2048'], // 2MB max
+                'imagen' => ['nullable', 'image', 'max:10240'],
+                'destacado' => ['boolean'],
                 'fotos' => ['nullable', 'array'],
-                'fotos.*.file' => ['nullable', 'image', 'max:2048'],
+                'fotos.*.file' => ['nullable', 'image', 'max:10240'],
                 'fotos.*.nombre' => ['nullable', 'string', 'max:255'],
             ]);
 
             Log::info('Datos validados', ['user_id' => auth()->id()]);
 
-            // Crear el evento - Combinamos ambas versiones
+            // Crear el evento
             $evento = Evento::create($data + ['organizador_id' => auth()->guard('admin')->id()]);
 
             Log::info('Evento creado', ['evento_id' => $evento->id, 'nombre' => $evento->nombre]);
@@ -342,26 +327,15 @@ class EventoController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             return back()->with('error', 'Error al crear el evento: ' . $e->getMessage());
-=======
-        $evento = Evento::create($data + ['organizador_id' => \Illuminate\Support\Facades\Auth::guard('admin')->id()]);
-
-        if ($request->hasFile('imagen')) {
-            $evento->update([
-                'imagen' => $request->file('imagen')->store('eventos/' . $evento->id, 'public'),
-            ]);
->>>>>>> Gabriel
         }
-
-        return redirect()->route('admin.eventos.index')->with('success', "Evento \"{$evento->nombre}\" creado correctamente.");
     }
 
     public function show(Evento $evento): Response
     {
-<<<<<<< HEAD
         $hoy = now()->toDateString();
         $evento->estado_display = $this->estadoDisplay($evento, $hoy);
 
-        // Cargar el organizador (combinando ambas versiones)
+        // Cargar el organizador
         $evento->load('organizador:id,nombre');
 
         // Cargar las fotos del evento
@@ -382,13 +356,11 @@ class EventoController extends Controller
             'fecha_primera' => $fotos->first() ? $fotos->first()['fecha_subida'] : null,
             'fecha_ultima' => $fotos->last() ? $fotos->last()['fecha_subida'] : null,
         ];
-=======
-        $evento->load('organizador:id,nombre');
-        $evento->estado_display = $this->estadoDisplay($evento, now()->toDateString());
 
         $data = $evento->toArray();
         $data['imagen'] = $evento->imagen_url;
->>>>>>> Gabriel
+        $data['fotos'] = $fotos;
+        $data['stats_fotos'] = $statsFotos;
 
         return Inertia::render('Admin/Eventos/Show', [
             'evento' => $data,
@@ -400,6 +372,17 @@ class EventoController extends Controller
         $data = $evento->toArray();
         $data['imagen'] = $evento->imagen_url;
 
+        // Cargar fotos existentes
+        $fotos = $evento->fotos()->orderBy('created_at', 'asc')->get()->map(function($foto) {
+            return [
+                'id' => $foto->id,
+                'nombre_imagen' => $foto->nombre_imagen,
+                'ruta' => $foto->ruta,
+                'url_completa' => asset('storage/' . $foto->ruta),
+            ];
+        });
+        $data['fotos'] = $fotos;
+
         return Inertia::render('Admin/Eventos/Edit', [
             'evento' => $data,
         ]);
@@ -407,11 +390,9 @@ class EventoController extends Controller
 
     public function update(Request $request, Evento $evento)
     {
-<<<<<<< HEAD
         Log::info('=== INICIO update evento ===', ['evento_id' => $evento->id]);
 
         try {
-            // Combinamos ambas validaciones
             $data = $request->validate([
                 'nombre' => ['required', 'string', 'max:255'],
                 'descripcion' => ['nullable', 'string'],
@@ -427,10 +408,11 @@ class EventoController extends Controller
                 'categoria' => ['nullable', 'string', 'max:255'],
                 'codigo_vestimenta' => ['nullable', 'string', 'max:255'],
                 'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
-                'imagen' => ['nullable', 'image', 'max:2048'],
+                'imagen' => ['nullable', 'image', 'max:10240'],
                 'destacado' => ['boolean'],
+                'eliminar_imagen' => ['boolean'],
                 'fotos' => ['nullable', 'array'],
-                'fotos.*.file' => ['nullable', 'image', 'max:2048'],
+                'fotos.*.file' => ['nullable', 'image', 'max:10240'],
                 'fotos.*.nombre' => ['nullable', 'string', 'max:255'],
                 'fotos_eliminar' => ['nullable', 'array'],
                 'fotos_eliminar.*' => ['integer', 'exists:fotos_eventos,id'],
@@ -443,13 +425,7 @@ class EventoController extends Controller
             // ============================================================
             if ($request->hasFile('imagen')) {
                 // Eliminar imagen anterior
-                if ($evento->imagen && Storage::disk('public')->exists($evento->imagen)) {
-                    Storage::disk('public')->delete($evento->imagen);
-                    Log::debug('Imagen principal anterior eliminada', [
-                        'evento_id' => $evento->id,
-                        'path' => $evento->imagen
-                    ]);
-                }
+                $this->borrarImagenSiEsPropia($evento->imagen);
                 
                 $imagenPath = $request->file('imagen')->store('eventos/' . $evento->id, 'public');
                 $data['imagen'] = $imagenPath;
@@ -458,7 +434,15 @@ class EventoController extends Controller
                     'evento_id' => $evento->id,
                     'new_path' => $imagenPath
                 ]);
+            } elseif ($request->boolean('eliminar_imagen')) {
+                $this->borrarImagenSiEsPropia($evento->imagen);
+                $data['imagen'] = null;
+                Log::info('Imagen principal eliminada', ['evento_id' => $evento->id]);
+            } else {
+                // No tocar la imagen existente
+                unset($data['imagen']);
             }
+            unset($data['eliminar_imagen']);
 
             // Actualizar evento
             $evento->update($data);
@@ -557,45 +541,7 @@ class EventoController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             return back()->with('error', 'Error al actualizar el evento: ' . $e->getMessage());
-=======
-        $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:255'],
-            'descripcion' => ['nullable', 'string'],
-            'fecha' => ['required', 'date'],
-            'hora' => ['required'],
-            'ciudad' => ['required', 'string', 'max:255'],
-            'zona_ubicacion' => ['nullable', 'string', 'max:255'],
-            'ubicacion_lat' => ['nullable', 'numeric', 'between:-90,90'],
-            'ubicacion_lng' => ['nullable', 'numeric', 'between:-180,180'],
-            'precio' => ['required', 'numeric', 'min:0'],
-            'capacidad' => ['nullable', 'integer', 'min:1'],
-            'tipo' => ['required', 'in:vip,general'],
-            'categoria' => ['nullable', 'string', 'max:255'],
-            'codigo_vestimenta' => ['nullable', 'string', 'max:255'],
-            'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
-            'imagen' => ['nullable', 'file', 'image', 'max:10240'],
-            'eliminar_imagen' => ['boolean'],
-            'destacado' => ['boolean'],
-        ]);
-
-        if ($request->hasFile('imagen')) {
-            $this->borrarImagenSiEsPropia($evento->imagen);
-            $data['imagen'] = $request->file('imagen')->store('eventos/' . $evento->id, 'public');
-        } elseif ($request->boolean('eliminar_imagen')) {
-            $this->borrarImagenSiEsPropia($evento->imagen);
-            $data['imagen'] = null;
-        } else {
-            // Ni archivo nuevo ni "eliminar imagen" marcado: no tocar la
-            // imagen que ya tenía. Sin este unset, el formulario mandaba
-            // 'imagen' vacío igual y se pisaba la imagen existente con null.
-            unset($data['imagen']);
->>>>>>> Gabriel
         }
-        unset($data['eliminar_imagen']);
-
-        $evento->update($data);
-
-        return redirect()->route('admin.eventos.index')->with('success', "Evento \"{$evento->nombre}\" actualizado correctamente.");
     }
 
     public function destroy(Evento $evento)
@@ -614,7 +560,9 @@ class EventoController extends Controller
         return redirect()->route('admin.eventos.index')->with('success', "Evento \"{$nombre}\" eliminado correctamente.");
     }
 
-    /** Borra del disco solo si es una ruta interna (no una URL externa). */
+    /**
+     * Borra del disco solo si es una ruta interna (no una URL externa).
+     */
     private function borrarImagenSiEsPropia(?string $ruta): void
     {
         if ($ruta && ! str_starts_with($ruta, 'http://') && ! str_starts_with($ruta, 'https://')) {

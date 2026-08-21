@@ -6,10 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Administrador;
 use App\Models\Creador;
-<<<<<<< HEAD
 use App\Models\Fotos;
-=======
->>>>>>> Gabriel
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -145,8 +142,7 @@ class UsuarioController extends Controller
 
     public function show(User $usuario): Response
     {
-<<<<<<< HEAD
-        // Cargar relaciones (combinando ambas versiones)
+        // Cargar relaciones
         $usuario->load('perfil', 'creador');
         
         // ============================================================
@@ -208,13 +204,19 @@ class UsuarioController extends Controller
                 }
             }
         }
-=======
-        $usuario->load('perfil', 'creador');
->>>>>>> Gabriel
 
         $perfil = $usuario->perfil;
 
-<<<<<<< HEAD
+        $perfilData = $perfil ? [
+            'id' => $perfil->id,
+            'tipo' => $perfil->tipo ?? 'personal',
+            'biografia' => $perfil->biografia ?? null,
+            'genero' => $perfil->genero ?? null,
+            'ubicacion_ciudad' => $perfil->ubicacion_ciudad ?? null,
+            'fotos' => $fotos,
+            'esta_verificado' => $perfil->esta_verificado ?? false,
+        ] : null;
+
         // Log para debug
         \Log::info('Fotos en show:', [
             'user_id' => $usuario->id,
@@ -222,13 +224,6 @@ class UsuarioController extends Controller
             'total_fotos' => count($fotos),
             'fotos' => $fotos
         ]);
-=======
-        $perfilData = $perfil ? [
-            'foto' => $this->getFotoUrl($perfil->foto ?? null),
-            'biografia' => $perfil->biografia ?? null,
-            'genero' => $perfil->genero ?? null,
-        ] : null;
->>>>>>> Gabriel
 
         return Inertia::render('Admin/Usuarios/Show', [
             'usuario' => [
@@ -339,10 +334,7 @@ class UsuarioController extends Controller
      */
     public function toggleBloqueo(Request $request, $id)
     {
-<<<<<<< HEAD
         // Primero intentar encontrar en Users
-=======
->>>>>>> Gabriel
         $usuario = User::find($id);
 
         if ($usuario) {
@@ -366,10 +358,7 @@ class UsuarioController extends Controller
 
     public function destroy(Request $request, $id)
     {
-<<<<<<< HEAD
         // Primero intentar encontrar en Users
-=======
->>>>>>> Gabriel
         $usuario = User::find($id);
 
         if ($usuario) {

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\CobroController;
 use App\Http\Controllers\Admin\ConfiguracionController;
 use App\Http\Controllers\Admin\ContenidoController;
+use App\Http\Controllers\Admin\CreadorController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EventoController;
 use App\Http\Controllers\Admin\InvitacionController;
@@ -71,6 +72,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // --- Contenido (solo monitoreo: index + show, sin crear/editar/eliminar) ---
         Route::get('/contenido', [ContenidoController::class, 'index'])->name('contenido.index');
         Route::get('/contenido/{contenido}', [ContenidoController::class, 'show'])->name('contenido.show');
+
+        // --- Creadores ---
+        Route::get('/creadores', [CreadorController::class, 'index'])->name('creadores.index');
+        Route::get('/creadores/solicitudes', [CreadorController::class, 'solicitudes'])->name('creadores.solicitudes');
+        Route::get('/creadores/crear', [CreadorController::class, 'create'])->name('creadores.create');
+        Route::post('/creadores', [CreadorController::class, 'store'])->name('creadores.store');
+        Route::get('/creadores/{creador}', [CreadorController::class, 'show'])->name('creadores.show');
+        Route::get('/creadores/{creador}/editar', [CreadorController::class, 'edit'])->name('creadores.edit');
+        Route::patch('/creadores/{creador}', [CreadorController::class, 'update'])->name('creadores.update');
+        Route::post('/creadores/{creador}/aprobar', [CreadorController::class, 'aprobar'])->name('creadores.aprobar');
+        Route::post('/creadores/{creador}/rechazar', [CreadorController::class, 'rechazar'])->name('creadores.rechazar');
+        Route::delete('/creadores/{creador}', [CreadorController::class, 'destroy'])->name('creadores.destroy');
 
         // --- Shop (Pedidos) ---
         Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
