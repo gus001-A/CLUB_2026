@@ -1,11 +1,12 @@
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
 import AppFooter from '@/Components/AppFooter.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
 import CustomAvatar from '@/Components/AvatarCustom.vue';
 import ToastNotification from '@/Components/ToastNotification.vue';
 import { useConfirm } from '@/composables/useConfirm';
+import PvBadge from 'primevue/badge';
 
 /* ---------------------------------------------------------------
  * Props
@@ -13,7 +14,7 @@ import { useConfirm } from '@/composables/useConfirm';
  * activeNav: cuál ítem del menú resaltar ('inicio' | 'descubrir' | 'eventos' | 'shop' | 'mensajes' | 'comunidad')
  * --------------------------------------------------------------- */
 const props = defineProps({
-    activeNav: { type: String, default: '' },
+  activeNav: { type: String, default: '' },
 });
 
 // Estado del dropdown
@@ -30,58 +31,60 @@ const { confirm } = useConfirm();
 
 // 🔥 FUNCIÓN PARA OBTENER URL DEL AVATAR CORRECTAMENTE
 const getAvatarUrl = (avatar) => {
-    if (!avatar) return '/images/shared/avatar-default.jpg';
-    
-    // Si ya es una URL completa
-    if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
-        return avatar;
-    }
-    
-    // Si ya tiene /storage/ o storage/
-    if (avatar.startsWith('/storage/') || avatar.startsWith('storage/')) {
-        return avatar.startsWith('/') ? avatar : '/' + avatar;
-    }
-    
-    // Si es una ruta relativa, agregar /storage/
-    return '/storage/' + avatar;
+  if (!avatar) return '/images/shared/avatar-default.jpg';
+
+  // Si ya es una URL completa
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+    return avatar;
+  }
+
+  // Si ya tiene /storage/ o storage/
+  if (avatar.startsWith('/storage/') || avatar.startsWith('storage/')) {
+    return avatar.startsWith('/') ? avatar : '/' + avatar;
+  }
+
+  // Si es una ruta relativa, agregar /storage/
+  return '/storage/' + avatar;
 };
 
 // 🔥 USUARIO - CORREGIDO PARA AGREGAR /storage/ AL AVATAR
 const usuario = computed(() => {
-    // Obtener usuario de page.props.usuario
-    const user = page.props.usuario || null;
-    
-    if (user) {
-        // 🔥 CORREGIDO: Asegurar que el avatar tenga la ruta completa
-        let avatar = user.avatar || '/images/shared/avatar-default.jpg';
-        avatar = getAvatarUrl(avatar);
-        
-        return {
-            id: user.id,
-            nombre: user.nombre || user.apodo || 'Usuario',
-            apodo: user.apodo || user.nombre || 'Usuario',
-            email: user.email || '',
-            avatar: avatar, // 🔥 AHORA CON LA RUTA COMPLETA
-            verificado: user.verificado || false,
-            rol: user.rol || 'usuario',
-            foto_principal: user.foto_principal || null,
-            perfil: user.perfil || null,
-            tiene_perfil: user.tiene_perfil || false,
-        };
-    }
-    
+  // Obtener usuario de page.props.usuario
+  const user = page.props.usuario || null;
+
+  if (user) {
+    // 🔥 CORREGIDO: Asegurar que el avatar tenga la ruta completa
+    let avatar = user.avatar || '/images/shared/avatar-default.jpg';
+    avatar = getAvatarUrl(avatar);
+
     return {
-        id: null,
-        nombre: 'Invitado',
-        apodo: 'Invitado',
-        email: '',
-        avatar: '/images/shared/avatar-default.jpg',
-        verificado: false,
-        rol: 'invitado',
-        foto_principal: null,
-        perfil: null,
-        tiene_perfil: false,
+      id: user.id,
+      nombre: user.nombre || user.apodo || 'Usuario',
+      apodo: user.apodo || user.nombre || 'Usuario',
+      email: user.email || '',
+      avatar: avatar,
+      verificado: user.verificado || false,
+      rol: user.rol || 'usuario',
+      foto_principal: user.foto_principal || null,
+      perfil: user.perfil || null,
+      tiene_perfil: user.tiene_perfil || false,
+      es_creador: user.rol === 'creador' || user.es_creador || false,
     };
+  }
+
+  return {
+    id: null,
+    nombre: 'Invitado',
+    apodo: 'Invitado',
+    email: '',
+    avatar: '/images/shared/avatar-default.jpg',
+    verificado: false,
+    rol: 'invitado',
+    foto_principal: null,
+    perfil: null,
+    tiene_perfil: false,
+    es_creador: false,
+  };
 });
 
 // Computed para notificaciones
@@ -90,177 +93,210 @@ const mensajes = computed(() => 0);
 
 // Items del menú de navegación
 const navItems = computed(() => [
-    { key: 'inicio', label: 'INICIO', href: '/inicio', icon: 'pi pi-home' },
-    { key: 'descubrir', label: 'DESCUBRIR', href: '/descubrir', icon: 'pi pi-compass' },
-    { key: 'eventos', label: 'EVENTOS', href: '/eventos', icon: 'pi pi-calendar' },
-    { key: 'shop', label: 'SHOP', href: '/tienda', icon: 'pi pi-shopping-bag' },
-    { key: 'mensajes', label: 'MENSAJES', href: '/mensajes', icon: 'pi pi-envelope', badge: mensajes.value },
-    { key: 'comunidad', label: 'COMUNIDAD', href: '/comunidad', icon: 'pi pi-users' },
+  { key: 'inicio', label: 'INICIO', href: '/inicio', icon: 'pi pi-home' },
+  { key: 'descubrir', label: 'DESCUBRIR', href: '/descubrir', icon: 'pi pi-compass' },
+  { key: 'eventos', label: 'EVENTOS', href: '/eventos', icon: 'pi pi-calendar' },
+  { key: 'shop', label: 'TIENDA', href: '/tienda', icon: 'pi pi-shopping-bag' },
+  { key: 'mensajes', label: 'MENSAJES', href: '/mensajes', icon: 'pi pi-envelope', badge: mensajes.value },
+  { key: 'comunidad', label: 'COMUNIDAD', href: '/comunidad', icon: 'pi pi-users' },
 ]);
 
 // Toggle dropdown
 const toggleDropdown = () => {
-    isDropdownOpen.value = !isDropdownOpen.value;
+  isDropdownOpen.value = !isDropdownOpen.value;
 };
 
 const closeDropdown = () => {
-    isDropdownOpen.value = false;
+  isDropdownOpen.value = false;
 };
 
 // Función para cerrar sesión con confirmación
 const handleLogout = async () => {
-    if (isLoggingOut.value) return;
-    
-    const confirmed = await confirm(
-        '¿Estás seguro de que deseas cerrar sesión?',
-        {
-            title: 'Cerrar sesión',
-            confirmLabel: 'Sí, cerrar sesión',
-            cancelLabel: 'Cancelar',
-            danger: true,
-        }
-    );
-    
-    if (confirmed) {
-        isLoggingOut.value = true;
-        
-        router.post('/logout', {}, {
-            onFinish: () => {
-                isLoggingOut.value = false;
-                closeDropdown();
-            },
-            onError: () => {
-                isLoggingOut.value = false;
-                console.error('Error al cerrar sesión');
-            }
-        });
+  if (isLoggingOut.value) return;
+
+  const confirmed = await confirm(
+    '¿Estás seguro de que deseas cerrar sesión?',
+    {
+      title: 'Cerrar sesión',
+      confirmLabel: 'Sí, cerrar sesión',
+      cancelLabel: 'Cancelar',
+      danger: true,
     }
+  );
+
+  if (confirmed) {
+    isLoggingOut.value = true;
+
+    router.post('/logout', {}, {
+      onFinish: () => {
+        isLoggingOut.value = false;
+        closeDropdown();
+      },
+      onError: () => {
+        isLoggingOut.value = false;
+        console.error('Error al cerrar sesión');
+      }
+    });
+  }
 };
 
 // Cerrar dropdown al hacer clic fuera
 const handleClickOutside = (event) => {
-    const dropdown = document.querySelector('.user-dropdown-wrapper');
-    if (dropdown && !dropdown.contains(event.target)) {
-        closeDropdown();
-    }
+  const dropdown = document.querySelector('.user-dropdown-wrapper');
+  if (dropdown && !dropdown.contains(event.target)) {
+    closeDropdown();
+  }
 };
 
+// 🔥 CORREGIDO: Asegurar que los enlaces de perfil usen las rutas correctas
+const perfilRoute = computed(() => {
+  try {
+    return route('perfil.ver');
+  } catch (e) {
+    return '/perfil';
+  }
+});
+
+const configuracionRoute = computed(() => {
+  try {
+    return route('profile.usuario');
+  } catch (e) {
+    return '/configuracion';
+  }
+});
+
+// 🔥 NUEVO: Ruta para ganancias del creador
+const gananciasRoute = computed(() => {
+  try {
+    return route('creador.ganancias');
+  } catch (e) {
+    return '/creador/ganancias';
+  }
+});
+
+// 🔥 CORREGIDO: Añadir watch para depurar cuando cambia el usuario
+watch(() => page.props.usuario, (newUser) => {
+  console.log('🔄 Usuario actualizado en AppLayout:', newUser);
+}, { deep: true });
+
 onMounted(() => {
-    document.addEventListener('click', handleClickOutside);
+  document.addEventListener('click', handleClickOutside);
+  console.log('✅ AppLayout montado');
+  console.log('📋 Usuario:', usuario.value);
+  console.log('📋 activeNav:', props.activeNav);
+  console.log('📋 Es creador:', usuario.value.es_creador);
+
+  // 🔥 VERIFICAR QUE LA RUTA PERFIL EXISTE
+  try {
+    console.log('🔍 Ruta perfil.ver:', route('perfil.ver'));
+  } catch (e) {
+    console.warn('⚠️ Ruta perfil.ver no definida:', e.message);
+  }
 });
 
 onUnmounted(() => {
-    document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener('click', handleClickOutside);
 });
 </script>
 
 <template>
-    <div class="app-layout">
-        <!-- ✅ Toast Notification para toda la aplicación -->
-        <ToastNotification :duration="5000" />
+  <div class="app-layout">
+    <!-- ✅ Toast Notification para toda la aplicación -->
+    <ToastNotification :duration="5000" />
 
-        <header class="cf-header">
-            <nav class="cf-nav">
-                <!-- LOGO -->
-                <Link href="/inicio" class="cf-brand">
-                    <img 
-                        src="/images/LOGO.png" 
-                        alt="Club de Fantasías" 
-                        class="cf-brand__logo"
-                    />
+    <header class="cf-header">
+      <nav class="cf-nav">
+        <!-- LOGO -->
+        <Link href="/inicio" class="cf-brand">
+          <img src="/images/LOGO.png" alt="Club de Fantasías" class="cf-brand__logo" />
+        </Link>
+
+        <!-- ENLACES DEL NAVBAR -->
+        <div class="cf-nav__links">
+          <Link v-for="item in navItems" :key="item.key" :href="item.href" class="cf-nav__link"
+            :class="{ 'cf-nav__link--active': activeNav === item.key }">
+            <span class="cf-nav__link-label">
+              <i :class="item.icon" class="nav-icon"></i>
+              {{ item.label }}
+            </span>
+            <PvBadge v-if="item.badge" :value="item.badge" severity="danger" class="nav-badge" />
+          </Link>
+        </div>
+
+        <!-- ACCIONES -->
+        <div class="cf-nav__actions">
+          <button class="icon-btn" title="Notificaciones">
+            <i class="pi pi-bell"></i>
+            <span v-if="notificaciones" class="icon-badge">{{ notificaciones }}</span>
+          </button>
+
+          <div class="user-dropdown-wrapper" @click.stop>
+            <div class="user-chip" @click="toggleDropdown">
+              <CustomAvatar :image="usuario.avatar" :label="usuario.nombre.charAt(0).toUpperCase()" size="large" />
+              <span v-if="usuario.verificado" class="user-chip__verified">
+                <i class="pi pi-check"></i>
+              </span>
+              <div class="user-chip__info">
+                <span class="name">{{ usuario.nombre }}</span>
+                <span v-if="usuario.verificado" class="sub verified">✓ Verificado</span>
+                <span v-else-if="usuario.rol === 'admin'" class="sub admin">Administrador</span>
+                <span v-else-if="usuario.rol === 'creador'" class="sub creator">✦ Creador</span>
+                <span v-else-if="usuario.id" class="sub">Miembro</span>
+                <span v-else class="sub invitado">Invitado</span>
+              </div>
+              <i class="pi pi-chevron-down" :class="{ rotated: isDropdownOpen }"></i>
+            </div>
+
+            <Transition name="dropdown">
+              <div v-if="isDropdownOpen && usuario.id" class="user-dropdown">
+                <div class="user-dropdown__header">
+                  <CustomAvatar :image="usuario.avatar" :label="usuario.nombre.charAt(0).toUpperCase()" size="xlarge" />
+                  <div>
+                    <div class="user-dropdown__name">{{ usuario.nombre }}</div>
+                    <div class="user-dropdown__email">{{ usuario.email }}</div>
+                    <span v-if="usuario.verificado" class="user-dropdown__verified">
+                      <i class="pi pi-check-circle"></i> Verificado
+                    </span>
+                  </div>
+                </div>
+                <div class="user-dropdown__divider"></div>
+
+                <!-- 🔥 ENLACE A PERFIL NORMAL -->
+                <Link :href="perfilRoute" class="user-dropdown__item" @click="closeDropdown">
+                  <i class="pi pi-user"></i> Mi perfil
                 </Link>
 
-                <!-- ENLACES DEL NAVBAR -->
-                <div class="cf-nav__links">
-                    <Link
-                        v-for="item in navItems"
-                        :key="item.key"
-                        :href="item.href"
-                        class="cf-nav__link"
-                        :class="{ 'cf-nav__link--active': activeNav === item.key }"
-                    >
-                        <span class="cf-nav__link-label">
-                            <i :class="item.icon" class="nav-icon"></i>
-                            {{ item.label }}
-                        </span>
-                        <PvBadge v-if="item.badge" :value="item.badge" severity="danger" class="nav-badge" />
-                    </Link>
-                </div>
+                <!-- 🔥 ENLACE A CONFIGURACIÓN -->
+                <Link :href="configuracionRoute" class="user-dropdown__item" @click="closeDropdown">
+                  <i class="pi pi-cog"></i> Configuración
+                </Link>
 
-                <!-- ACCIONES -->
-                <div class="cf-nav__actions">
-                    <button class="icon-btn" title="Notificaciones">
-                        <i class="pi pi-bell"></i>
-                        <span v-if="notificaciones" class="icon-badge">{{ notificaciones }}</span>
-                    </button>
+                <!-- 🔥 NUEVO: Ganancias del creador - SOLO SI ES CREADOR -->
+                <Link v-if="usuario.es_creador" :href="gananciasRoute"
+                  class="user-dropdown__item user-dropdown__item--creator" @click="closeDropdown">
+                  <i class="pi pi-wallet"></i> Ganancias del creador
+                </Link>
 
-                    <div class="user-dropdown-wrapper" @click.stop>
-                        <div class="user-chip" @click="toggleDropdown">
-                            <CustomAvatar 
-                                :image="usuario.avatar" 
-                                :label="usuario.nombre.charAt(0).toUpperCase()"
-                                size="large"
-                            />
-                            <span v-if="usuario.verificado" class="user-chip__verified">
-                                <i class="pi pi-check"></i>
-                            </span>
-                            <div class="user-chip__info">
-                                <span class="name">{{ usuario.nombre }}</span>
-                                <span v-if="usuario.verificado" class="sub verified">✓ Verificado</span>
-                                <span v-else-if="usuario.rol === 'admin'" class="sub admin">Administrador</span>
-                                <span v-else-if="usuario.rol === 'creador'" class="sub creator">✦ Creador</span>
-                                <span v-else-if="usuario.id" class="sub">Miembro</span>
-                                <span v-else class="sub invitado">Invitado</span>
-                            </div>
-                            <i class="pi pi-chevron-down" :class="{ rotated: isDropdownOpen }"></i>
-                        </div>
+                <div class="user-dropdown__divider"></div>
+                <button @click="handleLogout" class="user-dropdown__item user-dropdown__item--danger"
+                  :disabled="isLoggingOut">
+                  <i class="pi pi-sign-out"></i>
+                  {{ isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión' }}
+                </button>
+              </div>
+            </Transition>
+          </div>
+        </div>
+      </nav>
+    </header>
 
-                        <Transition name="dropdown">
-                            <div v-if="isDropdownOpen && usuario.id" class="user-dropdown">
-                                <div class="user-dropdown__header">
-                                    <CustomAvatar 
-                                        :image="usuario.avatar" 
-                                        :label="usuario.nombre.charAt(0).toUpperCase()"
-                                        size="xlarge"
-                                    />
-                                    <div>
-                                        <div class="user-dropdown__name">{{ usuario.nombre }}</div>
-                                        <div class="user-dropdown__email">{{ usuario.email }}</div>
-                                        <span v-if="usuario.verificado" class="user-dropdown__verified">
-                                            <i class="pi pi-check-circle"></i> Verificado
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="user-dropdown__divider"></div>
-                                <Link :href="route('perfil.ver')" class="user-dropdown__item" @click="closeDropdown">
-                                    <i class="pi pi-user"></i> Mi perfil
-                                </Link>
-                                <Link :href="route('profile.usuario')" class="user-dropdown__item" @click="closeDropdown">
-                                    <i class="pi pi-cog"></i> Configuración
-                                </Link>
-                                <div class="user-dropdown__divider"></div>
-                                <button 
-                                    @click="handleLogout" 
-                                    class="user-dropdown__item user-dropdown__item--danger"
-                                    :disabled="isLoggingOut"
-                                >
-                                    <i class="pi pi-sign-out"></i> 
-                                    {{ isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión' }}
-                                </button>
-                            </div>
-                        </Transition>
-                    </div>
-                </div>
-            </nav>
-        </header>
+    <main class="app-layout__content">
+      <slot />
+    </main>
 
-        <main class="app-layout__content">
-            <slot />
-        </main>
-
-        <AppFooter />
-        <ConfirmModal />
-    </div>
+    <AppFooter />
+    <ConfirmModal />
+  </div>
 </template>
 
 <style scoped>
@@ -284,6 +320,8 @@ onUnmounted(() => {
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);
   --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.15);
+  --creator: #805ad5;
+  --creator-light: #f0ebff;
 
   --font-serif: 'Fraunces', Georgia, serif;
   --font-sans: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
@@ -485,9 +523,9 @@ onUnmounted(() => {
   transform: scale(0.92);
 }
 
-.icon-badge { 
-  position: absolute; 
-  top: -2px; 
+.icon-badge {
+  position: absolute;
+  top: -2px;
   right: -2px;
   background: var(--brand-gradient);
   color: var(--white);
@@ -510,10 +548,10 @@ onUnmounted(() => {
   position: relative;
 }
 
-.user-chip { 
-  display: flex; 
-  align-items: center; 
-  gap: 0.6rem; 
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   cursor: pointer;
   padding: 0.25rem 0.8rem 0.25rem 0.25rem;
   border-radius: var(--radius-full);
@@ -535,55 +573,55 @@ onUnmounted(() => {
 }
 
 .user-chip__verified {
-  position: absolute; 
-  left: 28px; 
+  position: absolute;
+  left: 28px;
   bottom: 0px;
   background: linear-gradient(135deg, #1fbf5c 0%, #34d399 100%);
-  color: var(--white); 
+  color: var(--white);
   border-radius: 50%;
-  width: 17px; 
-  height: 17px; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
+  width: 17px;
+  height: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.4rem;
   border: 2px solid var(--white);
   box-shadow: var(--shadow-sm);
 }
 
-.user-chip__info { 
-  display: flex; 
-  flex-direction: column; 
-  line-height: 1.15; 
+.user-chip__info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
 }
 
-.user-chip__info .name { 
-  font-weight: 700; 
+.user-chip__info .name {
+  font-weight: 700;
   font-size: 0.85rem;
   color: var(--ink);
   letter-spacing: -0.01em;
 }
 
-.user-chip__info .sub { 
-  font-size: 0.6rem; 
+.user-chip__info .sub {
+  font-size: 0.6rem;
   font-weight: 500;
   letter-spacing: 0.02em;
 }
 
-.user-chip__info .sub.verified { 
-  color: #1fbf5c; 
+.user-chip__info .sub.verified {
+  color: #1fbf5c;
 }
 
-.user-chip__info .sub.admin { 
-  color: var(--brand); 
+.user-chip__info .sub.admin {
+  color: var(--brand);
 }
 
-.user-chip__info .sub.creator { 
-  color: #805ad5; 
+.user-chip__info .sub.creator {
+  color: var(--creator);
 }
 
-.user-chip__info .sub.invitado { 
-  color: var(--muted-light); 
+.user-chip__info .sub.invitado {
+  color: var(--muted-light);
 }
 
 .pi-chevron-down {
@@ -744,6 +782,24 @@ onUnmounted(() => {
   color: var(--brand-dark);
 }
 
+/* 🔥 ESTILO PARA GANANCIAS DEL CREADOR */
+.user-dropdown__item--creator {
+  color: var(--creator);
+}
+
+.user-dropdown__item--creator i {
+  color: var(--creator);
+}
+
+.user-dropdown__item--creator:hover {
+  background: var(--creator-light);
+  color: #6b46c1;
+}
+
+.user-dropdown__item--creator:hover i {
+  color: #6b46c1;
+}
+
 .user-dropdown__item:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -752,8 +808,8 @@ onUnmounted(() => {
 /* =========================================================================
    CONTENT
    ========================================================================= */
-.app-layout__content { 
-  min-height: calc(100vh - 76px); 
+.app-layout__content {
+  min-height: calc(100vh - 76px);
 }
 
 /* =========================================================================
@@ -764,15 +820,15 @@ onUnmounted(() => {
     gap: 2rem;
     padding: 0 1rem;
   }
-  
+
   .cf-nav__link {
     font-size: 0.8rem;
   }
-  
+
   .cf-nav {
     padding: 0 1rem;
   }
-  
+
   .cf-brand {
     margin-right: 2rem;
   }
@@ -783,44 +839,44 @@ onUnmounted(() => {
     padding: 0 0.8rem;
     height: 68px;
   }
-  
+
   .cf-nav__links {
     display: none;
   }
-  
+
   .cf-brand__logo {
     height: 38px;
   }
-  
+
   .cf-brand {
     margin-right: 0;
   }
-  
+
   .user-chip__info {
     display: none;
   }
-  
+
   .user-chip {
     padding: 0.15rem 0.5rem 0.15rem 0.15rem;
   }
-  
+
   .icon-btn {
     font-size: 0.95rem;
     padding: 0.35rem;
   }
-  
+
   .cf-nav__actions {
     gap: 0.5rem;
     margin-left: 0;
   }
-  
+
   .user-chip__verified {
     left: 20px;
     width: 15px;
     height: 15px;
     font-size: 0.35rem;
   }
-  
+
   .user-dropdown {
     min-width: 240px;
     right: -10px;
@@ -832,24 +888,24 @@ onUnmounted(() => {
     padding: 0 0.5rem;
     height: 60px;
   }
-  
+
   .cf-brand__logo {
     height: 32px;
   }
-  
+
   .cf-nav__actions {
     gap: 0.25rem;
   }
-  
+
   .icon-btn {
     font-size: 0.8rem;
     padding: 0.3rem;
   }
-  
+
   .user-chip {
     padding: 0.1rem 0.3rem 0.1rem 0.1rem;
   }
-  
+
   .user-chip__verified {
     left: 16px;
     width: 13px;
@@ -857,16 +913,16 @@ onUnmounted(() => {
     font-size: 0.3rem;
     bottom: 1px;
   }
-  
+
   .user-dropdown {
     min-width: 200px;
     right: -20px;
   }
-  
+
   .user-dropdown__header {
     padding: 1rem;
   }
-  
+
   .user-dropdown__item {
     padding: 0.6rem 1rem;
     font-size: 0.8rem;

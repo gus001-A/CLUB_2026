@@ -10,6 +10,7 @@ use App\Http\Controllers\Usuario\EventoController;
 use App\Http\Controllers\Usuario\ReservaController;
 use App\Http\Controllers\Usuario\DescubrirController;
 use App\Http\Controllers\Usuario\ShopController;
+use App\Http\Controllers\Usuario\PedidoController;
 use App\Http\Controllers\Usuario\MensajeController;
 use App\Http\Controllers\Usuario\PerfilVerController;
 use App\Http\Controllers\Usuario\UserController;
@@ -87,6 +88,22 @@ Route::get('/cookies', function () {
 // =======================================================================
 
 require __DIR__.'/admin.php';
+
+// =======================================================================
+// RUTAS DE TIENDA - PÚBLICAS (fuera de autenticación)
+// =======================================================================
+
+Route::get('/tienda', [ShopController::class, 'index'])->name('tienda');
+Route::get('/tienda/filtrar', [ShopController::class, 'filtrar'])->name('tienda.filtrar');
+
+// 🔧 FIX: la ruta '/tienda/{id}' se movió hasta el final de este archivo.
+// Antes estaba aquí y "se robaba" cualquier petición a /tienda/checkout,
+// /tienda/carrito y /tienda/mis-pedidos (todas rutas de un solo segmento
+// bajo /tienda/*), porque Laravel usa la PRIMERA ruta que hace match, y
+// un wildcard como {id} matchea literalmente cualquier texto, incluida
+// la palabra "checkout". Eso terminaba llamando a ShopController::show()
+// con $id = "checkout", que no encontraba ningún producto con ese id y
+// lanzaba el 404 que estabas viendo.
 
 // =======================================================================
 // RUTAS PROTEGIDAS (requieren autenticación)
@@ -188,11 +205,24 @@ Route::middleware(['auth'])->group(function () {
         ->name('eventos.reserva.cancelar');
     
     // ============================================
-    // TIENDA - SHOP
+    // TIENDA - CARRITO, CHECKOUT Y PEDIDOS
     // ============================================
-    Route::get('/tienda', [ShopController::class, 'index'])->name('tienda');
-    Route::get('/tienda/filtrar', [ShopController::class, 'filtrar'])->name('tienda.filtrar');
-    Route::get('/tienda/{id}', [ShopController::class, 'show'])->name('tienda.show');
+    Route::post('/tienda/carrito/sincronizar', [ShopController::class, 'sincronizarCarrito'])
+        ->name('tienda.carrito.sincronizar');
+    Route::get('/tienda/carrito', [ShopController::class, 'carrito'])->name('tienda.carrito');
+    Route::get('/tienda/checkout', [ShopController::class, 'checkout'])->name('tienda.checkout');
+    Route::post('/tienda/pedido/confirmar', [ShopController::class, 'confirmarPedido'])
+        ->name('tienda.pedido.confirmar');
+    Route::get('/tienda/pedido/exito/{id}', [ShopController::class, 'pedidoExito'])
+        ->name('tienda.pedido.exito');
+    
+    // ============================================
+    // PEDIDOS - GESTIÓN DE PEDIDOS DEL USUARIO
+    // ============================================
+    Route::get('/tienda/mis-pedidos', [PedidoController::class, 'index'])->name('tienda.mis-pedidos');
+    Route::get('/tienda/pedido/{id}', [PedidoController::class, 'show'])->name('tienda.pedido.show');
+    Route::delete('/tienda/pedido/{id}/cancelar', [PedidoController::class, 'cancelar'])
+        ->name('tienda.pedido.cancelar');
     
     // ============================================
     // MENSAJES
@@ -227,6 +257,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/creador/privacidad', [CreatorController::class, 'guardarPrivacidad'])
         ->name('creador.privacidad.guardar');
     Route::post('/creador/publicar', [CreatorController::class, 'publicar'])->name('creador.publicar');
+    Route::get('/creador/perfil', [CreatorController::class, 'perfil'])->name('creador.perfil');
+    Route::get('/creador/ganancias', [CreatorController::class, 'ganancias'])->name('creador.ganancias');
     
     // ============================================
     // CREADOR - DASHBOARD
@@ -277,9 +309,15 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // =======================================================================
+// RUTA DE DETALLE DE PRODUCTO - DEBE IR AL FINAL
+// =======================================================================
+Route::get('/tienda/{id}', [ShopController::class, 'show'])
+    ->where('id', '[0-9]+')
+    ->name('tienda.show');
+
+// =======================================================================
 // RUTA DE FALLBACK (404)
 // =======================================================================
-
 Route::fallback(function () {
     return Inertia::render('Errors/404');
 });

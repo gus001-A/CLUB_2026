@@ -10,6 +10,8 @@ use App\Models\Fotos;
 use App\Models\Publicacion;
 use App\Models\Contenido;
 use App\Models\ConfiguracionMonetizacion;
+use App\Models\Suscripcion;
+use App\Models\Transaccion;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -87,6 +89,372 @@ class CreatorController extends Controller
             'fotosPerfil' => $fotosPerfil,
             'configuracionMonetizacion' => $creadorData?->configuracionMonetizacion ?? null,
         ]);
+    }
+
+
+    /**
+     * Muestra las ganancias del creador
+     */
+    public function ganancias()
+    {
+        Log::info('=== GANANCIAS CREADOR ===');
+        $user = Auth::user();
+        
+        // Verificar que el usuario sea creador
+        if ($user->rol !== 'creador' || !$user->creador) {
+            Log::warning('Usuario no es creador');
+            return redirect()->route('creador.index')
+                ->with('info', 'Completa el proceso para convertirte en creador.');
+        }
+
+        // 🔥 CARGAR LA RELACIÓN PERFIL PARA TENER EL AVATAR
+        $user->load(['perfil.fotos', 'creador.configuracionMonetizacion']);
+        
+        $creador = $user->creador;
+        Log::info('Creador encontrado:', ['id' => $creador->id]);
+
+        // ============================================================
+        // 1. OBTENER ESTADÍSTICAS DE SUSCRIPCIONES
+        // ============================================================
+        $suscripcionesActivas = Suscripcion::where('creador_id', $creador->id)
+            ->where('estado', 'activa')
+            ->count();
+
+        $suscripcionesUltimoMes = Suscripcion::where('creador_id', $creador->id)
+            ->where('created_at', '>=', now()->subMonth())
+            ->count();
+
+        // ============================================================
+        // 2. OBTENER ESTADÍSTICAS DE TRANSACCIONES
+        // ============================================================
+        $ingresosMes = Transaccion::where('creador_id', $creador->id)
+            ->where('estado', 'aprobada')
+            ->where('created_at', '>=', now()->startOfMonth())
+            ->sum('monto');
+
+        $gananciasTotales = Transaccion::where('creador_id', $creador->id)
+            ->where('estado', 'aprobada')
+            ->sum('monto');
+
+        $comisionesTotales = Transaccion::where('creador_id', $creador->id)
+            ->where('estado', 'aprobada')
+            ->sum('comision');
+
+        $gananciasNetas = $gananciasTotales - $comisionesTotales;
+
+        // ============================================================
+        // 3. INGRESOS MENSUALES PARA LA GRÁFICA (6 meses) - EN MXN
+        // ============================================================
+        $ingresosMensuales = [];
+        $mesesLabels = [];
+        
+        for ($i = 5; $i >= 0; $i--) {
+            $fecha = now()->subMonths($i);
+            $mesesLabels[] = $fecha->locale('es')->shortMonthName;
+            
+            $total = Transaccion::where('creador_id', $creador->id)
+                ->where('estado', 'aprobada')
+                ->whereYear('created_at', $fecha->year)
+                ->whereMonth('created_at', $fecha->month)
+                ->sum('monto');
+            
+            $ingresosMensuales[] = (float) $total;
+        }
+
+        // ============================================================
+        // 4. TRANSACCIONES RECIENTES - CON AVATAR
+        // ============================================================
+        $transaccionesRecientes = Transaccion::where('creador_id', $creador->id)
+            ->with('usuario.perfil.fotos')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get()
+            ->map(function ($transaccion) {
+                $usuario = $transaccion->usuario;
+                $nombreUsuario = $usuario ? $usuario->nombre : 'Anónimo';
+                
+                // 🔥 OBTENER AVATAR USANDO EL ACCESOR DEL MODELO
+                $avatar = null;
+                if ($usuario) {
+                    $avatar = $usuario->avatar; // Usa el accesor del modelo User
+                }
+                
+                $tipos = [
+                    'suscripcion' => 'Suscripción renovada',
+                    'compra_contenido' => 'Compra de contenido',
+                    'propina' => 'Propina',
+                    'retiro' => 'Retiro',
+                ];
+                
+                $tipo = $tipos[$transaccion->tipo] ?? $transaccion->tipo;
+                
+                $tipoColor = match($transaccion->tipo) {
+                    'suscripcion' => 'green',
+                    'compra_contenido' => 'blue',
+                    'propina' => 'orange',
+                    'retiro' => 'red',
+                    default => 'gray',
+                };
+                
+                return [
+                    'usuario' => $nombreUsuario,
+                    'avatar' => $avatar,
+                    'tipo' => $tipo,
+                    'tipoColor' => $tipoColor,
+                    'descripcion' => $this->getDescripcionTransaccion($transaccion),
+                    'monto' => '$' . number_format($transaccion->monto, 2) . ' MXN',
+                    'fecha' => $transaccion->created_at->format('d/m/Y, H:i'),
+                ];
+            });
+
+        // ============================================================
+        // 5. RENDIMIENTO DE CONTENIDO
+        // ============================================================
+        $contenido = Contenido::where('creador_id', $creador->id)
+            ->where('estado', 'publicado')
+            ->orderBy('created_at', 'desc')
+            ->limit(8)
+            ->get()
+            ->map(function ($item) {
+                $ingresos = Transaccion::where('creador_id', $item->creador_id)
+                    ->where('estado', 'aprobada')
+                    ->where('metadatos->contenido_id', $item->id)
+                    ->sum('monto');
+                
+                return [
+                    'id' => $item->id,
+                    'titulo' => $item->titulo,
+                    'tipo' => $item->tipo,
+                    'imagen' => $this->getImagenContenido($item),
+                    'fecha' => $item->created_at->format('d M Y'),
+                    'vistas' => $item->total_vistas ?? 0,
+                    'compras' => $item->total_compras ?? 0,
+                    'ingresos' => '$' . number_format($ingresos, 2) . ' MXN',
+                    'conversion' => $this->calcularConversion($item),
+                ];
+            });
+
+        // ============================================================
+        // 6. DATOS PARA EL SIDEBAR
+        // ============================================================
+        $saldoDisponible = Transaccion::where('creador_id', $creador->id)
+            ->where('estado', 'aprobada')
+            ->where('created_at', '>=', now()->subDays(30))
+            ->sum('monto');
+
+        $proximoPago = Transaccion::where('creador_id', $creador->id)
+            ->where('estado', 'pendiente')
+            ->where('tipo', 'retiro')
+            ->orderBy('created_at', 'asc')
+            ->first();
+
+        // 🔥 MÉTODO DE COBRO - PENDIENTE
+        $metodoCobro = [
+            'nombre' => 'Pendiente de configurar',
+            'email' => 'Configura tu método de cobro',
+        ];
+
+        // ============================================================
+        // 7. METRICAS PARA EL DASHBOARD - EN MXN
+        // ============================================================
+        $metricas = [
+            [
+                'icon' => 'pi-dollar',
+                'titulo' => 'Ingresos del mes',
+                'valor' => '$' . number_format($ingresosMes, 2) . ' MXN',
+                'variacion' => $this->calcularVariacion($creador->id, 'mensual'),
+                'comparativa' => 'vs. mes anterior',
+            ],
+            [
+                'icon' => 'pi-wallet',
+                'titulo' => 'Ganancias totales',
+                'valor' => '$' . number_format($gananciasNetas, 2) . ' MXN',
+                'variacion' => $this->calcularVariacion($creador->id, 'total'),
+                'comparativa' => 'vs. total anterior',
+            ],
+            [
+                'icon' => 'pi-users',
+                'titulo' => 'Suscriptores activos',
+                'valor' => $this->formatearNumero($suscripcionesActivas),
+                'variacion' => $this->calcularVariacionSuscriptores($creador->id),
+                'comparativa' => 'vs. mes anterior',
+            ],
+            [
+                'icon' => 'pi-user-plus',
+                'titulo' => 'Nuevas suscripciones',
+                'valor' => '+' . $suscripcionesUltimoMes,
+                'variacion' => '+12%',
+                'comparativa' => 'vs. mes anterior',
+            ],
+            [
+                'icon' => 'pi-tag',
+                'titulo' => 'Ticket promedio',
+                'valor' => $suscripcionesActivas > 0 
+                    ? '$' . number_format($ingresosMes / max($suscripcionesActivas, 1), 2) . ' MXN'
+                    : '$0.00 MXN',
+                'variacion' => '+9%',
+                'comparativa' => 'vs. mes anterior',
+            ],
+            [
+                'icon' => 'pi-refresh',
+                'titulo' => 'Tasa de renovación',
+                'valor' => $this->calcularTasaRenovacion($creador->id) . '%',
+                'variacion' => '+6%',
+                'comparativa' => 'vs. mes anterior',
+            ],
+        ];
+
+        // ============================================================
+        // 8. CONSEJOS PARA EL CREADOR
+        // ============================================================
+        $consejos = [
+            [
+                'icon' => 'pi-file-edit',
+                'titulo' => 'Publica con frecuencia',
+                'desc' => 'La constancia mantiene a tu audiencia interesada y aumenta tus ingresos.',
+            ],
+            [
+                'icon' => 'pi-shield',
+                'titulo' => 'Crea contenido exclusivo',
+                'desc' => 'Ofrece contenido único que tus suscriptores no puedan encontrar en otro lugar.',
+            ],
+            [
+                'icon' => 'pi-comments',
+                'titulo' => 'Mantén la interacción',
+                'desc' => 'Responde mensajes y comentarios para fidelizar y aumentar tus propinas.',
+            ],
+        ];
+
+        // ============================================================
+        // 9. RENDERIZAR VUE - CON AVATAR DEL USUARIO
+        // ============================================================
+        return Inertia::render('Creador/GananciasCreador', [
+            // 🔥 USUARIO CON AVATAR USANDO EL ACCESOR DEL MODELO
+            'usuario' => [
+                'id' => $user->id,
+                'nombre' => $user->nombre,
+                'avatar' => $user->avatar, // 🔥 USA EL ACCESOR DEL MODELO
+                'verificado' => $user->estado === 'verificado',
+                'rol' => $user->rol,
+            ],
+            'metricas' => $metricas,
+            'meses' => $mesesLabels,
+            'ingresosMensuales' => $ingresosMensuales,
+            'transacciones' => $transaccionesRecientes,
+            'contenido' => $contenido,
+            'consejos' => $consejos,
+            'saldoDisponible' => '$' . number_format($saldoDisponible, 2) . ' MXN',
+            'proximoPago' => $proximoPago ? [
+                'fecha' => $proximoPago->created_at->format('d/m/Y'),
+                'monto' => '$' . number_format($proximoPago->monto, 2) . ' MXN',
+            ] : null,
+            'metodoCobro' => $metodoCobro,
+            'footerColumnas' => $this->getFooterColumnas(),
+        ]);
+    }
+
+    /**
+     * Obtiene la descripción de una transacción
+     */
+    private function getDescripcionTransaccion($transaccion)
+    {
+        $metadatos = $transaccion->metadatos ?? [];
+        
+        return match($transaccion->tipo) {
+            'suscripcion' => 'Renovación ' . ($metadatos['plan'] ?? 'mensual'),
+            'compra_contenido' => $metadatos['contenido_titulo'] ?? 'Contenido exclusivo',
+            'propina' => $metadatos['mensaje'] ?? 'Propina por mensaje',
+            'retiro' => 'Retiro de fondos',
+            default => 'Transacción',
+        };
+    }
+
+    /**
+     * Obtiene la imagen de portada de un contenido
+     */
+    private function getImagenContenido($contenido)
+    {
+        if ($contenido->archivos && is_array($contenido->archivos) && count($contenido->archivos) > 0) {
+            $primerArchivo = $contenido->archivos[0];
+            if (isset($primerArchivo['url'])) {
+                return $primerArchivo['url'];
+            }
+            if (isset($primerArchivo['ruta'])) {
+                return Storage::url($primerArchivo['ruta']);
+            }
+        }
+        return '/images/ganancias/contenido-default.jpg';
+    }
+
+    /**
+     * Calcula la tasa de conversión de un contenido
+     */
+    private function calcularConversion($contenido)
+    {
+        $vistas = $contenido->total_vistas ?? 0;
+        $compras = $contenido->total_compras ?? 0;
+        
+        if ($vistas === 0) return '0%';
+        return number_format(($compras / $vistas) * 100, 1) . '%';
+    }
+
+    /**
+     * Calcula la variación de ingresos
+     */
+    private function calcularVariacion($creadorId, $tipo)
+    {
+        if ($tipo === 'mensual') {
+            $mesActual = Transaccion::where('creador_id', $creadorId)
+                ->where('estado', 'aprobada')
+                ->whereMonth('created_at', now()->month)
+                ->sum('monto');
+                
+            $mesAnterior = Transaccion::where('creador_id', $creadorId)
+                ->where('estado', 'aprobada')
+                ->whereMonth('created_at', now()->subMonth()->month)
+                ->sum('monto');
+                
+            if ($mesAnterior == 0) return '+0%';
+            $variacion = (($mesActual - $mesAnterior) / $mesAnterior) * 100;
+            return ($variacion >= 0 ? '+' : '') . number_format($variacion, 1) . '%';
+        }
+        
+        return '+18%';
+    }
+
+    /**
+     * Calcula la variación de suscriptores
+     */
+    private function calcularVariacionSuscriptores($creadorId)
+    {
+        $mesActual = Suscripcion::where('creador_id', $creadorId)
+            ->where('estado', 'activa')
+            ->whereMonth('created_at', now()->month)
+            ->count();
+            
+        $mesAnterior = Suscripcion::where('creador_id', $creadorId)
+            ->where('estado', 'activa')
+            ->whereMonth('created_at', now()->subMonth()->month)
+            ->count();
+            
+        if ($mesAnterior == 0) return '+0%';
+        $variacion = (($mesActual - $mesAnterior) / $mesAnterior) * 100;
+        return ($variacion >= 0 ? '+' : '') . number_format($variacion, 1) . '%';
+    }
+
+    /**
+     * Calcula la tasa de renovación
+     */
+    private function calcularTasaRenovacion($creadorId)
+    {
+        $totalSuscripciones = Suscripcion::where('creador_id', $creadorId)->count();
+        $renovadas = Suscripcion::where('creador_id', $creadorId)
+            ->where('estado', 'activa')
+            ->where('created_at', '>=', now()->subMonths(6))
+            ->count();
+            
+        if ($totalSuscripciones == 0) return 0;
+        return round(($renovadas / $totalSuscripciones) * 100);
     }
 
     /**
@@ -215,7 +583,7 @@ class CreatorController extends Controller
 
         Log::info('Creador encontrado:', ['id' => $creador->id]);
 
-        // 🔥 OBTENER LOS DOCUMENTOS ACTUALES DE LA BD
+        // OBTENER LOS DOCUMENTOS ACTUALES DE LA BD
         $documentos = $creador->documentos_verificacion ?? [];
         if (!is_array($documentos)) {
             $documentos = [];
@@ -743,13 +1111,13 @@ class CreatorController extends Controller
         Log::info('PUBLICACIÓN EXITOSA');
         Log::info('Contenido guardado en tabla "contenidos" con ID:', ['id' => $contenido->id]);
         
-        // 🔥 REDIRIGIR A COMUNIDAD CREADOR (NO A DASHBOARD)
+        // REDIRIGIR A COMUNIDAD CREADOR
         return redirect()->route('creador.comunidad')
             ->with('success', '¡Felicidades! Tu contenido ha sido publicado exitosamente.');
     }
 
     /**
-     * 🔥 NUEVO: Muestra la comunidad del creador (dashboard del creador)
+     * Muestra la comunidad del creador (dashboard del creador)
      */
     public function comunidad()
     {
@@ -797,8 +1165,12 @@ class CreatorController extends Controller
         // Estadísticas del creador
         $estadisticas = [
             'total_publicaciones' => $totalContenidos,
-            'total_suscriptores' => $creador->suscripciones()->count() ?? 0,
-            'total_ganancias' => $creador->transacciones()->where('estado', 'aprobada')->sum('monto') ?? 0,
+            'total_suscriptores' => Suscripcion::where('creador_id', $creador->id)
+                ->where('estado', 'activa')
+                ->count(),
+            'total_ganancias' => Transaccion::where('creador_id', $creador->id)
+                ->where('estado', 'aprobada')
+                ->sum('monto') ?? 0,
             'visitas' => $creador->estadisticas['visitas'] ?? 0,
             'interacciones' => $creador->estadisticas['interacciones'] ?? 0,
         ];
@@ -841,6 +1213,224 @@ class CreatorController extends Controller
     {
         Log::info('=== DASHBOARD CREADOR (REDIRIGIENDO) ===');
         return redirect()->route('creador.comunidad');
+    }
+
+    /**
+     * Muestra el perfil del creador
+     */
+    public function perfil()
+    {
+        Log::info('=== PERFIL CREADOR ===');
+        $user = Auth::user();
+        Log::info('Usuario:', ['id' => $user->id, 'nombre' => $user->nombre, 'rol' => $user->rol]);
+        
+        // Verificar que el usuario sea creador
+        if ($user->rol !== 'creador' || !$user->creador) {
+            Log::warning('Usuario no es creador o no tiene perfil de creador');
+            return redirect()->route('creador.index')
+                ->with('info', 'Completa el proceso para convertirte en creador.');
+        }
+
+        $creador = $user->creador;
+        Log::info('Creador encontrado:', ['id' => $creador->id]);
+        
+        // Cargar relaciones
+        $user->load(['perfil.fotos', 'creador.configuracionMonetizacion', 'creador.contenidos']);
+        
+        // ============================================================
+        // 1. DATOS DEL PERFIL
+        // ============================================================
+        
+        // Obtener foto de portada
+        $estadisticas = $creador->estadisticas ?? [];
+        $fotoPortada = isset($estadisticas['foto_portada']) 
+            ? Storage::url($estadisticas['foto_portada']) 
+            : '/images/perfil-creador/portada-default.jpg';
+        
+        // Obtener avatar
+        $avatar = $this->getAvatarUrl($user);
+        
+        // Obtener fotos del perfil
+        $fotosPerfil = [];
+        if ($user->perfil) {
+            $fotosPerfil = $user->perfil->fotos()
+                ->orderBy('es_principal', 'desc')
+                ->get()
+                ->map(function ($foto) {
+                    return [
+                        'id' => $foto->id,
+                        'url' => $foto->url,
+                        'es_principal' => $foto->es_principal,
+                        'ruta_foto' => $foto->ruta_foto,
+                    ];
+                });
+            Log::info('Fotos de perfil obtenidas:', ['count' => count($fotosPerfil)]);
+        }
+        
+        // ============================================================
+        // 2. ESTADÍSTICAS DEL CREADOR
+        // ============================================================
+        
+        $totalPublicaciones = $creador->contenidos()->where('estado', 'publicado')->count();
+        $totalSuscriptores = Suscripcion::where('creador_id', $creador->id)
+            ->where('estado', 'activa')
+            ->count();
+        $totalGanancias = Transaccion::where('creador_id', $creador->id)
+            ->where('estado', 'aprobada')
+            ->sum('monto') ?? 0;
+        
+        // Calcular likes de todas las publicaciones
+        $totalLikes = 0;
+        foreach ($creador->contenidos()->where('estado', 'publicado')->get() as $contenido) {
+            $totalLikes += $contenido->total_likes ?? 0;
+        }
+        
+        // ============================================================
+        // 3. CONTENIDOS RECIENTES
+        // ============================================================
+        
+        $contenidosRecientes = $creador->contenidos()
+            ->where('estado', 'publicado')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get()
+            ->map(function ($contenido) {
+                // Procesar archivos para asegurar URLs correctas
+                $archivos = [];
+                if ($contenido->archivos && is_array($contenido->archivos)) {
+                    foreach ($contenido->archivos as $archivo) {
+                        if (isset($archivo['url'])) {
+                            $archivos[] = $archivo;
+                        } elseif (isset($archivo['ruta'])) {
+                            $archivos[] = [
+                                'ruta' => $archivo['ruta'],
+                                'url' => Storage::url($archivo['ruta']),
+                                'nombre_original' => $archivo['nombre_original'] ?? 'archivo',
+                                'tipo' => $archivo['tipo'] ?? 'image/jpeg',
+                                'tamano' => $archivo['tamano'] ?? 0,
+                            ];
+                        }
+                    }
+                }
+                
+                return [
+                    'id' => $contenido->id,
+                    'titulo' => $contenido->titulo,
+                    'tipo' => $contenido->tipo,
+                    'descripcion' => $contenido->descripcion,
+                    'precio' => $contenido->precio,
+                    'es_premium' => $contenido->es_premium,
+                    'visibilidad' => $contenido->visibilidad,
+                    'archivos' => $archivos,
+                    'created_at' => $contenido->created_at->diffForHumans(),
+                    'total_likes' => $contenido->total_likes ?? 0,
+                    'total_comentarios' => $contenido->total_comentarios ?? 0,
+                ];
+            });
+        
+        // ============================================================
+        // 4. SUSCRIPCIONES ACTIVAS
+        // ============================================================
+        
+        $suscripcionesActivas = Suscripcion::where('creador_id', $creador->id)
+            ->with('usuario')
+            ->where('estado', 'activa')
+            ->limit(5)
+            ->get()
+            ->map(function ($suscripcion) {
+                $usuarioSuscriptor = $suscripcion->usuario;
+                return [
+                    'nombre' => $usuarioSuscriptor->nombre ?? 'Usuario',
+                    'avatar' => $usuarioSuscriptor ? $this->getAvatarUrl($usuarioSuscriptor) : null,
+                    'renovacion' => $suscripcion->fecha_renovacion 
+                        ? $suscripcion->fecha_renovacion->format('d/m/Y') 
+                        : null,
+                    'plan' => $suscripcion->plan ?? 'Premium',
+                ];
+            });
+        
+        // ============================================================
+        // 5. CONFIGURACIÓN DE MONETIZACIÓN
+        // ============================================================
+        
+        $configuracion = $creador->configuracionMonetizacion;
+        
+        // ============================================================
+        // 6. DATOS PARA LA VUE
+        // ============================================================
+        
+        $perfilData = [
+            'portada' => $fotoPortada,
+            'avatar' => $avatar,
+            'nombre' => $user->nombre,
+            'bio' => $creador->biografia ?? 'Comparto contenido exclusivo, experiencias auténticas y momentos premium para mi comunidad.',
+            'seguidores' => $this->formatearNumero($totalSuscriptores),
+            'suscriptores' => $this->formatearNumero($totalSuscriptores),
+            'publicaciones' => $totalPublicaciones,
+            'meGusta' => $this->formatearNumero($totalLikes),
+            'categorias' => $creador->categorias ?? [],
+        ];
+        
+        $estadisticasData = [
+            'total_publicaciones' => $totalPublicaciones,
+            'total_suscriptores' => $totalSuscriptores,
+            'total_ganancias' => $totalGanancias,
+            'suscriptores_nuevos' => Suscripcion::where('creador_id', $creador->id)
+                ->where('estado', 'activa')
+                ->where('created_at', '>=', now()->subDays(30))
+                ->count(),
+            'visitas' => $estadisticas['visitas'] ?? 0,
+            'interacciones' => $estadisticas['interacciones'] ?? 0,
+        ];
+        
+        $configuracionData = $configuracion ? [
+            'modelo_ingresos' => $configuracion->modelo_ingresos,
+            'precio_personalizado' => $configuracion->precio_personalizado,
+            'prueba_gratuita' => (bool)$configuracion->prueba_gratuita,
+            'descuento_lanzamiento' => (bool)$configuracion->descuento_lanzamiento,
+            'paquete_vip' => (bool)$configuracion->paquete_vip,
+            'frecuencia_pago' => $configuracion->frecuencia_pago,
+            'solo_suscriptores' => (bool)$configuracion->solo_suscriptores,
+            'aprobar_manualmente' => (bool)$configuracion->aprobar_manualmente,
+            'permitir_mensajes_premium' => (bool)$configuracion->permitir_mensajes_premium,
+            'mostrar_vista_previa' => (bool)$configuracion->mostrar_vista_previa,
+            'permitir_compra_individual' => (bool)$configuracion->permitir_compra_individual,
+            'comision_plataforma' => $configuracion->comision_plataforma,
+        ] : null;
+        
+        // ============================================================
+        // 7. RENDERIZAR VUE
+        // ============================================================
+        
+        return Inertia::render('Creador/PerfilCreador', [
+            'usuario' => [
+                'nombre' => $user->nombre,
+                'avatar' => $avatar,
+                'verificado' => $user->estado === 'verificado',
+            ],
+            'perfil' => $perfilData,
+            'publicaciones' => $contenidosRecientes,
+            'configuracionMonetizacion' => $configuracionData,
+            'fotosPerfil' => $fotosPerfil,
+            'footerColumnas' => $this->getFooterColumnas(),
+            'estadisticas' => $estadisticasData,
+            'suscripcionesActivas' => $suscripcionesActivas,
+            'categorias' => $creador->categorias ?? [],
+        ]);
+    }
+
+    /**
+     * Formatea un número a formato abreviado (ej: 12.4K)
+     */
+    private function formatearNumero($numero)
+    {
+        if ($numero >= 1000000) {
+            return number_format($numero / 1000000, 1) . 'M';
+        }
+        if ($numero >= 1000) {
+            return number_format($numero / 1000, 1) . 'K';
+        }
+        return (string)$numero;
     }
 
     /**
@@ -954,7 +1544,7 @@ class CreatorController extends Controller
             'documentos' => $documentos
         ]);
 
-        // 🔥 MENSAJE DE CONFIRMACIÓN CON TOAST
+        // MENSAJE DE CONFIRMACIÓN CON TOAST
         $mensaje = count($fotosINE) >= 2 
             ? '¡Excelente! Ambas fotos de tu INE (frente y reverso) se han subido correctamente. ¡Verificación completada!'
             : 'Foto de INE subida correctamente. Sube la otra foto (frente o reverso) para completar la verificación.';
@@ -1327,8 +1917,6 @@ class CreatorController extends Controller
         if (!is_array($documentos)) {
             $documentos = [];
         }
-
-        $user = Auth::user();
 
         // Verificar selfie
         $tieneSelfie = isset($documentos['selfie']);

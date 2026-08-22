@@ -1,8 +1,8 @@
 <template>
+
     <Head title="Comunidad" />
 
     <ToastNotification ref="toastRef" :duration="5000" />
-    <ConfirmDialog />
 
     <AppLayout activeNav="comunidad">
         <div class="comunidad-page">
@@ -23,7 +23,7 @@
                             y conecta con <span class="hero__title-highlight">personas reales</span>
                         </h1>
                         <p class="hero__text">
-                            Conecta con personas reales, comparte experiencias, disfruta contenido exclusivo 
+                            Conecta con personas reales, comparte experiencias, disfruta contenido exclusivo
                             y vive momentos inolvidables en un entorno seguro y confiable.
                         </p>
                     </div>
@@ -59,24 +59,16 @@
                 <div class="filters-container">
                     <div class="search-wrapper">
                         <i class="pi pi-search search-icon"></i>
-                        <InputText 
-                            v-model="filtroBusqueda" 
-                            placeholder="Buscar publicaciones, autores..." 
-                            class="search-input"
-                        />
+                        <InputText v-model="filtroBusqueda" placeholder="Buscar publicaciones, autores..."
+                            class="search-input" />
                         <button v-if="filtroBusqueda" class="clear-search" @click="filtroBusqueda = ''">
                             <i class="pi pi-times"></i>
                         </button>
                     </div>
                     <div class="order-wrapper">
                         <i class="pi pi-sort-alt order-icon"></i>
-                        <Dropdown 
-                            v-model="filtroOrden" 
-                            :options="opcionesOrden" 
-                            optionLabel="label" 
-                            placeholder="Ordenar por"
-                            class="order-dropdown"
-                        />
+                        <Dropdown v-model="filtroOrden" :options="opcionesOrden" optionLabel="label"
+                            placeholder="Ordenar por" class="order-dropdown" />
                     </div>
                 </div>
             </section>
@@ -90,63 +82,45 @@
                     <!-- Crear publicación -->
                     <div class="composer-card">
                         <div class="composer-card__header">
-                            <AvatarCustom 
-                                :image="getAvatarUrl(usuario.avatar)" 
-                                :label="getInitial(usuario.nombre)"
-                                size="large"
-                            />
+                            <AvatarCustom :image="getAvatarUrl(usuario.avatar)" :label="getInitial(usuario.nombre)"
+                                size="large" />
                             <strong>Crear publicación</strong>
                         </div>
-                        
-                        <textarea
-                            v-model="nuevaPublicacion.texto"
-                            class="composer-card__input"
-                            placeholder="¿Qué quieres compartir con la comunidad?"
-                            rows="2"
-                        ></textarea>
-                        
-                        <div v-if="nuevaPublicacion.imagen && nuevaPublicacion.tipo_media === 'imagen'" class="composer-card__preview">
-                            <img :src="nuevaPublicacion.previewUrl" alt="Preview" class="composer-card__preview-image" />
+
+                        <textarea v-model="nuevaPublicacion.texto" class="composer-card__input"
+                            placeholder="¿Qué quieres compartir con la comunidad?" rows="2"></textarea>
+
+                        <div v-if="nuevaPublicacion.imagen && nuevaPublicacion.tipo_media === 'imagen'"
+                            class="composer-card__preview">
+                            <img :src="nuevaPublicacion.previewUrl" alt="Preview"
+                                class="composer-card__preview-image" />
                             <button @click="eliminarMedia" class="composer-card__remove-image">
                                 <i class="pi pi-times"></i>
                             </button>
                         </div>
-                        
-                        <div v-if="nuevaPublicacion.video && nuevaPublicacion.tipo_media === 'video'" class="composer-card__preview">
-                            <video 
-                                :src="nuevaPublicacion.previewUrl" 
-                                controls 
-                                class="composer-card__preview-video"
-                                preload="metadata"
-                            ></video>
+
+                        <div v-if="nuevaPublicacion.video && nuevaPublicacion.tipo_media === 'video'"
+                            class="composer-card__preview">
+                            <video :src="nuevaPublicacion.previewUrl" controls class="composer-card__preview-video"
+                                preload="metadata"></video>
                             <button @click="eliminarMedia" class="composer-card__remove-image">
                                 <i class="pi pi-times"></i>
                             </button>
                         </div>
-                        
+
                         <div class="composer-card__actions">
                             <button class="composer-action" @click="imageInput.click()">
                                 <i class="pi pi-image"></i> Foto
                             </button>
-                            <input 
-                                ref="imageInput"
-                                type="file"
-                                accept="image/*"
-                                style="display: none"
-                                @change="handleImageUpload"
-                            />
-                            
+                            <input ref="imageInput" type="file" accept="image/*" style="display: none"
+                                @change="handleImageUpload" />
+
                             <button class="composer-action" @click="videoInput.click()">
                                 <i class="pi pi-video"></i> Video
                             </button>
-                            <input 
-                                ref="videoInput"
-                                type="file"
-                                accept="video/*"
-                                style="display: none"
-                                @change="handleVideoUpload"
-                            />
-                            
+                            <input ref="videoInput" type="file" accept="video/*" style="display: none"
+                                @change="handleVideoUpload" />
+
                             <Button label="Publicar" class="composer-card__submit" @click="publicar" />
                         </div>
                     </div>
@@ -160,36 +134,34 @@
                     <!-- Publicaciones en GRID 2 COLUMNAS -->
                     <div v-if="publicacionesFiltradas.length === 0" class="empty-state">
                         <i class="pi pi-inbox" style="font-size: 2rem; color: #ccc; margin-bottom: 1rem;"></i>
-                        <p>{{ filtroBusqueda ? 'No se encontraron publicaciones con esa búsqueda.' : 'No hay publicaciones disponibles. ¡Sé el primero en compartir algo!' }}</p>
+                        <p>
+                            {{ filtroBusqueda ? 'No se encontraron publicaciones con esa búsqueda.' : 'No hay publicaciones disponibles. ¡Sé el primero en compartir algo!' }}
+                        </p>
                     </div>
 
                     <div v-else class="posts-grid">
-                        <article v-for="(post, index) in publicacionesFiltradas" :key="post.id || index" class="post-card">
+                        <article v-for="(post, index) in publicacionesFiltradas" :key="post.id || index"
+                            class="post-card">
                             <!-- Header del post -->
                             <div class="post-card__header">
-                                <AvatarCustom 
-                                    :image="getAvatarUrl(post.avatar)" 
-                                    :label="getInitial(post.autor)"
-                                    size="large"
-                                />
+                                <AvatarCustom :image="getAvatarUrl(post.avatar)" :label="getInitial(post.autor)"
+                                    size="large" />
                                 <div class="post-card__author">
                                     <span class="name">
-                                        {{ post.autor }} 
+                                        {{ post.autor }}
                                         <i v-if="post.verificado" class="pi pi-check-circle"></i>
                                     </span>
                                     <span class="rol">{{ post.rol }}</span>
                                 </div>
-                                <span class="post-card__time">{{ post.tiempo || formatearTiempo(post.created_at) }}</span>
+                                <span class="post-card__time">{{ post.tiempo || formatearTiempo(post.created_at)
+                                    }}</span>
                                 <span v-if="post.premium" class="post-card__badge"><i class="pi pi-lock"></i></span>
-                                <span v-if="post.es_temporal" class="post-card__badge" style="background: #fbbf24; color: #000;">
+                                <span v-if="post.es_temporal" class="post-card__badge"
+                                    style="background: #fbbf24; color: #000;">
                                     <i class="pi pi-spin pi-spinner"></i>
                                 </span>
-                                <button 
-                                    v-if="post.usuario_id === usuario.id || usuario.rol === 'admin'" 
-                                    class="post-card__delete"
-                                    @click="eliminarPublicacion(post.id)"
-                                    title="Eliminar"
-                                >
+                                <button v-if="post.usuario_id === usuario.id || usuario.rol === 'admin'"
+                                    class="post-card__delete" @click="eliminarPublicacion(post.id)" title="Eliminar">
                                     <i class="pi pi-trash"></i>
                                 </button>
                             </div>
@@ -198,26 +170,16 @@
                             <p class="post-card__text">{{ post.texto }}</p>
 
                             <!-- Media del post -->
-                            <div v-if="post.media_url" class="post-card__media-wrapper" :class="{ 'post-card__media-wrapper--premium': post.premium }">
-                                <video 
-                                    v-if="post.media_type === 'video'"
-                                    :src="post.media_url"
-                                    controls
-                                    class="post-card__video"
-                                    poster="/images/video-placeholder.jpg"
-                                    preload="metadata"
-                                >
+                            <div v-if="post.media_url" class="post-card__media-wrapper"
+                                :class="{ 'post-card__media-wrapper--premium': post.premium }">
+                                <video v-if="post.media_type === 'video'" :src="post.media_url" controls
+                                    class="post-card__video" poster="/images/video-placeholder.jpg" preload="metadata">
                                     Tu navegador no soporta la reproducción de videos.
                                 </video>
-                                
-                                <img 
-                                    v-else-if="post.media_type === 'imagen'"
-                                    :src="post.media_url" 
-                                    :alt="post.autor" 
-                                    class="post-card__image"
-                                    loading="lazy"
-                                />
-                                
+
+                                <img v-else-if="post.media_type === 'imagen'" :src="post.media_url" :alt="post.autor"
+                                    class="post-card__image" loading="lazy" />
+
                                 <div v-if="post.premium" class="premium-overlay">
                                     <span class="premium-overlay__lock"><i class="pi pi-lock"></i></span>
                                     <strong>Exclusivo</strong>
@@ -231,12 +193,12 @@
                                     <i class="pi" :class="post.liked ? 'pi-heart-fill' : 'pi-heart'"></i>
                                     <span>{{ post.likes || 0 }}</span>
                                 </button>
-                                
+
                                 <button @click="toggleComentarios(post.id)">
                                     <i class="pi pi-comment"></i>
                                     <span>{{ post.comentarios || 0 }}</span>
                                 </button>
-                                
+
                                 <button @click="compartirPublicacion(post.id)">
                                     <i class="pi pi-share-alt"></i>
                                 </button>
@@ -246,38 +208,28 @@
                             <div v-if="comentariosVisibles[post.id]" class="post-card__comments">
                                 <div class="comments-section">
                                     <div class="comment-input-wrapper">
-                                        <InputText 
-                                            v-model="nuevoComentario[post.id]" 
-                                            placeholder="Escribe un comentario..."
-                                            class="comment-input"
-                                            @keyup.enter="comentar(post.id)"
-                                        />
-                                        <Button 
-                                            label="Comentar" 
-                                            class="comment-submit" 
-                                            @click="comentar(post.id)"
-                                            size="small"
-                                            :loading="comentando[post.id]"
-                                        />
+                                        <InputText v-model="nuevoComentario[post.id]"
+                                            placeholder="Escribe un comentario..." class="comment-input"
+                                            @keyup.enter="comentar(post.id)" />
+                                        <Button label="Comentar" class="comment-submit" @click="comentar(post.id)"
+                                            size="small" :loading="comentando[post.id]" />
                                     </div>
                                     <div class="comments-list">
                                         <div v-if="post.comentarios_list && post.comentarios_list.length > 0">
-                                            <div v-for="com in post.comentarios_list" :key="com.id" class="comment-item">
-                                                <AvatarCustom 
-                                                    :image="com.avatar || '/images/shared/avatar-default.jpg'" 
+                                            <div v-for="com in post.comentarios_list" :key="com.id"
+                                                class="comment-item">
+                                                <AvatarCustom :image="com.avatar || '/images/shared/avatar-default.jpg'"
                                                     :label="com.usuario ? com.usuario.charAt(0).toUpperCase() : '?'"
-                                                    size="small"
-                                                />
+                                                    size="small" />
                                                 <div class="comment-content">
                                                     <span class="comment-author">{{ com.usuario }}</span>
                                                     <span class="comment-text">{{ com.texto }}</span>
                                                     <span class="comment-time">{{ com.tiempo }}</span>
-                                                    <button 
-                                                        v-if="com.usuario_id === usuario.id || usuario.rol === 'admin'" 
+                                                    <button
+                                                        v-if="com.usuario_id === usuario.id || usuario.rol === 'admin'"
                                                         class="comment-delete"
                                                         @click="eliminarComentario(post.id, com.id)"
-                                                        title="Eliminar comentario"
-                                                    >
+                                                        title="Eliminar comentario">
                                                         <i class="pi pi-times"></i>
                                                     </button>
                                                 </div>
@@ -310,13 +262,8 @@
                             <p class="creadores-card__desc">
                                 Explora contenido exclusivo de creadores verificados
                             </p>
-                            <Button 
-                                label="Ir a comunidad de creadores" 
-                                icon="pi pi-arrow-right" 
-                                iconPos="right"
-                                class="creadores-card__btn"
-                                @click="irAComunidadCreadores"
-                            />
+                            <Button label="Ir a comunidad de creadores" icon="pi pi-arrow-right" iconPos="right"
+                                class="creadores-card__btn" @click="irAComunidadCreadores" />
                         </div>
                     </div>
 
@@ -328,13 +275,8 @@
                             <span class="monetize-card__icon"><i class="pi pi-crown"></i></span>
                             <h3>Monetiza tu contenido</h3>
                             <p>Conviértete en creador y genera ingresos con tus suscriptores.</p>
-                            <Button 
-                                label="SER CREADOR" 
-                                icon="pi pi-wallet"
-                                iconPos="right" 
-                                @click="irACreador"
-                                class="btn-creator"
-                            />
+                            <Button label="SER CREADOR" icon="pi pi-wallet" iconPos="right" @click="irACreador"
+                                class="btn-creator" />
                         </div>
                     </div>
 
@@ -349,14 +291,15 @@
                         </div>
                         <div class="event-list">
                             <div v-if="proximosEventos.length === 0" class="empty-state">
-                                <i class="pi pi-calendar" style="font-size: 1.5rem; color: #ccc; margin-bottom: 0.5rem;"></i>
+                                <i class="pi pi-calendar"
+                                    style="font-size: 1.5rem; color: #ccc; margin-bottom: 0.5rem;"></i>
                                 <p>No hay eventos próximos.</p>
                             </div>
                             <div v-for="e in proximosEventos" :key="e.id" class="event-item">
                                 <div class="event-item__image-wrapper">
                                     <img :src="e.imagen" :alt="e.titulo" class="event-item__image" />
                                 </div>
-                                
+
                                 <div class="event-item__info">
                                     <div class="event-item__header">
                                         <span class="event-item__date">
@@ -370,25 +313,22 @@
                                             <i class="pi pi-map-marker"></i> {{ e.lugar }}
                                         </span>
                                         <span class="event-item__meta">
-                                            <i class="pi pi-clock"></i> {{ e.nombre_dia }}, {{ e.fecha_completa }} - {{ e.fecha_hora }} hrs
+                                            <i class="pi pi-clock"></i> {{ e.nombre_dia }}, {{ e.fecha_completa }} - {{
+                                            e.fecha_hora }} hrs
                                         </span>
                                         <span v-if="e.asistentes !== undefined" class="event-item__asistentes">
                                             <i class="pi pi-users"></i> {{ e.asistentes }} asistentes
                                             <span v-if="e.capacidad > 0"> / {{ e.capacidad }} cupos</span>
                                         </span>
                                     </div>
-                                    <Button 
-                                        label="Ver evento" 
-                                        icon="pi pi-arrow-right" 
-                                        iconPos="right"
-                                        class="event-item__btn"
-                                        link
-                                    />
+                                    <Button label="Ver evento" icon="pi pi-arrow-right" iconPos="right"
+                                        class="event-item__btn" link />
                                 </div>
                             </div>
                         </div>
                         <div class="eventos-footer">
-                            <a href="#" class="explore-link">Explorar todos los eventos <i class="pi pi-chevron-right"></i></a>
+                            <a href="#" class="explore-link">Explorar todos los eventos <i
+                                    class="pi pi-chevron-right"></i></a>
                         </div>
                     </div>
                 </aside>
@@ -399,9 +339,10 @@
 
 <script setup>
 import { reactive, computed, onMounted, ref, watch } from 'vue';
-import { Head, usePage, router, Link } from '@inertiajs/vue3';
+import { Head, usePage, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import axios from 'axios';
+import { useConfirm } from '@/composables/useConfirm';
 
 // Importaciones de PrimeVue
 import Button from 'primevue/button';
@@ -409,8 +350,6 @@ import Tag from 'primevue/tag';
 import Badge from 'primevue/badge';
 import InputText from 'primevue/inputtext';
 import Dropdown from 'primevue/dropdown';
-import ConfirmDialog from 'primevue/confirmdialog';
-import { useConfirm } from 'primevue/useconfirm';
 
 // Importar componentes
 import AvatarCustom from '@/Components/AvatarCustom.vue';
@@ -418,7 +357,7 @@ import ToastNotification from '@/Components/ToastNotification.vue';
 
 // Obtener datos desde Inertia
 const page = usePage();
-const confirm = useConfirm();
+const { confirm } = useConfirm();
 
 // ============================================================
 // REFERENCIAS PARA TOAST
@@ -448,7 +387,7 @@ const opcionesOrden = [
 // ============================================================
 function formatearTiempo(fecha) {
     if (!fecha) return 'Recién';
-    
+
     const ahora = new Date();
     const fechaDate = new Date(fecha);
     const diffMs = ahora - fechaDate;
@@ -476,7 +415,7 @@ const publicacionesFiltradas = computed(() => {
 
     if (filtroBusqueda.value.trim()) {
         const busqueda = filtroBusqueda.value.toLowerCase().trim();
-        resultado = resultado.filter(post => 
+        resultado = resultado.filter(post =>
             post.autor.toLowerCase().includes(busqueda) ||
             post.texto.toLowerCase().includes(busqueda) ||
             post.rol.toLowerCase().includes(busqueda)
@@ -559,11 +498,11 @@ function showInfo(message, title = 'Información') {
 const usuario = computed(() => {
     const user = page.props.usuario || {};
     let avatar = user.avatar || '/images/shared/avatar-default.jpg';
-    
+
     if (avatar && !avatar.startsWith('http') && !avatar.startsWith('/')) {
         avatar = '/storage/' + avatar;
     }
-    
+
     return {
         id: user.id || null,
         nombre: user.nombre || 'Invitado',
@@ -599,7 +538,7 @@ const proximosEventos = computed(() => page.props.proximosEventos || []);
 // ============================================================
 // ESTADO PARA NUEVA PUBLICACIÓN
 // ============================================================
-const nuevaPublicacion = reactive({ 
+const nuevaPublicacion = reactive({
     texto: '',
     imagen: null,
     video: null,
@@ -615,7 +554,7 @@ function irACreador() {
     console.log('🔵 Click en SER CREADOR');
     console.log('📋 Usuario:', usuario.value);
     console.log('📋 Rol del usuario:', usuario.value.rol);
-    
+
     if (!usuario.value.id) {
         showError('Debes iniciar sesión para acceder a esta sección');
         if (typeof route !== 'undefined' && route('login')) {
@@ -628,7 +567,7 @@ function irACreador() {
 
     let destino = '';
     const esCreador = usuario.value.rol === 'creador' || usuario.value.rol === 'admin';
-    
+
     if (esCreador) {
         destino = '/creador/comunidad';
         console.log('🟢 Usuario es creador/admin, redirigiendo a:', destino);
@@ -667,20 +606,11 @@ function irAComunidadCreadores() {
             router.get(route('creador.comunidad'));
             return;
         }
-        // Fallback
         window.location.href = '/creador/comunidad';
     } catch (error) {
         console.error('❌ Error al redirigir a comunidad de creadores:', error);
         window.location.href = '/creador/comunidad';
     }
-}
-
-// Función de respaldo
-function irACreadorDirecto() {
-    console.log('🔵 Click en SER CREADOR (directo)');
-    const esCreador = usuario.value.rol === 'creador' || usuario.value.rol === 'admin';
-    const destino = esCreador ? '/creador/comunidad' : '/creador';
-    window.location.href = destino;
 }
 
 // ============================================================
@@ -708,21 +638,21 @@ function publicar() {
         showError('Escribe algo o adjunta un archivo para publicar');
         return;
     }
-    
+
     const formData = new FormData();
     formData.append('texto', nuevaPublicacion.texto);
     formData.append('es_premium', nuevaPublicacion.es_premium ? 1 : 0);
-    
+
     let tempMediaUrl = null;
     let tempMediaType = 'texto';
-    
+
     if (nuevaPublicacion.imagen) {
         formData.append('imagen', nuevaPublicacion.imagen);
         formData.append('tipo_media', 'imagen');
         tempMediaUrl = URL.createObjectURL(nuevaPublicacion.imagen);
         tempMediaType = 'imagen';
     }
-    
+
     if (nuevaPublicacion.video) {
         formData.append('video', nuevaPublicacion.video);
         formData.append('tipo_media', 'video');
@@ -810,7 +740,7 @@ function darLike(publicacionId) {
 
     const nuevoLike = !post.liked;
     const likesActuales = post.likes;
-    
+
     post.liked = nuevoLike;
     post.likes = nuevoLike ? post.likes + 1 : post.likes - 1;
 
@@ -831,26 +761,81 @@ function darLike(publicacionId) {
 }
 
 // ============================================================
-// FUNCIÓN PARA ELIMINAR COMENTARIO
+// FUNCIÓN PARA ELIMINAR PUBLICACIÓN - CON ConfirmModal
+// ============================================================
+function eliminarPublicacion(postId) {
+    const post = publicaciones.value.find(p => p.id === postId);
+    if (!post) return;
+
+    const index = publicaciones.value.findIndex(p => p.id === postId);
+    if (index === -1) return;
+
+    confirm(
+        '¿Estás seguro de que quieres eliminar esta publicación? Esta acción no se puede deshacer.',
+        {
+            title: 'Eliminar publicación',
+            confirmLabel: 'Sí, eliminar',
+            cancelLabel: 'Cancelar',
+            danger: true,
+        }
+    ).then((confirmed) => {
+        if (confirmed) {
+            const postBackup = { ...post };
+            publicaciones.value.splice(index, 1);
+            showInfo('Eliminando publicación...');
+
+            axios.delete(route('comunidad.eliminar', postId))
+                .then(response => {
+                    if (response.data.success) {
+                        showSuccess('Publicación eliminada correctamente');
+                    } else {
+                        publicaciones.value.splice(index, 0, postBackup);
+                        showError('No se pudo eliminar la publicación');
+                    }
+                })
+                .catch(error => {
+                    publicaciones.value.splice(index, 0, postBackup);
+                    showError('Error al eliminar la publicación');
+                    console.error('Error al eliminar:', error);
+                });
+        }
+    });
+}
+
+// ============================================================
+// FUNCIÓN PARA ELIMINAR COMENTARIO - CON ConfirmModal
 // ============================================================
 function eliminarComentario(postId, comentarioId) {
-    confirm.require({
-        message: '¿Estás seguro de que quieres eliminar este comentario?',
-        header: 'Eliminar comentario',
-        icon: 'pi pi-exclamation-triangle',
-        acceptClass: 'p-button-danger',
-        accept: () => {
-            const post = publicaciones.value.find(p => p.id === postId);
-            if (!post) return;
+    const post = publicaciones.value.find(p => p.id === postId);
+    if (!post) return;
 
-            const index = post.comentarios_list.findIndex(c => c.id === comentarioId);
-            if (index !== -1) {
-                post.comentarios_list.splice(index, 1);
-                post.comentarios = post.comentarios_list.length;
-                showInfo('Comentario eliminado');
-            }
-        },
-        reject: () => {}
+    const index = post.comentarios_list.findIndex(c => c.id === comentarioId);
+    if (index === -1) return;
+
+    confirm(
+        '¿Estás seguro de que quieres eliminar este comentario?',
+        {
+            title: 'Eliminar comentario',
+            confirmLabel: 'Sí, eliminar',
+            cancelLabel: 'Cancelar',
+            danger: true,
+        }
+    ).then((confirmed) => {
+        if (confirmed) {
+            const comentarioBackup = { ...post.comentarios_list[index] };
+            post.comentarios_list.splice(index, 1);
+            post.comentarios = post.comentarios_list.length;
+            showInfo('Comentario eliminado');
+
+            // Llamada a la API para eliminar el comentario
+            axios.delete(route('comunidad.eliminar-comentario', comentarioId))
+                .catch(error => {
+                    post.comentarios_list.splice(index, 0, comentarioBackup);
+                    post.comentarios = post.comentarios_list.length;
+                    showError('Error al eliminar el comentario');
+                    console.error('Error al eliminar comentario:', error);
+                });
+        }
     });
 }
 
@@ -895,7 +880,7 @@ function comentar(publicacionId) {
 // ============================================================
 function compartirPublicacion(postId) {
     const url = window.location.origin + '/comunidad/publicacion/' + postId;
-    
+
     if (navigator.clipboard) {
         navigator.clipboard.writeText(url).then(() => {
             showSuccess('Link copiado al portapapeles');
@@ -924,49 +909,12 @@ function copiarAlPortapapeles(texto) {
 }
 
 // ============================================================
-// FUNCIÓN PARA ELIMINAR PUBLICACIÓN
-// ============================================================
-function eliminarPublicacion(postId) {
-    confirm.require({
-        message: '¿Estás seguro de que quieres eliminar esta publicación?',
-        header: 'Eliminar publicación',
-        icon: 'pi pi-exclamation-triangle',
-        acceptClass: 'p-button-danger',
-        accept: () => {
-            const post = publicaciones.value.find(p => p.id === postId);
-            if (!post) return;
-
-            const index = publicaciones.value.findIndex(p => p.id === postId);
-            if (index !== -1) {
-                publicaciones.value.splice(index, 1);
-                showInfo('Publicación eliminada');
-            }
-
-            axios.delete(route('comunidad.eliminar', postId))
-                .then(response => {
-                    if (response.data.success) {
-                        showSuccess('Publicación eliminada correctamente');
-                    }
-                })
-                .catch(error => {
-                    if (post) {
-                        publicaciones.value.splice(index, 0, post);
-                    }
-                    showError('No se pudo eliminar la publicación');
-                    console.error('Error al eliminar:', error);
-                });
-        },
-        reject: () => {}
-    });
-}
-
-// ============================================================
 // FUNCIONES PARA MANEJAR ARCHIVOS
 // ============================================================
 function handleImageUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
+
     if (file.size > 10 * 1024 * 1024) {
         showError('La imagen no debe superar los 10MB');
         event.target.value = '';
@@ -977,12 +925,12 @@ function handleImageUpload(event) {
         event.target.value = '';
         return;
     }
-    
+
     if (nuevaPublicacion.video) {
         nuevaPublicacion.video = null;
         if (videoInput.value) videoInput.value = '';
     }
-    
+
     nuevaPublicacion.imagen = file;
     nuevaPublicacion.tipo_media = 'imagen';
 }
@@ -990,7 +938,7 @@ function handleImageUpload(event) {
 function handleVideoUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
+
     if (file.size > 50 * 1024 * 1024) {
         showError('El video no debe superar los 50MB');
         event.target.value = '';
@@ -1002,12 +950,12 @@ function handleVideoUpload(event) {
         event.target.value = '';
         return;
     }
-    
+
     if (nuevaPublicacion.imagen) {
         nuevaPublicacion.imagen = null;
         if (imageInput.value) imageInput.value = '';
     }
-    
+
     nuevaPublicacion.video = file;
     nuevaPublicacion.tipo_media = 'video';
 }
@@ -1058,133 +1006,133 @@ onMounted(() => {
    TOKENS DE MARCA
    ========================================================================= */
 .comunidad-page {
-  --brand: #C81E3A;
-  --brand-dark: #A6152D;
-  --brand-soft: #FBEAEC;
-  --ink: #171412;
-  --ink-soft: #4B4744;
-  --muted: #8A8481;
-  --muted-light: #B7B2AF;
-  --line: #ECE9E7;
-  --surface: #FAF8F7;
-  --white: #FFFFFF;
-  --shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  --shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.08);
+    --brand: #C81E3A;
+    --brand-dark: #A6152D;
+    --brand-soft: #FBEAEC;
+    --ink: #171412;
+    --ink-soft: #4B4744;
+    --muted: #8A8481;
+    --muted-light: #B7B2AF;
+    --line: #ECE9E7;
+    --surface: #FAF8F7;
+    --white: #FFFFFF;
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    --shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.08);
 
-  --font-serif: 'Fraunces', Georgia, serif;
-  --font-sans: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-full: 999px;
+    --font-serif: 'Fraunces', Georgia, serif;
+    --font-sans: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
+    --radius-sm: 10px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --radius-full: 999px;
 
-  font-family: var(--font-sans);
-  color: var(--ink);
-  background: #f0f2f5;
-  -webkit-font-smoothing: antialiased;
+    font-family: var(--font-sans);
+    color: var(--ink);
+    background: #f0f2f5;
+    -webkit-font-smoothing: antialiased;
 }
 
 /* =========================================================================
    HERO
    ========================================================================= */
 .hero {
-  max-width: 1400px;
-  margin: 1.5rem auto 0;
-  padding: 0 2rem;
+    max-width: 1400px;
+    margin: 1.5rem auto 0;
+    padding: 0 2rem;
 }
 
 .hero__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: 380px;
-  background: var(--ink);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 380px;
+    background: var(--ink);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
 
 .hero__copy {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 2.5rem 2.5rem;
-  color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2.5rem 2.5rem;
+    color: #ffffff;
 }
 
-.hero__eyebrow { 
-  font-size: 0.75rem; 
-  color: rgba(255, 255, 255, 0.6); 
-  margin: 0 0 0.6rem; 
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+.hero__eyebrow {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0 0 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
 }
 
-.hero__eyebrow strong { 
-  color: var(--brand); 
+.hero__eyebrow strong {
+    color: var(--brand);
 }
 
 .hero__verified {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  background: rgba(31, 191, 92, 0.2);
-  color: #48BB78;
-  padding: 0.15rem 0.6rem;
-  border-radius: var(--radius-full);
-  font-size: 0.6rem;
-  font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(31, 191, 92, 0.2);
+    color: #48BB78;
+    padding: 0.15rem 0.6rem;
+    border-radius: var(--radius-full);
+    font-size: 0.6rem;
+    font-weight: 600;
 }
 
 .hero__title {
-  font-family: var(--font-serif);
-  font-size: 2.2rem;
-  font-weight: 500;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
-  margin: 0;
+    font-family: var(--font-serif);
+    font-size: 2.2rem;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0;
 }
 
 .hero__title-highlight {
-  color: var(--brand);
-  font-style: italic;
+    color: var(--brand);
+    font-style: italic;
 }
 
 .hero__text {
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.6;
-  max-width: 440px;
-  margin: 0.8rem 0 0;
-  font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.6;
+    max-width: 440px;
+    margin: 0.8rem 0 0;
+    font-size: 0.85rem;
 }
 
 .hero__media {
-  position: relative;
-  min-height: 280px;
-  overflow: hidden;
-  background: var(--ink);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    position: relative;
+    min-height: 280px;
+    overflow: hidden;
+    background: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .hero__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.6s ease;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.6s ease;
 }
 
 .hero:hover .hero__img {
-  transform: scale(1.05);
+    transform: scale(1.05);
 }
 
 .hero__fade {
-  position: absolute;
-  inset: 0;
-  width: 33%;
-  background: linear-gradient(to right, var(--ink), rgba(23, 20, 18, 0.05));
+    position: absolute;
+    inset: 0;
+    width: 33%;
+    background: linear-gradient(to right, var(--ink), rgba(23, 20, 18, 0.05));
 }
 
 /* =========================================================================
@@ -1200,11 +1148,11 @@ onMounted(() => {
 }
 
 .stat-card {
-    background: #ffffff; 
+    background: #ffffff;
     border-radius: var(--radius-md);
-    padding: 0.8rem 1.2rem; 
-    display: flex; 
-    align-items: center; 
+    padding: 0.8rem 1.2rem;
+    display: flex;
+    align-items: center;
     gap: 0.75rem;
     transition: all 0.3s ease;
     cursor: default;
@@ -1218,15 +1166,15 @@ onMounted(() => {
 }
 
 .stat-card__icon {
-    width: 34px; 
-    height: 34px; 
-    border-radius: var(--radius-sm); 
-    background: var(--brand-soft); 
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    background: var(--brand-soft);
     color: var(--brand);
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    flex-shrink: 0; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
     font-size: 0.9rem;
     transition: all 0.3s ease;
 }
@@ -1237,21 +1185,21 @@ onMounted(() => {
     transform: scale(1.05);
 }
 
-.stat-card__body { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 0.15rem; 
-    flex: 1; 
+.stat-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    flex: 1;
 }
 
-.stat-card__title { 
-    font-weight: 600; 
-    font-size: 0.8rem; 
+.stat-card__title {
+    font-weight: 600;
+    font-size: 0.8rem;
 }
 
-.stat-card__desc { 
-    font-size: 0.7rem; 
-    color: var(--muted); 
+.stat-card__desc {
+    font-size: 0.7rem;
+    color: var(--muted);
     line-height: 1.3;
 }
 
@@ -1402,10 +1350,11 @@ onMounted(() => {
     align-items: start;
 }
 
-.feed-column, .sidebar-column { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 1rem; 
+.feed-column,
+.sidebar-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 /* =========================================================================
@@ -1421,7 +1370,7 @@ onMounted(() => {
    COMPOSER
    ========================================================================= */
 .composer-card {
-    background: #ffffff; 
+    background: #ffffff;
     border-radius: var(--radius-md);
     padding: 1rem;
     box-shadow: var(--shadow);
@@ -1429,25 +1378,25 @@ onMounted(() => {
     grid-column: 1 / -1;
 }
 
-.composer-card__header { 
-    display: flex; 
-    align-items: center; 
-    gap: 0.6rem; 
-    margin-bottom: 0.7rem; 
+.composer-card__header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.7rem;
 }
 
-.composer-card__header strong { 
-    font-size: 0.85rem; 
+.composer-card__header strong {
+    font-size: 0.85rem;
 }
 
 .composer-card__input {
-    width: 100%; 
-    border: 1px solid #e3e3e7; 
-    border-radius: 8px; 
+    width: 100%;
+    border: 1px solid #e3e3e7;
+    border-radius: 8px;
     padding: 0.6rem 0.8rem;
-    font-family: inherit; 
-    font-size: 0.8rem; 
-    resize: none; 
+    font-family: inherit;
+    font-size: 0.8rem;
+    resize: none;
     color: var(--ink);
     transition: all 0.2s ease;
 }
@@ -1505,25 +1454,25 @@ onMounted(() => {
     transform: scale(1.1);
 }
 
-.composer-card__actions { 
-    display: flex; 
-    align-items: center; 
-    gap: 0.4rem; 
-    margin-top: 0.7rem; 
-    flex-wrap: wrap; 
+.composer-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+    flex-wrap: wrap;
 }
 
 .composer-action {
-    display: flex; 
-    align-items: center; 
-    gap: 0.3rem; 
-    border: 1px solid #e3e3e7; 
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    border: 1px solid #e3e3e7;
     border-radius: 8px;
-    background: #fff; 
-    padding: 0.3rem 0.6rem; 
-    font-size: 0.7rem; 
-    font-weight: 600; 
-    color: var(--ink-soft); 
+    background: #fff;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--ink-soft);
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -1534,9 +1483,9 @@ onMounted(() => {
     background: var(--brand-soft);
 }
 
-.composer-card__submit { 
-    margin-left: auto; 
-    font-weight: 700; 
+.composer-card__submit {
+    margin-left: auto;
+    font-weight: 700;
     border-radius: 8px;
     font-size: 0.75rem;
     padding: 0.4rem 1rem;
@@ -1546,7 +1495,7 @@ onMounted(() => {
    POST CARD
    ========================================================================= */
 .post-card {
-    background: #ffffff; 
+    background: #ffffff;
     border-radius: var(--radius-md);
     padding: 0.8rem;
     box-shadow: var(--shadow);
@@ -1561,58 +1510,58 @@ onMounted(() => {
     transform: translateY(-2px);
 }
 
-.post-card__header { 
-    display: flex; 
-    align-items: center; 
-    gap: 0.5rem; 
-    margin-bottom: 0.5rem; 
+.post-card__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
 }
 
-.post-card__author { 
-    display: flex; 
-    flex-direction: column; 
-    line-height: 1.2; 
+.post-card__author {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
     flex: 1;
     min-width: 0;
 }
 
-.post-card__author .name { 
-    font-size: 0.8rem; 
-    font-weight: 700; 
-    display: flex; 
-    align-items: center; 
-    gap: 0.3rem; 
+.post-card__author .name {
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.post-card__author .name i { 
-    color: var(--brand); 
-    font-size: 0.65rem; 
+.post-card__author .name i {
+    color: var(--brand);
+    font-size: 0.65rem;
 }
 
-.post-card__author .rol { 
-    font-size: 0.6rem; 
-    color: var(--brand); 
-    font-weight: 600; 
+.post-card__author .rol {
+    font-size: 0.6rem;
+    color: var(--brand);
+    font-weight: 600;
 }
 
-.post-card__time { 
-    font-size: 0.6rem; 
-    color: var(--muted-light); 
+.post-card__time {
+    font-size: 0.6rem;
+    color: var(--muted-light);
     flex-shrink: 0;
 }
 
 .post-card__badge {
-    background: var(--brand-soft); 
-    color: var(--brand); 
-    font-size: 0.55rem; 
+    background: var(--brand-soft);
+    color: var(--brand);
+    font-size: 0.55rem;
     font-weight: 700;
-    padding: 0.1rem 0.4rem; 
-    border-radius: var(--radius-full); 
-    display: flex; 
-    align-items: center; 
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
     gap: 0.2rem;
     flex-shrink: 0;
 }
@@ -1634,11 +1583,11 @@ onMounted(() => {
     background: #FEE2E2;
 }
 
-.post-card__text { 
-    font-size: 0.8rem; 
-    color: var(--ink-soft); 
-    line-height: 1.5; 
-    margin: 0 0 0.6rem; 
+.post-card__text {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin: 0 0 0.6rem;
     white-space: pre-wrap;
     display: -webkit-box;
     -webkit-line-clamp: 3;
@@ -1891,35 +1840,35 @@ onMounted(() => {
    SIDEBAR
    ========================================================================= */
 .sidebar-card {
-    background: #ffffff; 
+    background: #ffffff;
     border-radius: var(--radius-md);
     padding: 0.8rem;
     box-shadow: var(--shadow);
     border: 1px solid var(--line);
 }
 
-.sidebar-card__header { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    margin-bottom: 0.6rem; 
+.sidebar-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.6rem;
 }
 
-.sidebar-card__header h3 { 
-    font-size: 0.85rem; 
-    margin: 0; 
+.sidebar-card__header h3 {
+    font-size: 0.85rem;
+    margin: 0;
     display: flex;
     align-items: center;
 }
 
-.see-all { 
-    color: var(--brand); 
-    font-size: 0.7rem; 
-    font-weight: 700; 
-    text-decoration: none; 
-    display: inline-flex; 
-    align-items: center; 
-    gap: 0.2rem; 
+.see-all {
+    color: var(--brand);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
     transition: all 0.3s ease;
 }
 
@@ -1989,57 +1938,57 @@ onMounted(() => {
 /* =========================================================================
    MONETIZE CARD
    ========================================================================= */
-.monetize-card { 
-    position: relative; 
-    border-radius: var(--radius-md); 
-    overflow: hidden; 
-    min-height: 180px; 
-    display: flex; 
-    align-items: flex-end; 
+.monetize-card {
+    position: relative;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    min-height: 180px;
+    display: flex;
+    align-items: flex-end;
 }
 
-.monetize-card__image { 
-    position: absolute; 
-    inset: 0; 
-    width: 100%; 
-    height: 100%; 
-    object-fit: cover; 
+.monetize-card__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
-.monetize-card__overlay { 
-    position: absolute; 
-    inset: 0; 
-    background: linear-gradient(0deg, rgba(0,0,0,0.92) 30%, rgba(0,0,0,0.2) 100%); 
+.monetize-card__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.92) 30%, rgba(0, 0, 0, 0.2) 100%);
 }
 
-.monetize-card__content { 
-    position: relative; 
-    z-index: 2; 
-    padding: 0.8rem; 
-    color: #fff; 
+.monetize-card__content {
+    position: relative;
+    z-index: 2;
+    padding: 0.8rem;
+    color: #fff;
 }
 
-.monetize-card__icon { 
-    color: #f2c94c; 
-    font-size: 0.8rem; 
-    margin-bottom: 0.2rem; 
-    display: block; 
+.monetize-card__icon {
+    color: #f2c94c;
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
+    display: block;
 }
 
-.monetize-card__content h3 { 
-    font-size: 0.85rem; 
-    margin: 0 0 0.2rem; 
+.monetize-card__content h3 {
+    font-size: 0.85rem;
+    margin: 0 0 0.2rem;
 }
 
-.monetize-card__content p { 
-    font-size: 0.65rem; 
-    color: #d8d8dc; 
-    margin: 0 0 0.4rem; 
-    line-height: 1.4; 
+.monetize-card__content p {
+    font-size: 0.65rem;
+    color: #d8d8dc;
+    margin: 0 0 0.4rem;
+    line-height: 1.4;
 }
 
-.monetize-card__content :deep(.p-button) { 
-    font-weight: 700; 
+.monetize-card__content :deep(.p-button) {
+    font-weight: 700;
     border-radius: 8px;
     font-size: 0.65rem;
     padding: 0.3rem 0.8rem;
@@ -2069,13 +2018,13 @@ onMounted(() => {
     border: 1px solid var(--line);
 }
 
-.event-list { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 0.8rem; 
+.event-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
 }
 
-.event-item { 
+.event-item {
     display: flex;
     gap: 0.8rem;
     padding: 0.6rem;
@@ -2133,13 +2082,13 @@ onMounted(() => {
     min-width: 40px;
 }
 
-.event-item__date strong { 
-    display: block; 
-    font-size: 0.8rem; 
+.event-item__date strong {
+    display: block;
+    font-size: 0.8rem;
 }
 
-.event-item__date span { 
-    font-size: 0.45rem; 
+.event-item__date span {
+    font-size: 0.45rem;
     letter-spacing: 0.05em;
     font-weight: 600;
 }
@@ -2243,38 +2192,49 @@ onMounted(() => {
         grid-template-columns: 1fr;
         min-height: auto;
     }
+
     .hero__copy {
         padding: 2rem 1.5rem;
     }
+
     .hero__title {
         font-size: 1.8rem;
     }
+
     .hero__media {
         min-height: 200px;
         order: -1;
     }
+
     .hero__fade {
         display: none;
     }
+
     .quick-stats {
         grid-template-columns: repeat(2, 1fr);
     }
+
     .hero {
         padding: 0 1rem;
     }
+
     .filters-section {
         padding: 0 1rem;
     }
+
     .quick-stats {
         padding: 0 1rem;
     }
+
     .content-grid {
         padding: 0 1rem 2rem;
         grid-template-columns: 1fr;
     }
+
     .posts-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+
     .event-item__image-wrapper {
         width: 70px;
         height: 70px;
@@ -2285,70 +2245,89 @@ onMounted(() => {
     .quick-stats {
         grid-template-columns: 1fr;
     }
+
     .hero__copy {
         padding: 1.5rem 1rem;
     }
+
     .hero__title {
         font-size: 1.4rem;
     }
+
     .hero__text {
         font-size: 0.8rem;
     }
+
     .hero__media {
         min-height: 160px;
     }
+
     .filters-container {
         flex-direction: column;
         align-items: stretch;
     }
+
     .order-wrapper {
         min-width: 100%;
     }
+
     .composer-card__actions {
         flex-wrap: wrap;
     }
+
     .composer-card__submit {
         width: 100%;
         justify-content: center;
         margin-left: 0;
     }
+
     .post-card__actions {
         gap: 0.8rem;
     }
+
     .post-card__actions button {
         font-size: 0.65rem;
     }
+
     .comment-input-wrapper {
         flex-direction: column;
     }
+
     .comment-submit {
         width: 100%;
         justify-content: center;
     }
+
     .post-card__image,
     .post-card__video {
         max-height: 280px;
     }
+
     .composer-card__preview-image,
     .composer-card__preview-video {
         max-height: 220px;
     }
+
     .search-results-info {
         flex-direction: column;
         align-items: flex-start;
         gap: 0.2rem;
     }
+
     .posts-grid {
         grid-template-columns: 1fr;
     }
+
     .event-item {
         flex-direction: column;
         align-items: stretch;
     }
+
     .event-item__image-wrapper {
         width: 100%;
         height: 140px;
     }
+
     .event-item__header {
         flex-wrap: wrap;
     }
@@ -2358,23 +2337,29 @@ onMounted(() => {
     .stat-card {
         padding: 0.6rem 0.8rem;
     }
+
     .post-card {
         padding: 0.6rem;
     }
+
     .sidebar-card {
         padding: 0.6rem;
     }
+
     .post-card__image,
     .post-card__video {
         max-height: 220px;
     }
+
     .composer-card__preview-image,
     .composer-card__preview-video {
         max-height: 180px;
     }
+
     .hero__title {
         font-size: 1.2rem;
     }
+
     .event-item__image-wrapper {
         height: 120px;
     }
