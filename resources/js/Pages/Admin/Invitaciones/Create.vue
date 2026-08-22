@@ -29,8 +29,7 @@ const form = useForm({
 // --- Vista previa del código ---
 // IMPORTANTE: este código SÍ se manda al backend (form.codigo) para que
 // lo que ves/copias/compartes aquí sea EXACTAMENTE el código que se
-// guarda en la BD. Antes se generaba uno random solo para mostrarlo, y
-// el servidor guardaba otro distinto sin que el admin se diera cuenta.
+// guarda en la BD.
 function generarPreview() {
     const chars = '23456789ACDEFGHJKLMNPQRSTUVWXYZ';
     const bloque = () => Array.from({ length: 4 }, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
@@ -89,9 +88,7 @@ function submit() {
     }
 
     form.post(route('admin.invitaciones.store'), {
-        onSuccess: () => {
-            toast.success('Invitación enviada correctamente.');
-        },
+        onSuccess: () => toast.success('Invitación enviada correctamente.'),
         onError: (errors) => {
             const primerError = Object.values(errors)[0];
             toast.error(primerError || 'Ocurrió un error al enviar la invitación.');
@@ -99,12 +96,7 @@ function submit() {
     });
 }
 
-const estadoColores = {
-    aceptada: 'bg-green-100 text-green-700',
-    pendiente: 'bg-amber-100 text-amber-700',
-    expirada: 'bg-red-100 text-red-700',
-    utilizada: 'bg-blue-100 text-blue-700',
-};
+const badgeEstado = { aceptada: 'admin-invit-badge--aceptada', pendiente: 'admin-invit-badge--pendiente', expirada: 'admin-invit-badge--expirada', utilizada: 'admin-invit-badge--utilizada' };
 const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Expirada', utilizada: 'Utilizada' };
 </script>
 
@@ -122,47 +114,47 @@ const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Exp
             </span>
         </template>
 
-        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
-
-            <!-- Fila 1: Datos del invitado (50%) + Resumen de la invitación (50%) -->
+        <div class="admin-invit-page">
+            <!-- Fila 1: Datos del invitado + Resumen de la invitación -->
             <div class="admin-two-col-grid gap-6 mb-6 w-full items-stretch">
 
                 <!-- Datos del invitado -->
-                <div class="min-w-0 admin-card overflow-hidden">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-user text-brand"></i> Datos del invitado</span>
+                <div class="admin-invit-card min-w-0">
+                    <div class="admin-invit-card__header">
+                        <div class="admin-invit-card__header-left">
+                            <div class="admin-invit-header-icon"><i class="pi pi-user"></i></div>
+                            <h3>Datos del invitado</h3>
+                        </div>
                     </div>
 
-                    <div class="space-y-4 p-6">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Nombre completo *</label>
+                    <div class="flex flex-col gap-4 p-6">
+                        <div class="admin-user-field-row">
+                            <div class="admin-user-field">
+                                <label>Nombre completo <span class="admin-user-required">*</span></label>
                                 <input v-model="form.nombre_destinatario" type="text" placeholder="Ej. Juan Pérez"
-                                    class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand" />
-                                <p v-if="form.errors.nombre_destinatario" class="text-red-600 text-xs mt-1">{{ form.errors.nombre_destinatario }}</p>
+                                    :class="{ 'admin-user-input-error': form.errors.nombre_destinatario }" />
+                                <p v-if="form.errors.nombre_destinatario" class="admin-user-error-text">{{ form.errors.nombre_destinatario }}</p>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico *</label>
+                            <div class="admin-user-field">
+                                <label>Correo electrónico <span class="admin-user-required">*</span></label>
                                 <input v-model="form.email" type="email" placeholder="ejemplo@correo.com"
-                                    class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand" />
-                                <p v-if="form.errors.email" class="text-red-600 text-xs mt-1">{{ form.errors.email }}</p>
+                                    :class="{ 'admin-user-input-error': form.errors.email }" />
+                                <p v-if="form.errors.email" class="admin-user-error-text">{{ form.errors.email }}</p>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Teléfono (opcional)</label>
-                                <input v-model="form.telefono" type="text" placeholder="Ej. 55 1234 5678"
-                                    class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand" />
+                        <div class="admin-user-field-row">
+                            <div class="admin-user-field">
+                                <label>Teléfono <span class="admin-user-optional">(opcional)</span></label>
+                                <input v-model="form.telefono" type="text" placeholder="Ej. 55 1234 5678" />
                             </div>
-                            <div>
-                                <label class="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1.5">
-                                    Tipo de invitación *
-                                    <i class="pi pi-info-circle text-gray-300 text-xs"
+                            <div class="admin-user-field">
+                                <label>
+                                    Tipo de invitación <span class="admin-user-required">*</span>
+                                    <i class="pi pi-info-circle" style="color:var(--muted-light);font-size:0.65rem"
                                         title="Registro: acceso a la plataforma. Premium: incluye beneficios exclusivos. Evento: acceso a un evento específico."></i>
                                 </label>
-                                <select v-model="form.tipo"
-                                    class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand">
+                                <select v-model="form.tipo">
                                     <option value="registro">Registro</option>
                                     <option value="premium">Premium</option>
                                     <option value="evento">Evento</option>
@@ -170,11 +162,10 @@ const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Exp
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Vigencia del código *</label>
-                                <select v-model.number="form.vigencia_dias"
-                                    class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand">
+                        <div class="admin-user-field-row">
+                            <div class="admin-user-field">
+                                <label>Vigencia del código <span class="admin-user-required">*</span></label>
+                                <select v-model.number="form.vigencia_dias">
                                     <option :value="1">1 día</option>
                                     <option :value="3">3 días</option>
                                     <option :value="7">7 días</option>
@@ -182,10 +173,9 @@ const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Exp
                                     <option :value="30">30 días</option>
                                 </select>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Número máximo de usos *</label>
-                                <select v-model.number="form.usos_maximos"
-                                    class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand">
+                            <div class="admin-user-field">
+                                <label>Número máximo de usos <span class="admin-user-required">*</span></label>
+                                <select v-model.number="form.usos_maximos">
                                     <option :value="1">1 uso</option>
                                     <option :value="5">5 usos</option>
                                     <option :value="10">10 usos</option>
@@ -195,141 +185,135 @@ const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Exp
                             </div>
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Mensaje personalizado (opcional)</label>
-                            <textarea v-model="form.mensaje" maxlength="250" rows="3"
-                                placeholder="Escribe un mensaje personal para tu invitado..."
-                                class="w-full rounded-xl border-gray-300 text-sm px-3 py-2.5 focus:border-brand focus:ring-brand resize-none"></textarea>
-                            <p class="text-right text-xs text-gray-400 mt-1">{{ form.mensaje.length }}/250</p>
+                        <div class="admin-user-field">
+                            <label>Mensaje personalizado <span class="admin-user-optional">(opcional)</span></label>
+                            <textarea v-model="form.mensaje" maxlength="250" rows="3" placeholder="Escribe un mensaje personal para tu invitado..."
+                                style="width:100%;padding:0.55rem 0.8rem;border-radius:8px;border:1.5px solid var(--line);font-size:0.85rem;font-family:inherit;resize:none"></textarea>
+                            <p class="admin-user-hint" style="text-align:right">{{ form.mensaje.length }}/250</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Resumen de la invitación -->
-                <div class="min-w-0 admin-card overflow-hidden">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-file text-brand"></i> Resumen de la invitación</span>
+                <div class="admin-invit-card min-w-0">
+                    <div>
+                        <div class="admin-invit-card__header">
+                            <div class="admin-invit-card__header-left">
+                                <div class="admin-invit-header-icon"><i class="pi pi-file"></i></div>
+                                <h3>Resumen de la invitación</h3>
+                            </div>
+                        </div>
+                        <div class="admin-cobros-summary">
+                            <div class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Tipo de invitación</span>
+                                <span class="admin-cobros-summary-value">{{ tipoLabel }}</span>
+                            </div>
+                            <div class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Vigencia del código</span>
+                                <span class="admin-cobros-summary-value">{{ vigenciaLabel }}</span>
+                            </div>
+                            <div class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Máximo de usos</span>
+                                <span class="admin-cobros-summary-value">{{ usosLabel }}</span>
+                            </div>
+                            <div class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Código generado</span>
+                                <span class="admin-cobros-summary-value" style="color:var(--brand)">{{ codigoPreview }}</span>
+                            </div>
+                            <div class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Estado</span>
+                                <span class="admin-invit-badge admin-invit-badge--aceptada"><span class="admin-invit-badge-dot"></span>Activa</span>
+                            </div>
+                            <div class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Creación</span>
+                                <span class="admin-cobros-summary-value">{{ new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }}</span>
+                            </div>
+                            <div class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Creada por</span>
+                                <span class="admin-cobros-summary-value">{{ admin?.nombre || 'Administrador' }}</span>
+                            </div>
+                        </div>
                     </div>
-                    <dl class="space-y-3 text-sm p-6">
-                        <div class="flex justify-between">
-                            <dt class="text-gray-400">Tipo de invitación:</dt>
-                            <dd class="text-gray-800 font-medium">{{ tipoLabel }}</dd>
-                        </div>
-                        <div class="flex justify-between">
-                            <dt class="text-gray-400">Vigencia del código:</dt>
-                            <dd class="text-gray-800 font-medium">{{ vigenciaLabel }}</dd>
-                        </div>
-                        <div class="flex justify-between">
-                            <dt class="text-gray-400">Máximo de usos:</dt>
-                            <dd class="text-gray-800 font-medium">{{ usosLabel }}</dd>
-                        </div>
-                        <div class="flex justify-between">
-                            <dt class="text-gray-400">Código generado:</dt>
-                            <dd class="text-brand font-semibold">{{ codigoPreview }}</dd>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <dt class="text-gray-400">Estado:</dt>
-                            <dd><span class="bg-green-100 text-green-700 text-xs font-medium px-2 py-0.5 rounded-full">Activa</span></dd>
-                        </div>
-                        <div class="flex justify-between">
-                            <dt class="text-gray-400">Creación:</dt>
-                            <dd class="text-gray-800 font-medium">{{ new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }}</dd>
-                        </div>
-                        <div class="flex justify-between">
-                            <dt class="text-gray-400">Creada por:</dt>
-                            <dd class="text-gray-800 font-medium">{{ admin?.nombre || 'Administrador' }}</dd>
-                        </div>
-                    </dl>
                 </div>
             </div>
 
-            <!-- Fila 2: Código de invitación + acciones (50%) + Invitaciones recientes (50%) -->
+            <!-- Fila 2: Código de invitación + acciones | Invitaciones recientes -->
             <div class="admin-two-col-grid gap-6 mb-6 w-full items-stretch">
 
-                <!-- Código de invitación + botones (todo en una sola tarjeta) -->
-                <div class="min-w-0 admin-card overflow-hidden">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-key text-brand"></i> Código de invitación</span>
+                <!-- Código de invitación + botones -->
+                <div class="admin-invit-card min-w-0">
+                    <div class="admin-invit-card__header">
+                        <div class="admin-invit-card__header-left">
+                            <div class="admin-invit-header-icon"><i class="pi pi-key"></i></div>
+                            <h3>Código de invitación</h3>
+                        </div>
                     </div>
                     <div class="p-6">
-                    <p class="text-sm text-gray-500 mb-3">Genera un código único que tu invitado usará para registrarse.</p>
+                        <p class="admin-user-hint" style="margin-bottom:0.9rem">Genera un código único que tu invitado usará para registrarse.</p>
 
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="flex-1 border-2 border-dashed border-gray-200 rounded-xl py-3 text-center">
-                            <span class="text-xl font-bold tracking-wider text-brand">{{ codigoPreview }}</span>
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="admin-invit-code-box">
+                                <span class="admin-invit-code-value">{{ codigoPreview }}</span>
+                            </div>
+                            <button type="button" @click="regenerar" class="admin-invit-code-action-btn shrink-0" style="width:auto">
+                                <i class="pi pi-refresh"></i> Regenerar
+                            </button>
                         </div>
-                        <button type="button" @click="regenerar"
-                            class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand px-3 py-2 border border-gray-200 rounded-xl shrink-0">
-                            <i class="pi pi-refresh text-xs"></i> Regenerar
-                        </button>
-                    </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-                        <button type="button" @click="copiarCodigo"
-                            class="flex items-center justify-center gap-2 text-sm text-gray-600 border border-gray-300 rounded-xl px-4 py-3 hover:bg-gray-50 whitespace-nowrap">
-                            <i class="pi pi-copy text-xs"></i> Copiar código
-                        </button>
-                        <button type="button" @click="enviarPorCorreo"
-                            class="flex items-center justify-center gap-2 text-sm text-gray-600 border border-gray-300 rounded-xl px-4 py-3 hover:bg-gray-50 whitespace-nowrap">
-                            <i class="pi pi-envelope text-xs"></i> Enviar por correo
-                        </button>
-                        <button type="button" @click="enviarPorWhatsapp"
-                            class="flex items-center justify-center gap-2 text-sm text-gray-600 border border-gray-300 rounded-xl px-4 py-3 hover:bg-gray-50 whitespace-nowrap">
-                            <i class="pi pi-whatsapp text-xs"></i> Enviar por WhatsApp
-                        </button>
-                    </div>
+                        <div class="admin-invit-code-actions" style="margin-bottom:1.5rem">
+                            <button type="button" @click="copiarCodigo" class="admin-invit-code-action-btn">
+                                <i class="pi pi-copy"></i> Copiar código
+                            </button>
+                            <button type="button" @click="enviarPorCorreo" class="admin-invit-code-action-btn">
+                                <i class="pi pi-envelope"></i> Enviar por correo
+                            </button>
+                            <button type="button" @click="enviarPorWhatsapp" class="admin-invit-code-action-btn">
+                                <i class="pi pi-whatsapp"></i> Enviar por WhatsApp
+                            </button>
+                        </div>
 
-                    <!-- Cancelar / Enviar invitación (ahora dentro de la misma tarjeta) -->
-                    <div class="flex items-center justify-between pt-4 border-t border-gray-100">
-                        <Link :href="route('admin.invitaciones.index')"
-                            class="admin-btn-secondary">
-                            Cancelar
-                        </Link>
-                        <button type="button" @click="submit" :disabled="form.processing" class="admin-btn-primary disabled:opacity-50">
-                            <i class="pi" :class="form.processing ? 'pi-spin pi-spinner' : 'pi-send'"></i>
-                            {{ form.processing ? 'Enviando...' : 'Enviar invitación' }}
-                        </button>
-                    </div>
+                        <div class="flex items-center justify-between pt-4" style="border-top:1px solid var(--line)">
+                            <Link :href="route('admin.invitaciones.index')" class="admin-btn-secondary">Cancelar</Link>
+                            <button type="button" @click="submit" :disabled="form.processing" class="admin-invit-btn-create">
+                                <i class="pi" :class="form.processing ? 'pi-spin pi-spinner' : 'pi-send'"></i>
+                                {{ form.processing ? 'Enviando...' : 'Enviar invitación' }}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Invitaciones recientes -->
-                <div class="min-w-0 admin-card overflow-hidden flex flex-col justify-between">
+                <div class="admin-invit-card min-w-0">
                     <div>
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-clock text-brand"></i> Invitaciones recientes</span>
-                            <Link :href="route('admin.invitaciones.index')" class="text-xs font-semibold text-brand hover:underline">
-                                Ver todas
-                            </Link>
+                        <div class="admin-invit-card__header">
+                            <div class="admin-invit-card__header-left">
+                                <div class="admin-invit-header-icon"><i class="pi pi-clock"></i></div>
+                                <h3>Invitaciones recientes</h3>
+                            </div>
+                            <Link :href="route('admin.invitaciones.index')" style="color:var(--brand)" class="text-xs font-semibold hover:underline">Ver todas</Link>
                         </div>
 
-                        <ul class="space-y-3 p-6">
-                            <li v-for="inv in invitacionesRecientes" :key="inv.id" class="flex items-center justify-between gap-2">
-                                <div class="flex items-center gap-2.5 min-w-0">
-                                    <div class="rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0" style="width:36px;height:36px">
-                                        <i class="pi pi-user text-xs"></i>
-                                    </div>
+                        <div class="admin-dash-list">
+                            <div v-for="inv in invitacionesRecientes" :key="inv.id" class="admin-dash-list-item">
+                                <div class="admin-dash-list-item__left">
+                                    <div class="admin-dash-list-icon"><i class="pi pi-user"></i></div>
                                     <div class="min-w-0">
-                                        <p class="text-sm font-medium text-gray-800 truncate">{{ inv.nombre_destinatario }}</p>
-                                        <p class="text-xs text-gray-400 truncate">{{ inv.email }}</p>
+                                        <p class="admin-dash-list-title">{{ inv.nombre_destinatario }}</p>
+                                        <p class="admin-dash-list-meta truncate">{{ inv.email }}</p>
                                     </div>
                                 </div>
                                 <div class="text-right shrink-0">
-                                    <span class="block text-xs font-medium px-2 py-0.5 rounded-full" :class="estadoColores[inv.estado]">
-                                        {{ estadoLabel[inv.estado] }}
+                                    <span class="admin-invit-badge" :class="badgeEstado[inv.estado]" style="display:inline-flex">
+                                        <span class="admin-invit-badge-dot"></span>{{ estadoLabel[inv.estado] }}
                                     </span>
-                                    <span class="block text-[11px] text-gray-400 mt-0.5">{{ formatDate(inv.created_at) }}</span>
+                                    <p class="admin-dash-list-meta mt-0.5">{{ formatDate(inv.created_at) }}</p>
                                 </div>
-                            </li>
-                            <li v-if="!invitacionesRecientes?.length" class="text-center py-8 text-gray-400 text-xs">
-                                Aún no hay invitaciones.
-                            </li>
-                        </ul>
+                            </div>
+                            <div v-if="!invitacionesRecientes?.length" class="admin-invit-empty">Aún no hay invitaciones.</div>
+                        </div>
                     </div>
                 </div>
-
             </div>
-
         </div>
     </AdminLayout>
 </template>

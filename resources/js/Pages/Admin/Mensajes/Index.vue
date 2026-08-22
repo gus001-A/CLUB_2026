@@ -1,6 +1,5 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import KpiCard from '@/Components/KpiCard.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed, watch, nextTick } from 'vue';
 import { useToast } from '@/composables/useToast';
@@ -28,6 +27,14 @@ const origenLabel = {
     manual: 'Consulta manual',
     otro: 'Soporte',
 };
+
+// KPIs con el mismo lenguaje visual del resto del panel
+const kpis = computed(() => [
+    { label: 'Conversaciones', value: props.stats?.total ?? 0, icon: 'pi-comments', color: '#2563EB', iconBg: '#DBEAFE', gradient: 'linear-gradient(135deg, #2563EB, #1D4ED8)', hint: 'Total de soporte' },
+    { label: 'Mensajes Hoy', value: props.stats?.mensajesHoy ?? 0, icon: 'pi-send', color: '#059669', iconBg: '#D1FAE5', gradient: 'linear-gradient(135deg, #059669, #047857)', hint: 'Enviados hoy' },
+    { label: 'Abiertas', value: props.stats?.abiertos ?? 0, icon: 'pi-inbox', color: '#D97706', iconBg: '#FEF3C7', gradient: 'linear-gradient(135deg, #D97706, #B45309)', hint: 'Casos activos' },
+    { label: 'Sin Leer', value: props.stats?.sinLeer ?? 0, icon: 'pi-envelope', color: '#DC2626', iconBg: '#FEE2E2', gradient: 'linear-gradient(135deg, #DC2626, #B91C1C)', hint: 'Con mensajes pendientes' },
+]);
 
 function getAvatarUrl(avatar) {
     return avatar || '/images/shared/avatar-default.jpg';
@@ -104,17 +111,24 @@ async function cerrarConversacion() {
     <Head title="Mensajes" />
 
     <AdminLayout>
-        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4 space-y-6">
+        <div class="admin-reportes-page">
 
             <!-- KPIs -->
-            <div class="admin-kpi-grid gap-6 w-full">
-                <div class="min-w-0"><KpiCard label="Conversaciones" :value="stats?.total ?? 0" icon="pi-comments" hint="Total de soporte" /></div>
-                <div class="min-w-0"><KpiCard label="Mensajes Hoy" :value="stats?.mensajesHoy ?? 0" icon="pi-send" hint="Enviados hoy" /></div>
-                <div class="min-w-0"><KpiCard label="Abiertas" :value="stats?.abiertos ?? 0" icon="pi-inbox" hint="Casos activos" /></div>
-                <div class="min-w-0"><KpiCard label="Sin Leer" :value="stats?.sinLeer ?? 0" icon="pi-envelope" hint="Con mensajes pendientes" /></div>
+            <div class="admin-cobros-kpi-grid mb-6">
+                <div v-for="kpi in kpis" :key="kpi.label" class="admin-cobros-kpi-card">
+                    <div class="admin-cobros-kpi-card__icon" :style="{ background: kpi.iconBg, color: kpi.color }">
+                        <i class="pi" :class="kpi.icon"></i>
+                    </div>
+                    <div class="admin-cobros-kpi-card__content">
+                        <span class="admin-cobros-kpi-card__label">{{ kpi.label }}</span>
+                        <span class="admin-cobros-kpi-card__value" :style="{ color: kpi.color }">{{ kpi.value }}</span>
+                        <span class="admin-cobros-kpi-card__hint">{{ kpi.hint }}</span>
+                    </div>
+                    <div class="admin-cobros-kpi-card__bar" :style="{ background: kpi.gradient }"></div>
+                </div>
             </div>
 
-            <!-- Lista + Chat -->
+            <!-- Lista + Chat (mismo lenguaje visual que Mensajes.vue del lado público — sin tocar) -->
             <div class="admin-mensajes-grid gap-6 w-full">
 
                 <!-- COLUMNA: CONVERSACIONES -->

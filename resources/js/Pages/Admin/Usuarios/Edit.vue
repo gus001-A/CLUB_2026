@@ -22,6 +22,18 @@ const form = useForm({
     estado: props.usuario.estado,
 });
 
+const roles = [
+    { value: 'usuario', label: 'Usuario', icon: 'pi-user' },
+    { value: 'creador', label: 'Creador', icon: 'pi-star' },
+    { value: 'admin', label: 'Admin', icon: 'pi-shield' },
+];
+const estados = [
+    { value: 'verificado', label: 'Verificado', dot: '#059669' },
+    { value: 'pendiente', label: 'Pendiente', dot: '#D97706' },
+    { value: 'incompleto', label: 'Incompleto', dot: '#6B7280' },
+    { value: 'bloqueado', label: 'Bloqueado', dot: '#DC2626' },
+];
+
 function generarPassword() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$';
     let clave = '';
@@ -30,6 +42,7 @@ function generarPassword() {
     }
     form.password = clave;
     mostrarPassword.value = true;
+    toast.success('Contraseña generada. No olvides copiarla antes de guardar.');
 }
 
 function submit() {
@@ -55,171 +68,123 @@ function submit() {
     <Head title="Editar Usuario" />
 
     <AdminLayout>
-        <template #title>Editar usuario</template>
-        <template #breadcrumb>Usuarios &gt; Editar</template>
+        <template #title>Editar Usuario</template>
+        <template #breadcrumb>Usuarios / {{ usuario.nombre }}</template>
 
-        <div class="max-w-3xl mx-auto">
-            <Link :href="route('admin.usuarios.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
-                <i class="pi pi-arrow-left text-xs"></i> Volver a Usuarios
+        <div class="admin-user-form-page">
+            <Link :href="route('admin.usuarios.show', usuario.id)" class="admin-user-back-link">
+                <i class="pi pi-arrow-left"></i>
+                Volver al usuario
             </Link>
 
-            <form @submit.prevent="submit" class="admin-card overflow-hidden">
-                <div style="height:6px;background:linear-gradient(90deg,#C81E3A,#E85C74)"></div>
-
-                <!-- Sección: Datos personales -->
-                <div class="p-6">
-                    <div class="flex items-center gap-3 pb-4 mb-5 border-b" style="border-color:var(--line)">
-                        <div class="admin-icon-gradient shrink-0" style="width:48px;height:48px">
-                            <i class="pi pi-user text-lg"></i>
-                        </div>
+            <form @submit.prevent="submit" class="admin-user-form-grid">
+                <!-- COLUMNA IZQUIERDA: FORMULARIO -->
+                <div class="admin-user-form">
+                    <div class="admin-user-form-header">
+                        <div class="admin-user-form-header__icon"><i class="pi pi-pencil"></i></div>
                         <div>
-                            <h2 class="font-semibold text-gray-800">Datos Personales</h2>
-                            <p class="text-xs text-gray-400">Información principal del usuario</p>
+                            <h1>Editar Usuario</h1>
+                            <p>{{ usuario.nombre }}</p>
                         </div>
                     </div>
 
-                    <div class="space-y-4">
+                    <div class="admin-user-form-body">
+                        <!-- Datos personales -->
                         <div>
-                            <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                                <i class="pi pi-user text-brand text-xs"></i> Nombre completo <span class="text-red-500">*</span>
-                            </label>
-                            <div class="relative">
-                                <input v-model="form.nombre" type="text" placeholder="Ej: Juan Pérez García" class="admin-input pl-3 pr-9 py-2.5" />
-                                <i class="pi pi-user absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
+                            <div class="admin-user-form-section-title"><i class="pi pi-user"></i> Datos personales</div>
+
+                            <div class="admin-user-field" style="margin-bottom:0.9rem">
+                                <label>Nombre completo <span class="admin-user-required">*</span></label>
+                                <input v-model="form.nombre" type="text" placeholder="Ej. Juan Pérez García"
+                                    :class="{ 'admin-user-input-error': form.errors.nombre }" />
+                                <p v-if="form.errors.nombre" class="admin-user-error-text">{{ form.errors.nombre }}</p>
                             </div>
-                            <p v-if="form.errors.nombre" class="text-red-600 text-xs mt-1">{{ form.errors.nombre }}</p>
+
+                            <div class="admin-user-field-row" style="margin-bottom:0.9rem">
+                                <div class="admin-user-field">
+                                    <label><i class="pi pi-at"></i> Nombre de usuario <span class="admin-user-required">*</span></label>
+                                    <input v-model="form.apodo" type="text" placeholder="Ej. jperez"
+                                        :class="{ 'admin-user-input-error': form.errors.apodo }" />
+                                    <p v-if="form.errors.apodo" class="admin-user-error-text">{{ form.errors.apodo }}</p>
+                                </div>
+                                <div class="admin-user-field">
+                                    <label><i class="pi pi-envelope"></i> Correo electrónico <span class="admin-user-required">*</span></label>
+                                    <input v-model="form.email" type="email" placeholder="usuario@correo.com"
+                                        :class="{ 'admin-user-input-error': form.errors.email }" />
+                                    <p v-if="form.errors.email" class="admin-user-error-text">{{ form.errors.email }}</p>
+                                </div>
+                            </div>
+
+                            <div class="admin-user-field-row" style="margin-bottom:0.9rem">
+                                <div class="admin-user-field">
+                                    <label><i class="pi pi-phone"></i> Teléfono</label>
+                                    <input v-model="form.telefono" type="text" placeholder="7771234567"
+                                        :class="{ 'admin-user-input-error': form.errors.telefono }" />
+                                    <p v-if="form.errors.telefono" class="admin-user-error-text">{{ form.errors.telefono }}</p>
+                                </div>
+                                <div class="admin-user-field">
+                                    <label><i class="pi pi-calendar"></i> Fecha de nacimiento <span class="admin-user-required">*</span></label>
+                                    <input v-model="form.fecha_nacimiento" type="date"
+                                        :class="{ 'admin-user-input-error': form.errors.fecha_nacimiento }" />
+                                    <p v-if="form.errors.fecha_nacimiento" class="admin-user-error-text">{{ form.errors.fecha_nacimiento }}</p>
+                                </div>
+                            </div>
+
+                            <div class="admin-user-field" style="margin-bottom:0.9rem">
+                                <label>Tipo de usuario <span class="admin-user-required">*</span></label>
+                                <div class="admin-user-toggle-group">
+                                    <button v-for="r in roles" :key="r.value" type="button" @click="form.rol = r.value"
+                                        class="admin-user-toggle-pill" :class="{ 'admin-user-toggle-pill--active': form.rol === r.value }">
+                                        <i class="pi" :class="r.icon"></i> {{ r.label }}
+                                    </button>
+                                </div>
+                                <p v-if="form.errors.rol" class="admin-user-error-text">{{ form.errors.rol }}</p>
+                            </div>
+
+                            <div class="admin-user-field">
+                                <label>Estado <span class="admin-user-required">*</span></label>
+                                <div class="admin-user-toggle-group">
+                                    <button v-for="e in estados" :key="e.value" type="button" @click="form.estado = e.value"
+                                        class="admin-user-toggle-pill" :class="{ 'admin-user-toggle-pill--active': form.estado === e.value }">
+                                        <span class="admin-user-toggle-pill-dot" :style="{ background: e.dot }"></span> {{ e.label }}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                                    <i class="pi pi-at text-brand text-xs"></i> Nombre de usuario <span class="text-red-500">*</span>
-                                </label>
-                                <div class="relative">
-                                    <input v-model="form.apodo" type="text" placeholder="Ej: jperez" class="admin-input pl-3 pr-9 py-2.5" />
-                                    <i class="pi pi-at absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
-                                </div>
-                                <p v-if="form.errors.apodo" class="text-red-600 text-xs mt-1">{{ form.errors.apodo }}</p>
-                            </div>
-                            <div>
-                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                                    <i class="pi pi-envelope text-brand text-xs"></i> Correo electrónico <span class="text-red-500">*</span>
-                                </label>
-                                <div class="relative">
-                                    <input v-model="form.email" type="email" placeholder="usuario@correo.com" class="admin-input pl-3 pr-9 py-2.5" />
-                                    <i class="pi pi-envelope absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
-                                </div>
-                                <p v-if="form.errors.email" class="text-red-600 text-xs mt-1">{{ form.errors.email }}</p>
-                            </div>
-                        </div>
+                        <!-- Credenciales -->
+                        <div>
+                            <div class="admin-user-form-section-title"><i class="pi pi-lock"></i> Credenciales de acceso</div>
+                            <p class="admin-user-hint" style="margin-bottom:0.6rem">Deja en blanco si no quieres cambiar la contraseña</p>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                                    <i class="pi pi-phone text-brand text-xs"></i> Teléfono
-                                </label>
-                                <div class="relative">
-                                    <input v-model="form.telefono" type="text" placeholder="7771234567" class="admin-input pl-3 pr-9 py-2.5" />
-                                    <i class="pi pi-phone absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
+                            <div class="admin-user-field">
+                                <label><i class="pi pi-key"></i> Nueva contraseña</label>
+                                <div class="admin-user-password-wrap" style="display:flex;gap:0.5rem">
+                                    <div class="admin-user-password-wrap" style="flex:1">
+                                        <input v-model="form.password" :type="mostrarPassword ? 'text' : 'password'" placeholder="Dejar en blanco para no cambiar" />
+                                        <button type="button" class="admin-user-password-toggle" @click="mostrarPassword = !mostrarPassword">
+                                            <i class="pi" :class="mostrarPassword ? 'pi-eye-slash' : 'pi-eye'"></i>
+                                        </button>
+                                    </div>
+                                    <button type="button" class="admin-user-btn-generate" style="padding:0 0.9rem;border-radius:8px;border:none;color:#fff;font-size:0.75rem;font-weight:600" @click="generarPassword">
+                                        <i class="pi pi-refresh"></i> Generar
+                                    </button>
                                 </div>
-                                <p v-if="form.errors.telefono" class="text-red-600 text-xs mt-1">{{ form.errors.telefono }}</p>
-                            </div>
-                            <div>
-                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                                    <i class="pi pi-calendar text-brand text-xs"></i> Fecha de nacimiento <span class="text-red-500">*</span>
-                                </label>
-                                <input v-model="form.fecha_nacimiento" type="date" class="admin-input px-3 py-2.5" />
-                                <p v-if="form.errors.fecha_nacimiento" class="text-red-600 text-xs mt-1">{{ form.errors.fecha_nacimiento }}</p>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                                    <i class="pi pi-sliders-h text-brand text-xs"></i> Tipo de usuario <span class="text-red-500">*</span>
-                                </label>
-                                <div class="relative">
-                                    <select v-model="form.rol" class="admin-input appearance-none pl-3 pr-9 py-2.5">
-                                        <option value="usuario">Usuario</option>
-                                        <option value="creador">Creador</option>
-                                        <option value="admin">Admin</option>
-                                    </select>
-                                    <i class="pi pi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-xs pointer-events-none"></i>
-                                </div>
-                                <p v-if="form.errors.rol" class="text-red-600 text-xs mt-1">{{ form.errors.rol }}</p>
-                            </div>
-                            <div>
-                                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                                    <i class="pi pi-verified text-brand text-xs"></i> Estado <span class="text-red-500">*</span>
-                                </label>
-                                <div class="relative">
-                                    <select v-model="form.estado" class="admin-input appearance-none pl-3 pr-9 py-2.5">
-                                        <option value="verificado">Verificado</option>
-                                        <option value="pendiente">Pendiente</option>
-                                        <option value="incompleto">Incompleto</option>
-                                        <option value="bloqueado">Bloqueado</option>
-                                    </select>
-                                    <i class="pi pi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-xs pointer-events-none"></i>
-                                </div>
+                                <p v-if="form.errors.password" class="admin-user-error-text">{{ form.errors.password }}</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Sección: Credenciales de acceso -->
-                <div class="p-6 border-t" style="background:var(--surface);border-color:var(--line)">
-                    <div class="flex items-center justify-between gap-3 pb-4 mb-5 border-b" style="border-color:var(--line)">
-                        <div class="flex items-center gap-3">
-                        <div class="admin-icon-gradient shrink-0" style="width:48px;height:48px">
-                                <i class="pi pi-lock text-lg"></i>
-                            </div>
-                            <div>
-                                <h2 class="font-semibold text-gray-800">Credenciales de Acceso</h2>
-                                <p class="text-xs text-gray-400">Deja en blanco si no quieres cambiar la contraseña</p>
-                            </div>
-                        </div>
-                        <span class="text-xs font-semibold px-3 py-1 rounded-full shrink-0" style="background:var(--muted-light);color:#fff">Opcional</span>
+                <!-- COLUMNA DERECHA: ACCIONES -->
+                <div class="admin-prod-sidebar">
+                    <div class="admin-prod-action-card">
+                        <button type="submit" :disabled="form.processing" class="admin-prod-btn-save">
+                            <i class="pi" :class="form.processing ? 'pi-spin pi-spinner' : 'pi-check'"></i>
+                            {{ form.processing ? 'Guardando...' : 'Guardar cambios' }}
+                        </button>
+                        <Link :href="route('admin.usuarios.show', usuario.id)" class="admin-prod-btn-cancel">Cancelar</Link>
                     </div>
-
-                    <label class="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                        <i class="pi pi-lock text-brand text-xs"></i> Nueva contraseña
-                    </label>
-                    <div class="relative">
-                        <input
-                            v-model="form.password"
-                            :type="mostrarPassword ? 'text' : 'password'"
-                            placeholder="Dejar en blanco para no cambiar"
-                            class="admin-input pl-3 pr-32 py-2.5"
-                        />
-                        <div class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                            <button
-                                type="button"
-                                @click="generarPassword"
-                                class="bg-brand hover:bg-brand-dark text-white text-xs font-medium px-2.5 py-1.5 rounded-md flex items-center gap-1"
-                            >
-                                <i class="pi pi-refresh text-[10px]"></i> Generar
-                            </button>
-                            <button type="button" @click="mostrarPassword = !mostrarPassword" class="text-gray-400 hover:text-gray-600 px-1.5">
-                                <i class="pi" :class="mostrarPassword ? 'pi-eye-slash' : 'pi-eye'"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <p v-if="form.errors.password" class="text-red-600 text-xs mt-1">{{ form.errors.password }}</p>
-                </div>
-
-                <!-- Acciones -->
-                <div class="p-6 border-t flex items-center gap-3" style="border-color:var(--line)">
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="admin-btn-primary disabled:opacity-50"
-                    >
-                        <i class="pi" :class="form.processing ? 'pi-spin pi-spinner' : 'pi-check'"></i>
-                        {{ form.processing ? 'Guardando...' : 'Guardar cambios' }}
-                    </button>
-                    <Link :href="route('admin.usuarios.index')" class="admin-btn-secondary" style="border:none">
-                        Cancelar
-                    </Link>
                 </div>
             </form>
         </div>

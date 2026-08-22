@@ -36,14 +36,9 @@ function aplicarFiltros() {
 }
 watch([q, estado, metodo, desde, hasta], aplicarFiltros);
 
-const estadoColores = {
-    pagado: 'bg-blue-50 text-blue-600 border border-blue-200',
-    enviado: 'bg-amber-50 text-amber-600 border border-amber-200',
-    entregado: 'bg-emerald-50 text-emerald-600 border border-emerald-200',
-    cancelado: 'bg-red-50 text-red-600 border border-red-200',
-};
+const estadoBadgeClase = { pagado: 'admin-shop-badge--pagado', enviado: 'admin-shop-badge--enviado', entregado: 'admin-shop-badge--entregado', cancelado: 'admin-shop-badge--cancelado' };
 const estadoLabel = { pagado: 'Procesando', enviado: 'Enviado', entregado: 'Completado', cancelado: 'Cancelado' };
-const estadoDotColores = { pagado: '#2563EB', enviado: '#F59E0B', entregado: '#10B981', cancelado: '#EF4444' };
+const estadoDotColores = { pagado: '#2563EB', enviado: '#D97706', entregado: '#059669', cancelado: '#DC2626' };
 const metodoLabel = { tarjeta_credito: 'Tarjeta de Crédito', tarjeta_debito: 'Tarjeta de Débito', paypal: 'PayPal', transferencia: 'Transferencia', otro: 'Otro' };
 </script>
 
@@ -54,74 +49,71 @@ const metodoLabel = { tarjeta_credito: 'Tarjeta de Crédito', tarjeta_debito: 'T
         <template #title>Panel de Administrador</template>
         <template #breadcrumb>Pedidos &gt; Todos los pedidos</template>
 
-        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
+        <div class="admin-reportes-page">
 
-            <!-- Volver -->
-            <div class="mb-6">
-                <Link :href="route('admin.shop.index')" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-brand transition">
-                    <i class="pi pi-arrow-left text-xs"></i>
-                    Volver a Pedidos
-                </Link>
-            </div>
-
-            <!-- Encabezado + total general -->
-            <div class="admin-card overflow-hidden mb-6">
-                <div class="admin-card-header">
-                    <span class="admin-card-header-title"><i class="pi pi-shopping-cart text-brand"></i> Todos los Pedidos</span>
-                    <a :href="route('admin.shop.exportar', { estado: estado || undefined })" class="admin-btn-primary" style="padding:0.4rem 0.85rem;font-size:0.75rem">
-                        <i class="pi pi-download text-xs"></i> Exportar
-                    </a>
-                </div>
-                <p class="text-sm px-6 py-4" style="color:var(--muted)">{{ totalGeneral }} pedidos registrados en total</p>
-            </div>
+            <Link :href="route('admin.shop.index')" class="admin-user-back-link">
+                <i class="pi pi-arrow-left"></i>
+                Volver a Pedidos
+            </Link>
 
             <!-- Desglose por estado -->
             <div class="admin-estado-grid gap-4 mb-6 w-full">
                 <button v-for="e in porEstado" :key="e.estado" type="button" @click="estado = (estado === e.estado ? '' : e.estado)"
-                    class="min-w-0 admin-card px-5 py-4 text-left transition"
-                    :class="estado === e.estado ? 'ring-2 ring-brand/40' : 'hover:border-gray-300'">
-                    <div class="flex items-center gap-2 mb-1.5">
-                        <span class="rounded-full shrink-0" :style="{ backgroundColor: estadoDotColores[e.estado], width: '8px', height: '8px' }"></span>
-                        <span class="text-xs text-gray-500">{{ e.label }}</span>
-                    </div>
-                    <p class="text-lg font-bold text-gray-900">{{ e.cantidad }}</p>
+                    class="admin-prod-estado-chip" :class="{ 'admin-prod-estado-chip--active': estado === e.estado }">
+                    <span class="admin-prod-estado-chip-dot" :style="{ background: estadoDotColores[e.estado] }"></span>
+                    <span>
+                        <span class="admin-prod-estado-chip-value">{{ e.cantidad }}</span>
+                        <span class="admin-prod-estado-chip-label">{{ e.label }}</span>
+                    </span>
                 </button>
             </div>
 
             <!-- Desglose por método de pago -->
-            <div class="admin-card overflow-hidden mb-6">
-                <div class="admin-card-header">
-                    <span class="admin-card-header-title"><i class="pi pi-credit-card text-brand"></i> Desglose por método de pago</span>
+            <div class="admin-cobros-card mb-6">
+                <div class="admin-cobros-card__header">
+                    <div class="admin-cobros-card__header-left">
+                        <div class="admin-cobros-header-icon"><i class="pi pi-credit-card"></i></div>
+                        <h3>Desglose por método de pago</h3>
+                    </div>
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-6">
-                    <div v-for="m in porMetodo" :key="m.metodo">
-                        <p class="text-xs text-gray-400 mb-1">{{ m.label }}</p>
-                        <p class="text-base font-bold text-gray-900">{{ m.cantidad }} pedidos</p>
+                <div class="admin-cobros-tipo-grid">
+                    <div v-for="m in porMetodo" :key="m.metodo" class="admin-cobros-tipo-tile">
+                        <p class="admin-cobros-tipo-label">{{ m.label }}</p>
+                        <p class="admin-cobros-tipo-value">{{ m.cantidad }} pedidos</p>
                     </div>
                 </div>
             </div>
 
             <!-- Tabla completa -->
-            <div class="admin-card overflow-hidden flex flex-col justify-between">
+            <div class="admin-cobros-card">
                 <div class="flex flex-col flex-1">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-list text-brand"></i> Historial completo</span>
+                    <div class="admin-cobros-card__header">
+                        <div class="admin-cobros-card__header-left">
+                            <div class="admin-cobros-header-icon"><i class="pi pi-list"></i></div>
+                            <div>
+                                <h3>Historial completo</h3>
+                                <p class="admin-cobros-header-subtitle">{{ totalGeneral }} pedidos registrados en total</p>
+                            </div>
+                        </div>
+                        <a :href="route('admin.shop.exportar', { estado: estado || undefined })" class="admin-cobros-btn-primary">
+                            <i class="pi pi-download"></i> Exportar
+                        </a>
                     </div>
 
                     <!-- Filtros -->
-                    <div class="flex flex-wrap items-center gap-3 px-6 py-5">
-                        <div class="relative flex-1 min-w-[180px]">
-                            <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                            <input v-model="q" type="text" placeholder="Buscar pedido, usuario..." class="admin-input pl-10 py-2.5">
+                    <div class="admin-cobros-filters">
+                        <div class="admin-cobros-filters__search">
+                            <i class="pi pi-search"></i>
+                            <input v-model="q" type="text" placeholder="Buscar pedido, usuario..." />
                         </div>
-                        <select v-model="estado" class="admin-input w-auto py-2.5">
+                        <select v-model="estado">
                             <option value="">Todos los estados</option>
                             <option value="pagado">Procesando</option>
                             <option value="enviado">Enviado</option>
                             <option value="entregado">Completado</option>
                             <option value="cancelado">Cancelado</option>
                         </select>
-                        <select v-model="metodo" class="admin-input w-auto py-2.5">
+                        <select v-model="metodo">
                             <option value="">Todos los métodos</option>
                             <option value="tarjeta_credito">Tarjeta de Crédito</option>
                             <option value="tarjeta_debito">Tarjeta de Débito</option>
@@ -129,65 +121,65 @@ const metodoLabel = { tarjeta_credito: 'Tarjeta de Crédito', tarjeta_debito: 'T
                             <option value="transferencia">Transferencia</option>
                         </select>
                         <div class="flex items-center gap-1.5">
-                            <input v-model="desde" type="date" class="admin-input w-auto py-2.5">
+                            <input v-model="desde" type="date" />
                             <span class="text-gray-400">—</span>
-                            <input v-model="hasta" type="date" class="admin-input w-auto py-2.5">
+                            <input v-model="hasta" type="date" />
                         </div>
                     </div>
 
                     <!-- Tabla -->
                     <div class="overflow-x-auto flex-1 flex flex-col">
-                        <table class="min-w-full text-sm">
-                            <thead class="bg-gray-50 border-y border-gray-200">
-                                <tr class="text-gray-600 uppercase tracking-wide text-xs">
-                                    <th class="px-6 py-4 text-left">Pedido</th>
-                                    <th class="px-4 py-4 text-left">Usuario</th>
-                                    <th class="px-4 py-4 text-left">Productos</th>
-                                    <th class="px-4 py-4 text-left">Total</th>
-                                    <th class="px-4 py-4 text-left">Método</th>
-                                    <th class="px-4 py-4 text-left">Estado</th>
-                                    <th class="px-4 py-4 text-left">Fecha</th>
-                                    <th class="px-6 py-4 text-center">Acciones</th>
+                        <table class="admin-cobros-table min-w-full flex-1">
+                            <thead>
+                                <tr>
+                                    <th>Pedido</th>
+                                    <th>Usuario</th>
+                                    <th>Productos</th>
+                                    <th>Total</th>
+                                    <th>Método</th>
+                                    <th>Estado</th>
+                                    <th>Fecha</th>
+                                    <th class="text-center">Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                <tr v-for="p in pedidos.data" :key="p.id" class="hover:bg-gray-50 transition">
-                                    <td class="px-6 py-4 font-semibold text-gray-900 whitespace-nowrap">#{{ p.numero_pedido }}</td>
-                                    <td class="px-4 py-4 whitespace-nowrap">
-                                        <p class="font-medium text-gray-800 text-xs">{{ p.usuario?.nombre ?? '—' }}</p>
-                                        <p class="text-[11px] text-gray-400">@{{ p.usuario?.apodo }}</p>
+                            <tbody>
+                                <tr v-for="p in pedidos.data" :key="p.id">
+                                    <td class="font-semibold whitespace-nowrap" style="color:var(--ink)">#{{ p.numero_pedido }}</td>
+                                    <td class="whitespace-nowrap">
+                                        <p class="admin-cobros-tx-name">{{ p.usuario?.nombre ?? '—' }}</p>
+                                        <p class="admin-cobros-tx-handle">@{{ p.usuario?.apodo }}</p>
                                     </td>
-                                    <td class="px-4 py-4">
+                                    <td>
                                         <div class="flex items-center gap-1">
-                                            <img v-for="(img, i) in p.miniaturas" :key="i" :src="img" style="width:26px;height:26px;object-fit:cover" class="rounded-md border border-gray-200 -ml-1.5 first:ml-0" />
+                                            <img v-for="(img, i) in p.miniaturas" :key="i" :src="img" style="width:26px;height:26px;object-fit:cover;border:1px solid var(--line)" class="rounded-md -ml-1.5 first:ml-0" />
                                             <span class="text-xs text-gray-500 ml-1">{{ p.total_items }} artículo{{ p.total_items === 1 ? '' : 's' }}</span>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-4 text-gray-800 text-xs font-semibold whitespace-nowrap">{{ money(p.total) }}</td>
-                                    <td class="px-4 py-4 text-gray-600 text-xs whitespace-nowrap">{{ metodoLabel[p.metodo_pago] ?? p.metodo_pago }}</td>
-                                    <td class="px-4 py-4">
-                                        <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="estadoColores[p.estado]">
-                                            {{ estadoLabel[p.estado] }}
+                                    <td class="font-semibold whitespace-nowrap" style="color:var(--ink)">{{ money(p.total) }}</td>
+                                    <td class="text-gray-600 text-xs whitespace-nowrap">{{ metodoLabel[p.metodo_pago] ?? p.metodo_pago }}</td>
+                                    <td>
+                                        <span class="admin-shop-badge" :class="estadoBadgeClase[p.estado]">
+                                            <span class="admin-shop-badge-dot"></span>{{ estadoLabel[p.estado] }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-4 text-gray-500 whitespace-nowrap text-xs">{{ formatDateTime(p.created_at) }}</td>
-                                    <td class="px-6 py-4">
-                                        <div class="flex justify-center gap-2">
-                                            <Link :href="route('admin.shop.show', p.id)" class="admin-table-action text-gray-600">
+                                    <td class="text-gray-500 whitespace-nowrap text-xs">{{ formatDateTime(p.created_at) }}</td>
+                                    <td>
+                                        <div class="flex justify-center gap-1.5">
+                                            <Link :href="route('admin.shop.show', p.id)" class="admin-dash-action-btn admin-dash-action-btn--view">
                                                 <i class="pi pi-eye"></i>
                                             </Link>
                                         </div>
                                     </td>
                                 </tr>
                                 <tr v-if="!pedidos.data?.length">
-                                    <td colspan="8" class="text-center text-gray-400 py-12">No se encontraron pedidos.</td>
+                                    <td colspan="8" class="admin-cobros-empty">No se encontraron pedidos.</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                <div class="border-t border-gray-200 px-6 py-4">
+                <div class="admin-cobros-table-footer">
                     <Pagination :data="pedidos" />
                 </div>
             </div>

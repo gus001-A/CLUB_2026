@@ -11,7 +11,6 @@ const props = defineProps({
     filtros: Object,
 });
 
-// Importamos las acciones desde tu composable reutilizable
 const { bloquear, eliminar } = useUsuarioAcciones();
 const { formatDate } = useFormatters();
 
@@ -30,8 +29,10 @@ function buscar() {
         }, { preserveState: true, replace: true });
     }, 350);
 }
-
 watch([q, rol, estado], buscar);
+
+const badgeRol = { creador: 'admin-dash-badge--rol-creador', usuario: 'admin-dash-badge--rol-usuario', admin: 'admin-dash-badge--rol-admin' };
+const badgeEstado = { verificado: 'admin-dash-badge--verificado', pendiente: 'admin-dash-badge--pendiente', incompleto: 'admin-dash-badge--incompleto', bloqueado: 'admin-dash-badge--bloqueado' };
 </script>
 
 <template>
@@ -39,46 +40,41 @@ watch([q, rol, estado], buscar);
 
     <AdminLayout>
         <template #title>Usuarios</template>
-        <template #breadcrumb>Dashboard &gt; Usuarios</template>
+        <template #breadcrumb>Dashboard / Usuarios</template>
 
-        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
-            <div class="admin-card overflow-hidden">
-                <!-- Encabezado Principal -->
-                <div class="admin-card-header py-4">
-                    <span class="admin-card-header-title text-base"><i class="pi pi-users text-brand"></i> Gestión de Usuarios</span>
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs font-medium px-3 py-1.5 rounded-lg" style="color:var(--ink-soft);background:#fff">
-                            Total: <strong style="color:var(--ink)">{{ usuarios.total }}</strong>
-                        </span>
-                        <Link :href="route('admin.usuarios.create')" class="admin-btn-primary flex items-center gap-2 text-xs" style="padding:0.5rem 0.9rem">
-                            <i class="pi pi-plus text-xs"></i>
-                            <span>Agregar Usuario</span>
-                        </Link>
+        <div class="admin-user-page">
+            <div class="admin-user-table-card">
+                <!-- Header con gradiente -->
+                <div class="admin-user-table-card__header">
+                    <div class="admin-user-table-card__header-left">
+                        <div class="admin-user-header-icon">
+                            <i class="pi pi-users"></i>
+                        </div>
+                        <div>
+                            <h3>Gestión de Usuarios</h3>
+                            <p class="admin-user-header-subtitle">{{ usuarios.total }} usuarios registrados en la plataforma</p>
+                        </div>
                     </div>
+                    <Link :href="route('admin.usuarios.create')" class="admin-user-btn-create">
+                        <i class="pi pi-plus"></i>
+                        Agregar Usuario
+                    </Link>
                 </div>
 
                 <!-- Filtros -->
-                <p class="text-xs px-6 pt-4" style="color:var(--muted)">Administra todos los usuarios registrados en la plataforma.</p>
-                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 p-6 border-b" style="background:var(--surface);border-color:var(--line)">
-                    <div class="sm:col-span-6 xl:col-span-6 relative">
-                        <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                        <input
-                            v-model="q"
-                            type="text"
-                            placeholder="Buscar por nombre, apodo o correo..."
-                            class="admin-input pl-10 pr-3 py-2 w-full text-xs"
-                        />
+                <div class="admin-user-filters">
+                    <div class="admin-user-filters__search">
+                        <i class="pi pi-search"></i>
+                        <input v-model="q" type="text" placeholder="Buscar por nombre, apodo o correo..." />
                     </div>
-                    <div class="sm:col-span-3 xl:col-span-3">
-                        <select v-model="rol" class="admin-input py-2 w-full text-xs">
+                    <div class="admin-user-filters__selects">
+                        <select v-model="rol" class="admin-user-select">
                             <option value="">Todos los roles</option>
                             <option value="usuario">Usuario</option>
                             <option value="creador">Creador</option>
                             <option value="admin">Admin</option>
                         </select>
-                    </div>
-                    <div class="sm:col-span-3 xl:col-span-3">
-                        <select v-model="estado" class="admin-input py-2 w-full text-xs">
+                        <select v-model="estado" class="admin-user-select">
                             <option value="">Todos los estados</option>
                             <option value="verificado">Verificado</option>
                             <option value="pendiente">Pendiente</option>
@@ -88,91 +84,68 @@ watch([q, rol, estado], buscar);
                     </div>
                 </div>
 
-                <!-- Tabla de Usuarios -->
-                <div class="overflow-x-auto w-full">
-                    <table class="w-full text-left text-sm min-w-[700px]">
+                <!-- Tabla -->
+                <div class="overflow-x-auto">
+                    <table class="admin-user-table min-w-[700px]">
                         <thead>
-                            <tr class="border-b text-xs uppercase tracking-wider" style="border-color:var(--line);background:var(--surface);color:var(--muted)">
-                                <th class="pl-6 pr-4 py-3.5 font-semibold">Usuario</th>
-                                <th class="px-4 py-3.5 font-semibold">Correo</th>
-                                <th class="px-4 py-3.5 font-semibold">Rol</th>
-                                <th class="px-4 py-3.5 font-semibold">Estado</th>
-                                <th class="px-4 py-3.5 font-semibold">Registro</th>
-                                <th class="pl-2 pr-6 py-3.5 text-center font-semibold">Acciones</th>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Correo</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>Registro</th>
+                                <th class="text-center">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            <tr v-for="u in usuarios.data" :key="u.id" class="hover:bg-gray-50/50 transition">
-                                <!-- Usuario con Avatar -->
-                                <td class="pl-6 pr-4 py-3.5 whitespace-nowrap">
+                        <tbody>
+                            <tr v-for="u in usuarios.data" :key="u.id">
+                                <td>
                                     <div class="flex items-center gap-3">
-                                        <div class="w-9 h-9 min-w-[36px] max-w-[36px] min-h-[36px] max-h-[36px] flex-none rounded-full flex items-center justify-center font-semibold text-sm" style="background:var(--brand-soft);color:var(--brand)">
-                                            {{ u.nombre ? u.nombre.charAt(0).toUpperCase() : 'U' }}
-                                        </div>
+                                        <div class="admin-dash-avatar">{{ u.nombre ? u.nombre.charAt(0).toUpperCase() : 'U' }}</div>
                                         <div class="min-w-0">
-                                            <p class="font-semibold text-sm leading-tight truncate" style="color:var(--ink)">{{ u.nombre }}</p>
-                                            <p class="text-xs truncate" style="color:var(--muted)">@{{ u.apodo }}</p>
+                                            <p class="admin-user-name">{{ u.nombre }}</p>
+                                            <p class="admin-user-handle">@{{ u.apodo }}</p>
                                         </div>
                                     </div>
                                 </td>
-
-                                <!-- Correo -->
-                                <td class="px-4 py-3.5 text-gray-600 text-xs whitespace-nowrap">{{ u.email }}</td>
-
-                                <!-- Rol Badge -->
-                                <td class="px-4 py-3.5 whitespace-nowrap">
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold capitalize"
-                                        :class="u.rol === 'creador' ? 'bg-brand/10 text-brand' : 'bg-gray-100 text-gray-700'">
-                                        {{ u.rol }}
+                                <td class="text-gray-600 text-xs whitespace-nowrap">{{ u.email }}</td>
+                                <td class="whitespace-nowrap">
+                                    <span class="admin-dash-badge" :class="badgeRol[u.rol]">
+                                        <span class="admin-dash-badge-dot"></span>{{ u.rol }}
                                     </span>
                                 </td>
-
-                                <!-- Estado Badge -->
-                                <td class="px-4 py-3.5 whitespace-nowrap">
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold capitalize"
-                                        :class="{
-                                            'bg-green-100 text-green-700': u.estado === 'verificado',
-                                            'bg-yellow-100 text-yellow-700': u.estado === 'pendiente' || u.estado === 'incompleto',
-                                            'bg-red-100 text-red-700': u.estado === 'bloqueado'
-                                        }">
-                                        {{ u.estado }}
+                                <td class="whitespace-nowrap">
+                                    <span class="admin-dash-badge" :class="badgeEstado[u.estado]">
+                                        <span class="admin-dash-badge-dot"></span>{{ u.estado }}
                                     </span>
                                 </td>
-
-                                <!-- Fecha Registro -->
-                                <td class="px-4 py-3.5 text-gray-500 text-xs whitespace-nowrap">{{ formatDate(u.created_at) }}</td>
-
-                                <!-- Acciones -->
-                                <td class="pl-2 pr-6 py-3.5 whitespace-nowrap">
+                                <td class="text-gray-500 text-xs whitespace-nowrap">{{ formatDate(u.created_at) }}</td>
+                                <td>
                                     <div class="flex justify-center items-center gap-1.5">
-                                        <!-- Ver detalles -->
-                                        <Link :href="route('admin.usuarios.show', u.id)" class="admin-table-action text-gray-600" title="Ver detalles">
-                                            <i class="pi pi-eye text-xs"></i>
+                                        <Link :href="route('admin.usuarios.show', u.id)" class="admin-dash-action-btn admin-dash-action-btn--view" title="Ver detalles">
+                                            <i class="pi pi-eye"></i>
                                         </Link>
-
-                                        <!-- Editar -->
-                                        <Link :href="route('admin.usuarios.edit', u.id)" class="admin-table-action text-gray-600" title="Editar">
-                                            <i class="pi pi-pencil text-xs"></i>
+                                        <Link :href="route('admin.usuarios.edit', u.id)" class="admin-dash-action-btn admin-dash-action-btn--edit" title="Editar">
+                                            <i class="pi pi-pencil"></i>
                                         </Link>
-
-                                        <!-- Bloquear / Desbloquear -->
-                                        <button @click="bloquear(u)" class="admin-table-action text-gray-600" :title="u.estado === 'bloqueado' ? 'Desbloquear' : 'Bloquear'">
-                                            <i class="pi text-xs" :class="u.estado === 'bloqueado' ? 'pi-lock-open' : 'pi-lock'"></i>
+                                        <button @click="bloquear(u)" class="admin-dash-action-btn admin-dash-action-btn--lock" :title="u.estado === 'bloqueado' ? 'Desbloquear' : 'Bloquear'">
+                                            <i class="pi" :class="u.estado === 'bloqueado' ? 'pi-lock-open' : 'pi-lock'"></i>
                                         </button>
-
-                                        <!-- Eliminar -->
-                                        <button @click="eliminar(u)" class="admin-table-action text-red-600 hover:bg-red-50" title="Eliminar">
-                                            <i class="pi pi-trash text-xs"></i>
+                                        <button @click="eliminar(u)" class="admin-dash-action-btn admin-dash-action-btn--delete" title="Eliminar">
+                                            <i class="pi pi-trash"></i>
                                         </button>
                                     </div>
                                 </td>
                             </tr>
-
-                            <!-- Estado Vacío -->
                             <tr v-if="!usuarios.data.length">
-                                <td colspan="6" class="py-12 text-center text-gray-400 text-xs">
-                                    <i class="pi pi-users text-2xl text-gray-300 mb-2 block"></i>
-                                    No se encontraron usuarios con los criterios de búsqueda.
+                                <td colspan="6">
+                                    <div class="admin-prod-empty-state">
+                                        <div class="admin-prod-empty-state__icon">
+                                            <i class="pi pi-users"></i>
+                                        </div>
+                                        <h4>No se encontraron usuarios</h4>
+                                        <p>Prueba ajustando los filtros de búsqueda</p>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -180,7 +153,7 @@ watch([q, rol, estado], buscar);
                 </div>
 
                 <!-- Paginación -->
-                <div v-if="usuarios.last_page > 1" class="p-4 border-t border-gray-100">
+                <div v-if="usuarios.last_page > 1" class="admin-user-table-footer">
                     <Pagination :data="usuarios" />
                 </div>
             </div>
