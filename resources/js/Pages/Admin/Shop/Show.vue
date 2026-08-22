@@ -29,12 +29,7 @@ function formatDate(v) {
         ' - ' + new Date(v).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 }
 
-const estadoColores = {
-    pagado: 'bg-blue-100 text-blue-700',
-    enviado: 'bg-amber-100 text-amber-700',
-    entregado: 'bg-green-100 text-green-700',
-    cancelado: 'bg-red-100 text-red-700',
-};
+const estadoBadgeClase = { pagado: 'admin-shop-badge--pagado', enviado: 'admin-shop-badge--enviado', entregado: 'admin-shop-badge--entregado', cancelado: 'admin-shop-badge--cancelado' };
 const estadoLabel = { pagado: 'Procesando', enviado: 'Enviado', entregado: 'Completado', cancelado: 'Cancelado' };
 const metodoLabel = { tarjeta_credito: 'Tarjeta de Crédito', tarjeta_debito: 'Tarjeta de Débito', paypal: 'PayPal', transferencia: 'Transferencia', otro: 'Otro' };
 
@@ -106,35 +101,35 @@ function accionProximamente(nombre) {
             </span>
         </template>
 
-        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
+        <div class="admin-reportes-page">
 
-            <Link :href="route('admin.shop.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
-                <i class="pi pi-arrow-left text-xs"></i> Volver a Shop
+            <Link :href="route('admin.shop.index')" class="admin-user-back-link">
+                <i class="pi pi-arrow-left"></i> Volver a Shop
             </Link>
 
             <!-- Barra de resumen -->
-            <div class="admin-card p-5 mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="admin-cobros-card mb-6 flex flex-wrap items-center justify-between gap-4" style="padding:1.25rem 1.5rem;overflow:visible">
                 <div class="flex flex-wrap gap-8">
                     <div>
-                        <p class="text-xs text-gray-400">Pedido</p>
-                        <p class="font-semibold text-gray-800">#{{ pedido.numero_pedido }}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">Realizado el {{ formatDate(pedido.created_at) }}</p>
+                        <p class="admin-user-hint">Pedido</p>
+                        <p class="font-semibold" style="color:var(--ink)">#{{ pedido.numero_pedido }}</p>
+                        <p class="admin-user-hint" style="margin-top:0.15rem">Realizado el {{ formatDate(pedido.created_at) }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-400">Estado Actual</p>
-                        <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium" :class="estadoColores[pedido.estado]">
-                            {{ estadoLabel[pedido.estado] }}
+                        <p class="admin-user-hint">Estado Actual</p>
+                        <span class="admin-shop-badge" :class="estadoBadgeClase[pedido.estado]" style="margin-top:0.25rem">
+                            <span class="admin-shop-badge-dot"></span>{{ estadoLabel[pedido.estado] }}
                         </span>
-                        <p class="text-xs text-gray-400 mt-1">Actualizado el {{ formatDate(pedido.updated_at) }}</p>
+                        <p class="admin-user-hint" style="margin-top:0.25rem">Actualizado el {{ formatDate(pedido.updated_at) }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-400">Total</p>
-                        <p class="font-semibold text-gray-800">{{ money(pedido.total) }}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">{{ pedido.items.length }} artículos</p>
+                        <p class="admin-user-hint">Total</p>
+                        <p class="font-semibold" style="color:var(--ink)">{{ money(pedido.total) }}</p>
+                        <p class="admin-user-hint" style="margin-top:0.15rem">{{ pedido.items.length }} artículos</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-400">Método de Pago</p>
-                        <p class="font-semibold text-gray-800">{{ pedido.metodo_pago ? metodoLabel[pedido.metodo_pago] : '—' }}</p>
+                        <p class="admin-user-hint">Método de Pago</p>
+                        <p class="font-semibold" style="color:var(--ink)">{{ pedido.metodo_pago ? metodoLabel[pedido.metodo_pago] : '—' }}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -142,7 +137,7 @@ function accionProximamente(nombre) {
                         <i class="pi pi-print text-xs"></i> Imprimir
                     </button>
                     <div class="relative">
-                        <button @click="toggleMasAcciones" class="text-sm text-brand border border-brand/40 rounded-xl px-4 py-2.5 hover:bg-brand/5 flex items-center gap-1.5 transition">
+                        <button @click="toggleMasAcciones" class="text-sm text-brand border rounded-xl px-4 py-2.5 hover:bg-brand/5 flex items-center gap-1.5 transition" style="border-color:rgba(200,30,58,0.4)">
                             Más acciones <i class="pi text-[10px] transition-transform" :class="masAccionesAbierto ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
                         </button>
                         <div v-if="masAccionesAbierto" @click="cerrarMasAcciones" class="fixed inset-0 z-30"></div>
@@ -158,123 +153,123 @@ function accionProximamente(nombre) {
 
             <div class="admin-pedido-main-grid gap-6">
                 <!-- Productos del Pedido -->
-                <div class="admin-card overflow-hidden" style="grid-area:productos">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-box text-brand"></i> Productos del Pedido</span>
+                <div class="admin-prod-info-card" style="grid-area:productos">
+                    <div class="admin-prod-info-card-header">
+                        <h3><i class="pi pi-box"></i> Productos del Pedido</h3>
                     </div>
-                    <div class="p-5">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-left text-gray-400 border-b border-gray-100">
-                                <th class="pb-2 font-medium">Producto</th>
-                                <th class="pb-2 font-medium text-right">Precio</th>
-                                <th class="pb-2 font-medium text-right">Cantidad</th>
-                                <th class="pb-2 font-medium text-right">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="item in pedido.items" :key="item.id" class="border-b border-gray-50 last:border-0">
-                                <td class="py-3">
-                                    <div class="flex items-center gap-2.5">
-                                        <div class="rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 overflow-hidden" style="width:40px;height:40px">
-                                            <img v-if="item.producto.imagen" :src="item.producto.imagen" class="w-full h-full object-cover" />
-                                            <i v-else class="pi pi-box text-sm"></i>
+                    <div class="admin-prod-info-card-body">
+                        <table class="admin-cobros-table">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-right">Precio</th>
+                                    <th class="text-right">Cantidad</th>
+                                    <th class="text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="item in pedido.items" :key="item.id">
+                                    <td>
+                                        <div class="flex items-center gap-2.5">
+                                            <div class="admin-dash-list-thumb">
+                                                <img v-if="item.producto.imagen" :src="item.producto.imagen" />
+                                                <div v-else class="w-full h-full flex items-center justify-center" style="color:var(--muted-light)"><i class="pi pi-box"></i></div>
+                                            </div>
+                                            <div>
+                                                <p class="font-medium" style="color:var(--ink)">{{ item.producto.nombre }}</p>
+                                                <p class="admin-user-hint">SKU: {{ item.producto.sku }}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p class="font-medium text-gray-800">{{ item.producto.nombre }}</p>
-                                            <p class="text-xs text-gray-400">SKU: {{ item.producto.sku }}</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="py-3 text-right text-gray-600">{{ money(item.precio) }}</td>
-                                <td class="py-3 text-right text-gray-600">{{ item.cantidad }}</td>
-                                <td class="py-3 text-right font-medium text-gray-800">{{ money(item.total) }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    </td>
+                                    <td class="text-right text-gray-600">{{ money(item.precio) }}</td>
+                                    <td class="text-right text-gray-600">{{ item.cantidad }}</td>
+                                    <td class="text-right font-medium" style="color:var(--ink)">{{ money(item.total) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
 
-                    <div class="mt-4 pt-4 border-t border-gray-100 space-y-2 text-sm max-w-xs ml-auto">
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Subtotal</span>
-                            <span class="text-gray-800">{{ money(pedido.subtotal) }}</span>
+                        <div class="admin-cobros-summary" style="max-width:280px;margin-left:auto;padding:1rem 0 0">
+                            <div class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Subtotal</span>
+                                <span class="admin-cobros-summary-value">{{ money(pedido.subtotal) }}</span>
+                            </div>
+                            <div class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Envío</span>
+                                <span class="admin-cobros-summary-value">{{ money(pedido.envio) }}</span>
+                            </div>
+                            <div class="admin-cobros-summary-row admin-cobros-summary-row--total">
+                                <span class="admin-cobros-summary-label">Total</span>
+                                <span class="admin-cobros-summary-value admin-cobros-summary-value--total">{{ money(pedido.total) }}</span>
+                            </div>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Envío</span>
-                            <span class="text-gray-800">{{ money(pedido.envio) }}</span>
-                        </div>
-                        <div class="flex justify-between pt-2 border-t border-gray-100 font-semibold">
-                            <span class="text-gray-800">Total</span>
-                            <span class="text-brand">{{ money(pedido.total) }}</span>
-                        </div>
-                    </div>
                     </div>
                 </div>
 
                 <!-- Columna derecha -->
-                <div class="space-y-6" style="grid-area:derecha">
+                <div class="flex flex-col gap-6" style="grid-area:derecha">
                     <!-- Información del Cliente -->
-                    <div class="admin-card overflow-hidden">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-user text-brand"></i> Información del Cliente</span>
+                    <div class="admin-prod-info-card">
+                        <div class="admin-prod-info-card-header">
+                            <h3><i class="pi pi-user"></i> Información del Cliente</h3>
                         </div>
-                        <div class="p-5">
-                        <div class="flex items-center gap-3 mb-2">
-                            <div class="admin-icon-circle" style="width:40px;height:40px">
-                                <i class="pi pi-user"></i>
+                        <div class="admin-prod-info-card-body">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="admin-dash-avatar">{{ pedido.usuario?.nombre?.charAt(0)?.toUpperCase() ?? 'U' }}</div>
+                                <div>
+                                    <p class="font-medium text-sm" style="color:var(--ink)">{{ pedido.usuario?.nombre ?? '—' }}</p>
+                                    <p class="admin-user-hint">{{ pedido.usuario?.email ?? '—' }}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p class="font-medium text-gray-800 text-sm">{{ pedido.usuario?.nombre ?? '—' }}</p>
-                                <p class="text-xs text-gray-400">{{ pedido.usuario?.email ?? '—' }}</p>
-                            </div>
-                        </div>
-                        <p class="text-xs text-gray-500 mb-2">{{ pedido.usuario?.telefono ?? 'Sin teléfono registrado' }}</p>
-                        <Link v-if="pedido.usuario" :href="route('admin.usuarios.index', { q: pedido.usuario.apodo })" class="text-brand text-xs font-medium hover:underline">
-                            Ver perfil del usuario
-                        </Link>
+                            <p class="admin-user-hint mb-2">{{ pedido.usuario?.telefono ?? 'Sin teléfono registrado' }}</p>
+                            <Link v-if="pedido.usuario" :href="route('admin.usuarios.index', { q: pedido.usuario.apodo })" style="color:var(--brand)" class="text-xs font-medium hover:underline">
+                                Ver perfil del usuario
+                            </Link>
                         </div>
                     </div>
 
                     <!-- Información de Envío -->
-                    <div class="admin-card overflow-hidden">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-truck text-brand"></i> Información de Envío</span>
-                            <span class="text-xs font-medium px-2 py-0.5 rounded-full" :class="estadoColores[pedido.estado]">{{ estadoLabel[pedido.estado] }}</span>
+                    <div class="admin-prod-info-card">
+                        <div class="admin-prod-info-card-header">
+                            <h3><i class="pi pi-truck"></i> Información de Envío</h3>
+                            <span class="admin-shop-badge" :class="estadoBadgeClase[pedido.estado]"><span class="admin-shop-badge-dot"></span>{{ estadoLabel[pedido.estado] }}</span>
                         </div>
-                        <div class="p-5">
-                        <div class="text-sm text-gray-600 space-y-1">
-                            <template v-if="direccion.calle">
-                                <p>{{ direccion.calle }}</p>
-                                <p>{{ direccion.colonia }}</p>
-                                <p>{{ direccion.ciudad }}, {{ direccion.cp }}</p>
-                            </template>
-                            <p v-else class="text-gray-400">Sin dirección registrada.</p>
-                        </div>
-                        <div class="mt-3 pt-3 border-t border-gray-100 text-sm space-y-1.5">
-                            <div class="flex justify-between">
-                                <span class="text-gray-400">Número de guía</span>
-                                <span class="text-gray-700">{{ pedido.numero_seguimiento || '—' }}</span>
+                        <div class="admin-prod-info-card-body">
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <template v-if="direccion.calle">
+                                    <p>{{ direccion.calle }}</p>
+                                    <p>{{ direccion.colonia }}</p>
+                                    <p>{{ direccion.ciudad }}, {{ direccion.cp }}</p>
+                                </template>
+                                <p v-else style="color:var(--muted-light)">Sin dirección registrada.</p>
                             </div>
-                        </div>
+                            <div class="admin-cobros-summary" style="padding:0.8rem 0 0">
+                                <div class="admin-cobros-summary-row">
+                                    <span class="admin-cobros-summary-label">Número de guía</span>
+                                    <span class="admin-cobros-summary-value">{{ pedido.numero_seguimiento || '—' }}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Información de Pago -->
-                    <div class="admin-card overflow-hidden">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-credit-card text-brand"></i> Información de Pago</span>
+                    <div class="admin-prod-info-card">
+                        <div class="admin-prod-info-card-header">
+                            <h3><i class="pi pi-credit-card"></i> Información de Pago</h3>
                         </div>
-                        <div class="text-sm space-y-1.5 p-5">
-                            <div class="flex justify-between">
-                                <span class="text-gray-400">Método de Pago</span>
-                                <span class="text-gray-700">{{ pedido.metodo_pago ? metodoLabel[pedido.metodo_pago] : '—' }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-400">Referencia</span>
-                                <span class="text-gray-700">{{ pedido.pago_id || '—' }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-400">Pagado el</span>
-                                <span class="text-gray-700">{{ formatDate(pedido.created_at) }}</span>
+                        <div class="admin-prod-info-card-body">
+                            <div class="admin-cobros-summary" style="padding:0">
+                                <div class="admin-cobros-summary-row">
+                                    <span class="admin-cobros-summary-label">Método de Pago</span>
+                                    <span class="admin-cobros-summary-value">{{ pedido.metodo_pago ? metodoLabel[pedido.metodo_pago] : '—' }}</span>
+                                </div>
+                                <div class="admin-cobros-summary-row">
+                                    <span class="admin-cobros-summary-label">Referencia</span>
+                                    <span class="admin-cobros-summary-value">{{ pedido.pago_id || '—' }}</span>
+                                </div>
+                                <div class="admin-cobros-summary-row">
+                                    <span class="admin-cobros-summary-label">Pagado el</span>
+                                    <span class="admin-cobros-summary-value">{{ formatDate(pedido.created_at) }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -283,86 +278,88 @@ function accionProximamente(nombre) {
 
             <div class="admin-pedido-resumen-grid gap-6 mt-6">
                 <!-- Proceso del Pedido -->
-                <div class="admin-card overflow-hidden" style="grid-area:proceso">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-list-check text-brand"></i> Proceso del Pedido</span>
+                <div class="admin-cobros-card" style="grid-area:proceso">
+                    <div class="admin-cobros-card__header">
+                        <div class="admin-cobros-card__header-left">
+                            <div class="admin-cobros-header-icon"><i class="pi pi-list-check"></i></div>
+                            <h3>Proceso del Pedido</h3>
+                        </div>
                     </div>
-                    <div class="p-5">
-                    <ul class="space-y-4">
-                        <li v-for="(paso, i) in pasos" :key="i" class="flex items-start gap-3">
-                            <div
-                                class="rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                                :class="paso.hecho ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-300'"
-                                style="width:22px;height:22px"
-                            >
-                                <i class="pi pi-check text-[10px]"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium" :class="paso.hecho ? 'text-gray-800' : 'text-gray-400'">{{ paso.titulo }}</p>
-                                <p class="text-xs text-gray-400">{{ paso.texto }}</p>
-                                <p v-if="paso.fecha" class="text-[11px] text-gray-400 mt-0.5">{{ formatDate(paso.fecha) }}</p>
-                            </div>
-                        </li>
-                    </ul>
+                    <div style="padding:1.25rem 1.5rem">
+                        <ul class="space-y-4">
+                            <li v-for="(paso, i) in pasos" :key="i" class="flex items-start gap-3">
+                                <div class="rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                                    :style="paso.hecho ? 'background:#059669;color:#fff' : 'background:#F3F4F6;color:#D1D5DB'"
+                                    style="width:22px;height:22px">
+                                    <i class="pi pi-check text-[10px]"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium" :style="paso.hecho ? 'color:var(--ink)' : 'color:var(--muted-light)'">{{ paso.titulo }}</p>
+                                    <p class="admin-user-hint">{{ paso.texto }}</p>
+                                    <p v-if="paso.fecha" class="admin-user-hint" style="margin-top:0.15rem">{{ formatDate(paso.fecha) }}</p>
+                                </div>
+                            </li>
+                        </ul>
 
-                    <div v-if="pedido.estado === 'entregado'" class="mt-5 pt-4 border-t border-gray-100 text-center">
-                        <i class="pi pi-heart-fill text-brand"></i>
-                        <p class="text-sm font-serif font-semibold text-gray-800 mt-1">Gracias por confiar en Club de Fantasías</p>
-                    </div>
+                        <div v-if="pedido.estado === 'entregado'" class="mt-5 pt-4 text-center" style="border-top:1px solid var(--line)">
+                            <i class="pi pi-heart-fill" style="color:var(--brand)"></i>
+                            <p class="text-sm font-serif font-semibold mt-1" style="color:var(--ink)">Gracias por confiar en Club de Fantasías</p>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Resumen del Pedido -->
-                <div class="admin-card overflow-hidden" style="grid-area:resumen">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-receipt text-brand"></i> Resumen del Pedido</span>
+                <div class="admin-cobros-card" style="grid-area:resumen">
+                    <div class="admin-cobros-card__header">
+                        <div class="admin-cobros-card__header-left">
+                            <div class="admin-cobros-header-icon"><i class="pi pi-receipt"></i></div>
+                            <h3>Resumen del Pedido</h3>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-3 p-5">
-                        <div class="flex items-center gap-2">
-                            <div class="admin-icon-circle" style="width:36px;height:36px"><i class="pi pi-box text-xs"></i></div>
+                    <div class="grid grid-cols-2 gap-3" style="padding:1.25rem 1.5rem">
+                        <div class="admin-user-data-item">
+                            <div class="admin-user-data-icon"><i class="pi pi-box"></i></div>
                             <div>
-                                <p class="text-sm font-semibold text-gray-800">{{ pedido.items.length }}</p>
-                                <p class="text-[10px] text-gray-400">Artículos</p>
+                                <p class="admin-user-data-value">{{ pedido.items.length }}</p>
+                                <p class="admin-user-data-label" style="margin-top:0.1rem">Artículos</p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <div class="admin-icon-circle" style="width:36px;height:36px"><i class="pi pi-tag text-xs"></i></div>
+                        <div class="admin-user-data-item">
+                            <div class="admin-user-data-icon"><i class="pi pi-tag"></i></div>
                             <div>
-                                <p class="text-sm font-semibold text-gray-800">{{ money(pedido.subtotal) }}</p>
-                                <p class="text-[10px] text-gray-400">Subtotal</p>
+                                <p class="admin-user-data-value">{{ money(pedido.subtotal) }}</p>
+                                <p class="admin-user-data-label" style="margin-top:0.1rem">Subtotal</p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <div class="admin-icon-circle" style="width:36px;height:36px"><i class="pi pi-truck text-xs"></i></div>
+                        <div class="admin-user-data-item">
+                            <div class="admin-user-data-icon"><i class="pi pi-truck"></i></div>
                             <div>
-                                <p class="text-sm font-semibold text-gray-800">{{ money(pedido.envio) }}</p>
-                                <p class="text-[10px] text-gray-400">Envío</p>
+                                <p class="admin-user-data-value">{{ money(pedido.envio) }}</p>
+                                <p class="admin-user-data-label" style="margin-top:0.1rem">Envío</p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <div class="admin-icon-circle" style="width:36px;height:36px"><i class="pi pi-dollar text-xs"></i></div>
+                        <div class="admin-user-data-item">
+                            <div class="admin-user-data-icon"><i class="pi pi-dollar"></i></div>
                             <div>
-                                <p class="text-sm font-semibold text-brand">{{ money(pedido.total) }}</p>
-                                <p class="text-[10px] text-gray-400">Total</p>
+                                <p class="admin-user-data-value" style="color:var(--brand)">{{ money(pedido.total) }}</p>
+                                <p class="admin-user-data-label" style="margin-top:0.1rem">Total</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Acciones del Pedido -->
-                <div class="admin-card overflow-hidden" style="grid-area:acciones">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-bolt text-brand"></i> Acciones del Pedido</span>
-                    </div>
-                    <div class="space-y-2 p-5">
-                        <button @click="accionProximamente('Reenviar Confirmación')" class="w-full text-left text-sm text-gray-600 border border-gray-300 rounded-xl px-4 py-2.5 hover:bg-gray-50 flex items-center gap-2">
-                            <i class="pi pi-envelope text-xs"></i> Reenviar Confirmación
+                <div class="admin-prod-actions-card" style="grid-area:acciones">
+                    <div class="admin-prod-actions-card-header"><h3><i class="pi pi-bolt"></i> Acciones del Pedido</h3></div>
+                    <div class="admin-prod-actions-card-body">
+                        <button @click="accionProximamente('Reenviar Confirmación')" class="admin-prod-btn-back" style="justify-content:flex-start">
+                            <i class="pi pi-envelope"></i><span>Reenviar Confirmación</span>
                         </button>
-                        <button @click="accionProximamente('Generar Nota de Crédito')" class="w-full text-left text-sm text-gray-600 border border-gray-300 rounded-xl px-4 py-2.5 hover:bg-gray-50 flex items-center gap-2">
-                            <i class="pi pi-file text-xs"></i> Generar Nota de Crédito
+                        <button @click="accionProximamente('Generar Nota de Crédito')" class="admin-prod-btn-back" style="justify-content:flex-start">
+                            <i class="pi pi-file"></i><span>Generar Nota de Crédito</span>
                         </button>
-                        <button @click="accionProximamente('Reportar un Problema')" class="w-full text-left text-sm text-red-600 border border-red-200 rounded-xl px-4 py-2.5 hover:bg-red-50 flex items-center gap-2">
-                            <i class="pi pi-exclamation-triangle text-xs"></i> Reportar un Problema
+                        <button @click="accionProximamente('Reportar un Problema')" class="admin-prod-btn-delete">
+                            <i class="pi pi-exclamation-triangle"></i><span>Reportar un Problema</span>
                         </button>
                     </div>
                 </div>

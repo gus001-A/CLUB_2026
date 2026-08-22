@@ -14,29 +14,27 @@ defineProps({
         <template #title>Reportes</template>
         <template #breadcrumb>Dashboard &gt; Reportes</template>
 
-        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
-            <div class="admin-card overflow-hidden mb-6">
-                <div class="admin-card-header">
-                    <span class="admin-card-header-title"><i class="pi pi-chart-bar text-brand"></i> Reportes Analíticos</span>
+        <div class="admin-reportes-page">
+            <div class="admin-cobros-card mb-6">
+                <div class="admin-cobros-card__header">
+                    <div class="admin-cobros-card__header-left">
+                        <div class="admin-cobros-header-icon"><i class="pi pi-chart-bar"></i></div>
+                        <div>
+                            <h3>Reportes Analíticos</h3>
+                            <p class="admin-cobros-header-subtitle">Genera y descarga reportes del sistema en PDF o Excel</p>
+                        </div>
+                    </div>
                 </div>
-                <p class="text-sm px-6 py-4" style="color:var(--muted)">
-                    Genera y descarga reportes del sistema en PDF o Excel. Elige uno para empezar.
-                </p>
             </div>
 
             <div class="admin-reportes-hub-grid gap-6 w-full">
-                <Link
-                    v-for="r in reportes"
-                    :key="r.tipo"
-                    :href="route('admin.reportes.detalle', r.tipo)"
-                    class="admin-card overflow-hidden p-6 flex flex-col items-center text-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition"
-                >
-                    <div class="admin-icon-circle" style="width:56px;height:56px">
-                        <i class="pi" :class="r.icono" style="font-size:1.4rem"></i>
+                <Link v-for="r in reportes" :key="r.tipo" :href="route('admin.reportes.detalle', r.tipo)" class="admin-reportes-hub-card">
+                    <div class="admin-reportes-hub-icon">
+                        <i class="pi" :class="r.icono"></i>
                     </div>
                     <div>
-                        <p class="font-bold text-gray-900">{{ r.titulo }}</p>
-                        <p class="text-xs mt-1" style="color:var(--muted)">{{ r.descripcion }}</p>
+                        <p class="admin-reportes-hub-title">{{ r.titulo }}</p>
+                        <p class="admin-reportes-hub-desc">{{ r.descripcion }}</p>
                     </div>
                 </Link>
             </div>

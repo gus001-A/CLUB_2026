@@ -25,7 +25,7 @@ const categoria = ref(props.filtros.categoria || '');
 const estado = ref(props.filtros.estado || '');
 
 let timeout = null;
-function aplicarFiltros() {
+watch([q, categoria, estado], () => {
     clearTimeout(timeout);
     timeout = setTimeout(() => {
         router.get(route('admin.productos.todos'), {
@@ -34,10 +34,7 @@ function aplicarFiltros() {
             estado: estado.value || undefined,
         }, { preserveState: true, preserveScroll: true, replace: true });
     }, 350);
-}
-watch([q, categoria, estado], aplicarFiltros);
-
-const estadoDotColores = { activo: '#10B981', inactivo: '#9CA3AF', sin_stock: '#EF4444' };
+});
 
 async function eliminarProducto(p) {
     const ok = await confirm(`Esto eliminará "${p.nombre}" permanentemente.`, {
@@ -52,150 +49,253 @@ async function eliminarProducto(p) {
         onError: () => toast.error('No se pudo eliminar el producto.'),
     });
 }
+
+// Mismos colores por estado y categoría que en el resto del módulo
+const coloresEstado = {
+    activo: { dot: '#059669', bg: '#ECFDF5' },
+    inactivo: { dot: '#6B7280', bg: '#F3F4F6' },
+    sin_stock: { dot: '#DC2626', bg: '#FEF2F2' },
+};
+
+const coloresCategorias = [
+    { bg: '#FBEAEC', border: '#C81E3A', dot: '#C81E3A', text: '#C81E3A' },
+    { bg: '#EFF6FF', border: '#2563EB', dot: '#2563EB', text: '#2563EB' },
+    { bg: '#ECFDF5', border: '#059669', dot: '#059669', text: '#059669' },
+    { bg: '#FEF3C7', border: '#D97706', dot: '#D97706', text: '#D97706' },
+    { bg: '#F5F3FF', border: '#7C3AED', dot: '#7C3AED', text: '#7C3AED' },
+    { bg: '#CFFAFE', border: '#0891B2', dot: '#0891B2', text: '#0891B2' },
+    { bg: '#FEE2E2', border: '#DC2626', dot: '#DC2626', text: '#DC2626' },
+    { bg: '#F3E8FF', border: '#9333EA', dot: '#9333EA', text: '#9333EA' },
+    { bg: '#CCFBF1', border: '#0D9488', dot: '#0D9488', text: '#0D9488' },
+    { bg: '#FFEDD5', border: '#EA580C', dot: '#EA580C', text: '#EA580C' },
+    { bg: '#E0E7FF', border: '#4F46E5', dot: '#4F46E5', text: '#4F46E5' },
+    { bg: '#D1FAE5', border: '#16A34A', dot: '#16A34A', text: '#16A34A' },
+];
+function getColorCategoria(index) {
+    return coloresCategorias[index % coloresCategorias.length];
+}
 </script>
 
 <template>
+
     <Head title="Todos los Productos" />
 
     <AdminLayout>
         <template #title>Panel de Administrador</template>
-        <template #breadcrumb>Productos &gt; Todos los productos</template>
+        <template #breadcrumb>Productos / Todos los productos</template>
 
-        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
+        <div class="admin-prod-list-page">
+            <!-- Botón volver -->
+            <Link :href="route('admin.productos.index')" class="admin-prod-back-link">
+                <i class="pi pi-arrow-left"></i>
+                Volver a Productos
+            </Link>
 
-            <!-- Volver -->
-            <div class="mb-6">
-                <Link :href="route('admin.productos.index')" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-brand transition">
-                    <i class="pi pi-arrow-left text-xs"></i>
-                    Volver a Productos
-                </Link>
-            </div>
-
-            <!-- Encabezado + total general -->
-            <div class="admin-card overflow-hidden mb-6">
-                <div class="admin-card-header">
-                    <span class="admin-card-header-title"><i class="pi pi-tags text-brand"></i> Todos los Productos</span>
-                    <Link :href="route('admin.productos.create')" class="admin-btn-primary" style="padding:0.4rem 0.85rem;font-size:0.75rem">
-                        <i class="pi pi-plus text-xs"></i> Nuevo Producto
-                    </Link>
-                </div>
-                <p class="text-sm px-6 py-4" style="color:var(--muted)">{{ totalGeneral }} productos registrados en total</p>
-            </div>
-
-            <!-- Desglose por estado -->
-            <div class="admin-estado-grid gap-4 mb-6 w-full">
-                <button v-for="e in porEstado" :key="e.estado" type="button" @click="estado = (estado === e.estado ? '' : e.estado)"
-                    class="min-w-0 admin-card px-5 py-4 text-left transition"
-                    :class="estado === e.estado ? 'ring-2 ring-brand/40' : 'hover:border-gray-300'">
-                    <div class="flex items-center gap-2 mb-1.5">
-                        <span class="rounded-full shrink-0" :style="{ backgroundColor: estadoDotColores[e.estado], width: '8px', height: '8px' }"></span>
-                        <span class="text-xs text-gray-500">{{ e.label }}</span>
-                    </div>
-                    <p class="text-lg font-bold text-gray-900">{{ e.cantidad }}</p>
+            <!-- ============================================================ -->
+            <!-- DESGLOSE POR ESTADO (filtros rápidos) -->
+            <!-- ============================================================ -->
+            <div class="admin-prod-estado-grid">
+                <button v-for="e in porEstado" :key="e.estado" type="button"
+                    @click="estado = (estado === e.estado ? '' : e.estado)" class="admin-prod-estado-chip"
+                    :class="{ 'admin-prod-estado-chip--active': estado === e.estado }">
+                    <span class="admin-prod-estado-chip-dot" :style="{ background: coloresEstado[e.estado]?.dot }"></span>
+                    <span>
+                        <span class="admin-prod-estado-chip-value">{{ e.cantidad }}</span>
+                        <span class="admin-prod-estado-chip-label">{{ e.label }}</span>
+                    </span>
                 </button>
             </div>
 
-            <!-- Desglose por categoría -->
-            <div class="admin-card overflow-hidden mb-6">
-                <div class="admin-card-header">
-                    <span class="admin-card-header-title"><i class="pi pi-chart-bar text-brand"></i> Desglose por categoría</span>
-                </div>
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 p-6">
-                    <div v-for="c in porCategoria" :key="c.categoria">
-                        <p class="text-xs text-gray-400 mb-1">{{ c.label }}</p>
-                        <p class="text-base font-bold text-gray-900">{{ c.cantidad }} productos</p>
+            <!-- ============================================================ -->
+            <!-- TABLA COMPLETA -->
+            <!-- ============================================================ -->
+            <div class="admin-prod-table-card" style="margin-bottom:1.5rem">
+                <div class="admin-prod-table-card__header">
+                    <div class="admin-prod-table-card__header-left">
+                        <div class="admin-prod-header-icon">
+                            <i class="pi pi-list"></i>
+                        </div>
+                        <div>
+                            <h3>Catálogo completo</h3>
+                            <p class="admin-prod-header-subtitle">{{ totalGeneral }} productos registrados en total</p>
+                        </div>
                     </div>
+                    <Link :href="route('admin.productos.create')" class="admin-prod-btn-create">
+                        <i class="pi pi-plus"></i>
+                        Nuevo Producto
+                    </Link>
+                </div>
+
+                <!-- Filtros -->
+                <div class="admin-prod-filters">
+                    <div class="admin-prod-filters__search">
+                        <i class="pi pi-search"></i>
+                        <input v-model="q" type="text" placeholder="Buscar por nombre o SKU..." />
+                        <kbd v-if="q" class="admin-prod-search-clear" @click="q = ''">✕</kbd>
+                    </div>
+                    <div class="admin-prod-filters__selects">
+                        <div class="admin-prod-select-wrapper">
+                            <i class="pi pi-folder"></i>
+                            <select v-model="categoria">
+                                <option value="">Todas las categorías</option>
+                                <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
+                            </select>
+                        </div>
+                        <div class="admin-prod-select-wrapper">
+                            <i class="pi pi-flag"></i>
+                            <select v-model="estado">
+                                <option value="">Todos los estados</option>
+                                <option value="activo">Activo</option>
+                                <option value="inactivo">Inactivo</option>
+                                <option value="sin_stock">Sin stock</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla -->
+                <div class="admin-prod-table-container">
+                    <table class="admin-prod-table">
+                        <thead>
+                            <tr>
+                                <th style="width:24%">Producto</th>
+                                <th style="width:14%">Categoría</th>
+                                <th style="width:12%">Marca</th>
+                                <th style="width:12%">Precio</th>
+                                <th style="width:16%">Stock</th>
+                                <th style="width:12%">Estado</th>
+                                <th style="width:10%" class="admin-prod-text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="p in productos.data" :key="p.id">
+                                <td>
+                                    <div class="admin-prod-info">
+                                        <div class="admin-prod-image">
+                                            <img v-if="p.imagen" :src="p.imagen" :alt="p.nombre"
+                                                @error="(e) => { e.target.src = '/images/placeholder-image.png' }" />
+                                            <div v-else class="admin-prod-image__placeholder">
+                                                <i class="pi pi-image"></i>
+                                            </div>
+                                        </div>
+                                        <div class="admin-prod-details">
+                                            <p class="admin-prod-name">{{ p.nombre }}</p>
+                                            <p class="admin-prod-sku">{{ p.sku }}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="admin-prod-category-tag" :style="{
+                                        background: getColorCategoria(categorias.indexOf(p.categoria)).bg,
+                                        color: getColorCategoria(categorias.indexOf(p.categoria)).text,
+                                        borderColor: getColorCategoria(categorias.indexOf(p.categoria)).border
+                                    }">
+                                        <span class="admin-prod-category-dot-small"
+                                            :style="{ background: getColorCategoria(categorias.indexOf(p.categoria)).dot }"></span>
+                                        {{ p.categoria }}
+                                    </span>
+                                </td>
+                                <td style="font-size:0.8rem;color:var(--muted)">{{ p.marca || '—' }}</td>
+                                <td>
+                                    <span class="admin-prod-price">{{ money(p.precio) }}</span>
+                                </td>
+                                <td>
+                                    <div class="admin-prod-stock-indicator" :class="{
+                                        'admin-prod-stock-indicator--danger': p.stock <= 0,
+                                        'admin-prod-stock-indicator--warning': p.stock > 0 && p.stock <= 5,
+                                        'admin-prod-stock-indicator--success': p.stock > 5
+                                    }">
+                                        <div class="admin-prod-stock-bar">
+                                            <div class="admin-prod-stock-bar__fill" :style="{
+                                                width: p.stock > 100 ? '100%' : (p.stock / 100) * 100 + '%',
+                                                background: p.stock <= 0 ? '#EF4444' : p.stock <= 5 ? '#F59E0B' : '#10B981'
+                                            }"></div>
+                                        </div>
+                                        <span class="admin-prod-stock-value">{{ p.stock <= 0 ? 'Sin stock' : p.stock }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="admin-prod-status-badge" :class="{
+                                        'admin-prod-status-badge--active': p.esta_activo,
+                                        'admin-prod-status-badge--inactive': !p.esta_activo
+                                    }">
+                                        <span class="admin-prod-status-dot"></span>
+                                        {{ p.esta_activo ? 'Activo' : 'Inactivo' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="admin-prod-actions">
+                                        <Link :href="route('admin.productos.show', p.id)"
+                                            class="admin-prod-action-btn admin-prod-action-btn--view" title="Ver detalles">
+                                            <i class="pi pi-eye"></i>
+                                        </Link>
+                                        <Link :href="route('admin.productos.edit', p.id)"
+                                            class="admin-prod-action-btn admin-prod-action-btn--edit" title="Editar">
+                                            <i class="pi pi-pencil"></i>
+                                        </Link>
+                                        <button @click="eliminarProducto(p)" class="admin-prod-action-btn admin-prod-action-btn--delete"
+                                            title="Eliminar">
+                                            <i class="pi pi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="!productos.data?.length">
+                                <td colspan="7">
+                                    <div class="admin-prod-empty-state">
+                                        <div class="admin-prod-empty-state__icon">
+                                            <i class="pi pi-box"></i>
+                                        </div>
+                                        <h4>No se encontraron productos</h4>
+                                        <p>Prueba ajustando los filtros o crea un nuevo producto</p>
+                                        <Link :href="route('admin.productos.create')" class="admin-prod-empty-state__btn">
+                                            <i class="pi pi-plus"></i>
+                                            Crear producto
+                                        </Link>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div v-if="productos.last_page > 1" class="admin-prod-table-footer">
+                    <Pagination :data="productos" />
                 </div>
             </div>
 
-            <!-- Tabla completa -->
-            <div class="admin-card overflow-hidden flex flex-col justify-between">
-                <div class="flex flex-col flex-1">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-list text-brand"></i> Catálogo completo</span>
-                    </div>
-
-                    <!-- Filtros -->
-                    <div class="flex flex-wrap items-center gap-3 px-6 py-5">
-                        <div class="relative flex-1 min-w-[180px]">
-                            <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                            <input v-model="q" type="text" placeholder="Buscar por nombre o SKU..." class="admin-input pl-10 py-2.5">
+            <!-- ============================================================ -->
+            <!-- DESGLOSE POR CATEGORÍA -->
+            <!-- ============================================================ -->
+            <div class="admin-prod-sidebar-card">
+                <div class="admin-prod-sidebar-card__header">
+                    <div class="admin-prod-sidebar-card__header-left">
+                        <div class="admin-prod-sidebar-icon">
+                            <i class="pi pi-th-large"></i>
                         </div>
-                        <select v-model="categoria" class="admin-input w-auto py-2.5">
-                            <option value="">Todas las categorías</option>
-                            <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
-                        </select>
-                        <select v-model="estado" class="admin-input w-auto py-2.5">
-                            <option value="">Todos los estados</option>
-                            <option value="activo">Activo</option>
-                            <option value="inactivo">Inactivo</option>
-                            <option value="sin_stock">Sin stock</option>
-                        </select>
-                    </div>
-
-                    <!-- Tabla -->
-                    <div class="overflow-x-auto flex-1 flex flex-col">
-                        <table class="min-w-full text-sm">
-                            <thead class="bg-gray-50 border-y border-gray-200">
-                                <tr class="text-gray-600 uppercase tracking-wide text-xs">
-                                    <th class="px-6 py-4 text-left">Producto</th>
-                                    <th class="px-4 py-4 text-left">Categoría</th>
-                                    <th class="px-4 py-4 text-left">Marca</th>
-                                    <th class="px-4 py-4 text-left">Precio</th>
-                                    <th class="px-4 py-4 text-left">Stock</th>
-                                    <th class="px-4 py-4 text-left">Estado</th>
-                                    <th class="px-6 py-4 text-center">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                <tr v-for="p in productos.data" :key="p.id" class="hover:bg-gray-50 transition">
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center gap-3 min-w-0">
-                                            <div class="rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0 overflow-hidden" style="width:40px;height:40px">
-                                                <img v-if="p.imagen" :src="p.imagen" class="w-full h-full object-cover" />
-                                                <i v-else class="pi pi-image text-sm"></i>
-                                            </div>
-                                            <div class="min-w-0">
-                                                <p class="font-semibold text-gray-900 truncate" style="max-width:180px" :title="p.nombre">{{ p.nombre }}</p>
-                                                <p class="text-[11px] text-gray-400">{{ p.sku }}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-4 text-gray-600 text-xs whitespace-nowrap">{{ p.categoria }}</td>
-                                    <td class="px-4 py-4 text-gray-600 text-xs whitespace-nowrap">{{ p.marca || '—' }}</td>
-                                    <td class="px-4 py-4 text-gray-800 text-xs font-semibold whitespace-nowrap">{{ money(p.precio) }}</td>
-                                    <td class="px-4 py-4 text-xs whitespace-nowrap" :class="p.stock <= 0 ? 'text-red-600 font-semibold' : 'text-gray-600'">
-                                        {{ p.stock <= 0 ? 'Sin stock' : p.stock }}
-                                    </td>
-                                    <td class="px-4 py-4">
-                                        <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="p.esta_activo ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-gray-50 text-gray-500 border border-gray-200'">
-                                            {{ p.esta_activo ? 'Activo' : 'Inactivo' }}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="flex justify-center gap-2">
-                                            <Link :href="route('admin.productos.show', p.id)" class="admin-table-action text-gray-600">
-                                                <i class="pi pi-eye"></i>
-                                            </Link>
-                                            <Link :href="route('admin.productos.edit', p.id)" class="admin-table-action text-gray-600">
-                                                <i class="pi pi-pencil"></i>
-                                            </Link>
-                                            <button @click="eliminarProducto(p)" class="admin-table-action text-red-600 hover:bg-red-50">
-                                                <i class="pi pi-trash"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr v-if="!productos.data?.length">
-                                    <td colspan="7" class="text-center text-gray-400 py-12">No se encontraron productos.</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div>
+                            <h3>Desglose por categoría</h3>
+                            <p class="admin-prod-sidebar-subtitle">{{ porCategoria.length }} categorías</p>
+                        </div>
                     </div>
                 </div>
-
-                <div class="border-t border-gray-200 px-6 py-4">
-                    <Pagination :data="productos" />
+                <div class="admin-prod-category-grid">
+                    <div v-for="(c, index) in porCategoria" :key="c.categoria" class="admin-prod-category-item" :style="{
+                        background: getColorCategoria(index).bg,
+                        borderColor: getColorCategoria(index).border
+                    }">
+                        <div class="admin-prod-category-item__left">
+                            <span class="admin-prod-category-dot" :style="{ background: getColorCategoria(index).dot }"></span>
+                            <span class="admin-prod-category-name">{{ c.categoria }}</span>
+                        </div>
+                        <span class="admin-prod-category-count" :style="{ background: getColorCategoria(index).border, color: 'white' }">
+                            {{ c.cantidad }}
+                        </span>
+                    </div>
+                    <div v-if="!porCategoria.length" class="admin-prod-empty-categories">
+                        <i class="pi pi-folder-open"></i>
+                        <span>No hay categorías</span>
+                    </div>
                 </div>
             </div>
         </div>

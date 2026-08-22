@@ -130,202 +130,224 @@ const rolColorHeader = { admin: 'text-brand', moderador: 'text-blue-600', soport
         <template #title>Panel de Administrador</template>
         <template #breadcrumb>Dashboard &gt; Seguridad</template>
 
-        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
+        <div class="admin-reportes-page">
 
             <!-- Fila 1: Correo | Contraseña -->
-            <div class="admin-two-col-grid gap-6 mb-6 w-full">
+            <div class="admin-two-col-grid gap-6 mb-6 w-full items-stretch">
 
                 <!-- Correo electrónico -->
-                <div class="admin-card overflow-hidden">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-envelope text-brand"></i> Correo electrónico</span>
-                        <span class="text-xs" style="color:var(--muted)">{{ rolLabel[cuenta.rol] ?? cuenta.rol }}</span>
-                    </div>
+                <div class="admin-cobros-card min-w-0">
+                    <div>
+                        <div class="admin-cobros-card__header">
+                            <div class="admin-cobros-card__header-left">
+                                <div class="admin-cobros-header-icon"><i class="pi pi-envelope"></i></div>
+                                <h3>Correo electrónico</h3>
+                            </div>
+                            <span class="admin-dash-badge admin-dash-badge--rol-admin">
+                                <span class="admin-dash-badge-dot"></span>{{ rolLabel[cuenta.rol] ?? cuenta.rol }}
+                            </span>
+                        </div>
 
-                    <form @submit.prevent="guardarEmail" class="space-y-4 p-6">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Correo</label>
-                            <input v-model="emailForm.email" type="email" class="admin-input px-3 py-2.5" />
-                            <p v-if="emailForm.errors.email" class="text-red-600 text-xs mt-1">{{ emailForm.errors.email }}</p>
-                            <p v-if="!cuenta.email_verificado_en" class="text-amber-600 text-xs mt-1 flex items-center gap-1">
-                                <i class="pi pi-exclamation-triangle"></i> Correo sin verificar
-                            </p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Confirma tu contraseña actual</label>
-                            <input v-model="emailForm.password_actual" type="password" class="admin-input px-3 py-2.5" />
-                            <p v-if="emailForm.errors.password_actual" class="text-red-600 text-xs mt-1">{{ emailForm.errors.password_actual }}</p>
-                        </div>
-                        <button type="submit" :disabled="emailForm.processing" class="admin-btn-primary disabled:opacity-50">
-                            Guardar correo
-                        </button>
-                    </form>
+                        <form @submit.prevent="guardarEmail" class="flex flex-col gap-4" style="padding:1.5rem">
+                            <div class="admin-user-field">
+                                <label>Correo</label>
+                                <input v-model="emailForm.email" type="email" :class="{ 'admin-user-input-error': emailForm.errors.email }" />
+                                <p v-if="emailForm.errors.email" class="admin-user-error-text">{{ emailForm.errors.email }}</p>
+                                <p v-if="!cuenta.email_verificado_en" class="admin-user-hint" style="color:#D97706" >
+                                    <i class="pi pi-exclamation-triangle"></i> Correo sin verificar
+                                </p>
+                            </div>
+                            <div class="admin-user-field">
+                                <label>Confirma tu contraseña actual</label>
+                                <input v-model="emailForm.password_actual" type="password" :class="{ 'admin-user-input-error': emailForm.errors.password_actual }" />
+                                <p v-if="emailForm.errors.password_actual" class="admin-user-error-text">{{ emailForm.errors.password_actual }}</p>
+                            </div>
+                            <button type="submit" :disabled="emailForm.processing" class="admin-cobros-btn-primary" style="align-self:flex-start">
+                                Guardar correo
+                            </button>
+                        </form>
 
-                    <div class="mx-6 mb-6 pt-4 border-t border-gray-100 text-sm space-y-1.5">
-                        <div class="flex justify-between">
-                            <span class="text-gray-400">Último acceso</span>
-                            <span class="text-gray-700">{{ formatDate(cuenta.ultimo_acceso_en) }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-400">Última IP</span>
-                            <span class="text-gray-700">{{ cuenta.ultimo_acceso_ip || '—' }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-400">Cuenta creada</span>
-                            <span class="text-gray-700">{{ formatDate(cuenta.created_at) }}</span>
+                        <div class="admin-cobros-summary" style="border-top:1px solid var(--line);padding-top:1rem">
+                            <div class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Último acceso</span>
+                                <span class="admin-cobros-summary-value">{{ formatDate(cuenta.ultimo_acceso_en) }}</span>
+                            </div>
+                            <div class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Cuenta creada</span>
+                                <span class="admin-cobros-summary-value">{{ formatDate(cuenta.created_at) }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Contraseña -->
-                <div class="admin-card overflow-hidden">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-lock text-brand"></i> Contraseña</span>
-                    </div>
+                <div class="admin-cobros-card min-w-0">
+                    <div>
+                        <div class="admin-cobros-card__header">
+                            <div class="admin-cobros-card__header-left">
+                                <div class="admin-cobros-header-icon"><i class="pi pi-lock"></i></div>
+                                <h3>Contraseña</h3>
+                            </div>
+                        </div>
 
-                    <form @submit.prevent="cambiarPassword" class="space-y-4 p-6">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Contraseña actual</label>
-                            <input v-model="passwordForm.password_actual" type="password" class="admin-input px-3 py-2.5" />
-                            <p v-if="passwordForm.errors.password_actual" class="text-red-600 text-xs mt-1">{{ passwordForm.errors.password_actual }}</p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Contraseña nueva</label>
-                            <input v-model="passwordForm.password_nueva" type="password" placeholder="Mínimo 8 caracteres" class="admin-input px-3 py-2.5" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Confirmar contraseña nueva</label>
-                            <input v-model="passwordForm.password_nueva_confirmation" type="password" class="admin-input px-3 py-2.5" />
-                        </div>
-                        <button type="submit" :disabled="passwordForm.processing" class="admin-btn-primary disabled:opacity-50">
-                            Actualizar contraseña
-                        </button>
-                    </form>
+                        <form @submit.prevent="cambiarPassword" class="flex flex-col gap-4" style="padding:1.5rem">
+                            <div class="admin-user-field">
+                                <label>Contraseña actual</label>
+                                <input v-model="passwordForm.password_actual" type="password" :class="{ 'admin-user-input-error': passwordForm.errors.password_actual }" />
+                                <p v-if="passwordForm.errors.password_actual" class="admin-user-error-text">{{ passwordForm.errors.password_actual }}</p>
+                            </div>
+                            <div class="admin-user-field">
+                                <label>Contraseña nueva</label>
+                                <input v-model="passwordForm.password_nueva" type="password" placeholder="Mínimo 8 caracteres" />
+                            </div>
+                            <div class="admin-user-field">
+                                <label>Confirmar contraseña nueva</label>
+                                <input v-model="passwordForm.password_nueva_confirmation" type="password" />
+                            </div>
+                            <button type="submit" :disabled="passwordForm.processing" class="admin-cobros-btn-primary" style="align-self:flex-start">
+                                Actualizar contraseña
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
             <!-- Fila 2: Sesiones Activas | Registro de Actividad -->
-            <div class="admin-two-col-grid gap-6 mb-6 w-full">
+            <div class="admin-two-col-grid gap-6 mb-6 w-full items-stretch">
 
                 <!-- Sesiones Activas -->
-                <div class="admin-card overflow-hidden flex flex-col justify-between">
+                <div class="admin-cobros-card min-w-0">
                     <div>
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-desktop text-brand"></i> Sesiones Activas</span>
+                        <div class="admin-cobros-card__header">
+                            <div class="admin-cobros-card__header-left">
+                                <div class="admin-cobros-header-icon"><i class="pi pi-desktop"></i></div>
+                                <div>
+                                    <h3>Sesiones Activas</h3>
+                                    <p class="admin-cobros-header-subtitle">{{ sesionesActivas?.length || 0 }} dispositivos conectados</p>
+                                </div>
+                            </div>
                             <button v-if="sesionesActivas?.length > 1" @click="cerrarTodasSesiones" type="button"
-                                class="text-xs font-semibold text-brand hover:underline shrink-0">
+                                style="color:var(--brand)" class="text-xs font-semibold hover:underline shrink-0">
                                 Cerrar todas
                             </button>
                         </div>
-                        <p class="text-xs px-6 pt-4" style="color:var(--muted)">{{ sesionesActivas?.length || 0 }} dispositivos conectados</p>
 
-                        <ul class="space-y-3 p-6">
-                            <li v-for="s in sesionesActivas" :key="s.id" class="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-100">
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <div class="admin-icon-circle" style="width:40px;height:40px">
-                                        <i class="pi" :class="dispositivoIconos[s.tipo] || 'pi-desktop'"></i>
-                                    </div>
+                        <div class="admin-dash-list">
+                            <div v-for="s in sesionesActivas" :key="s.id" class="admin-dash-list-item">
+                                <div class="admin-dash-list-item__left">
+                                    <div class="admin-dash-list-icon"><i class="pi" :class="dispositivoIconos[s.tipo] || 'pi-desktop'"></i></div>
                                     <div class="min-w-0">
-                                        <p class="text-sm font-semibold text-gray-800 truncate">
+                                        <p class="admin-dash-list-title">
                                             {{ s.dispositivo }}
-                                            <span v-if="s.es_actual" class="ml-1 text-[10px] font-semibold text-green-600">· Este dispositivo</span>
+                                            <span v-if="s.es_actual" style="color:#059669" class="text-[10px] font-semibold ml-0.5">· Este dispositivo</span>
                                         </p>
-                                        <p class="text-xs text-gray-400 truncate">{{ s.navegador }} · {{ s.ubicacion || s.ip }}</p>
-                                        <p class="text-[11px] text-gray-400">Activo: {{ formatDate(s.ultima_actividad) }}</p>
+                                        <p class="admin-dash-list-meta truncate">{{ s.navegador }} · {{ s.ubicacion || s.ip }}</p>
+                                        <p class="admin-dash-list-meta">Activo: {{ formatDate(s.ultima_actividad) }}</p>
                                     </div>
                                 </div>
-                                <button v-if="!s.es_actual" @click="cerrarSesion(s)" title="Cerrar sesión" class="admin-table-action text-red-600 hover:bg-red-50 shrink-0">
-                                    <i class="pi pi-times text-xs"></i>
+                                <button v-if="!s.es_actual" @click="cerrarSesion(s)" title="Cerrar sesión" class="admin-cobros-action-btn admin-cobros-action-btn--refund shrink-0">
+                                    <i class="pi pi-times"></i>
                                 </button>
-                            </li>
-                            <li v-if="!sesionesActivas?.length" class="text-center py-8 text-gray-400 text-xs">
-                                No hay sesiones activas registradas.
-                            </li>
-                        </ul>
+                            </div>
+                            <div v-if="!sesionesActivas?.length" class="admin-cobros-empty">No hay sesiones activas registradas.</div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Registro de Actividad -->
-                <div class="admin-card overflow-hidden flex flex-col justify-between">
+                <div class="admin-cobros-card min-w-0">
                     <div>
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-history text-brand"></i> Registro de Actividad</span>
+                        <div class="admin-cobros-card__header">
+                            <div class="admin-cobros-card__header-left">
+                                <div class="admin-cobros-header-icon"><i class="pi pi-history"></i></div>
+                                <div>
+                                    <h3>Registro de Actividad</h3>
+                                    <p class="admin-cobros-header-subtitle">Últimas acciones realizadas en el panel</p>
+                                </div>
+                            </div>
                         </div>
-                        <p class="text-xs px-6 pt-4" style="color:var(--muted)">Últimas acciones realizadas en el panel</p>
 
-                        <ul class="space-y-3.5 p-6">
-                            <li v-for="r in registroActividad" :key="r.id" class="flex items-start gap-3">
-                                <div class="admin-icon-circle text-xs" style="width:36px;height:36px;min-width:36px">
-                                    <i class="pi" :class="accionIconos[r.tipo] || 'pi-bolt'"></i>
+                        <div class="admin-dash-list">
+                            <div v-for="r in registroActividad" :key="r.id" class="admin-dash-list-item" style="align-items:flex-start">
+                                <div class="admin-dash-list-item__left" style="align-items:flex-start">
+                                    <div class="admin-dash-list-icon"><i class="pi" :class="accionIconos[r.tipo] || 'pi-bolt'"></i></div>
+                                    <div class="min-w-0">
+                                        <p class="text-xs leading-snug" style="color:var(--ink)">
+                                            <span class="font-semibold">{{ r.admin }}</span> {{ r.detalle }}
+                                        </p>
+                                        <p class="admin-dash-list-meta mt-0.5">{{ formatDate(r.fecha) }}</p>
+                                    </div>
                                 </div>
-                                <div class="text-xs">
-                                    <p class="text-gray-800 leading-snug">
-                                        <span class="font-semibold">{{ r.admin }}</span> {{ r.detalle }}
-                                    </p>
-                                    <p class="text-[10px] text-gray-400 mt-0.5">{{ formatDate(r.fecha) }}</p>
-                                </div>
-                            </li>
-                            <li v-if="!registroActividad?.length" class="text-center py-8 text-gray-400 text-xs">
-                                Sin actividad registrada todavía.
-                            </li>
-                        </ul>
+                            </div>
+                            <div v-if="!registroActividad?.length" class="admin-cobros-empty">Sin actividad registrada todavía.</div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Fila 3 (solo super_admin): Administradores | Permisos y Roles -->
-            <div v-if="esSuperAdmin" class="admin-two-col-grid gap-6 w-full">
+            <div v-if="esSuperAdmin" class="admin-two-col-grid gap-6 w-full items-stretch">
 
                 <!-- Administradores -->
-                <div class="admin-card overflow-hidden">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-users text-brand"></i> Administradores</span>
-                        <span class="text-xs" style="color:var(--muted)">{{ administradores.length }} cuentas</span>
-                    </div>
-
-                    <ul class="space-y-3 p-6">
-                        <li v-for="a in administradores" :key="a.id" class="flex items-center justify-between gap-2">
-                            <div class="min-w-0">
-                                <p class="text-sm font-medium text-gray-800 truncate">{{ a.nombre }}</p>
-                                <p class="text-xs text-gray-400 truncate">{{ a.email }} · {{ rolLabel[a.rol] ?? a.rol }}</p>
-                                <p class="text-[11px] text-gray-400">Últ. acceso: {{ formatDate(a.ultimo_acceso_en) }}</p>
+                <div class="admin-cobros-card min-w-0">
+                    <div>
+                        <div class="admin-cobros-card__header">
+                            <div class="admin-cobros-card__header-left">
+                                <div class="admin-cobros-header-icon"><i class="pi pi-users"></i></div>
+                                <h3>Administradores</h3>
                             </div>
-                            <button @click="toggleActivo(a)" class="text-xs font-medium px-2.5 py-1 rounded-full shrink-0"
-                                :class="a.esta_activo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'">
-                                {{ a.esta_activo ? 'Activo' : 'Inactivo' }}
-                            </button>
-                        </li>
-                    </ul>
+                            <span class="admin-cobros-header-subtitle">{{ administradores.length }} cuentas</span>
+                        </div>
+
+                        <div class="admin-dash-list">
+                            <div v-for="a in administradores" :key="a.id" class="admin-dash-list-item">
+                                <div class="min-w-0">
+                                    <p class="admin-dash-list-title">{{ a.nombre }}</p>
+                                    <p class="admin-dash-list-meta truncate">{{ a.email }} · {{ rolLabel[a.rol] ?? a.rol }}</p>
+                                    <p class="admin-dash-list-meta">Últ. acceso: {{ formatDate(a.ultimo_acceso_en) }}</p>
+                                </div>
+                                <button @click="toggleActivo(a)" class="admin-dash-badge shrink-0" style="cursor:pointer;border:1.5px solid transparent"
+                                    :class="a.esta_activo ? 'admin-dash-badge--verificado' : 'admin-dash-badge--bloqueado'">
+                                    <span class="admin-dash-badge-dot"></span>{{ a.esta_activo ? 'Activo' : 'Inactivo' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Permisos y Roles -->
-                <div class="admin-card overflow-hidden">
-                    <div class="admin-card-header">
-                        <span class="admin-card-header-title"><i class="pi pi-sitemap text-brand"></i> Permisos y Roles</span>
-                    </div>
+                <div class="admin-cobros-card min-w-0">
+                    <div>
+                        <div class="admin-cobros-card__header">
+                            <div class="admin-cobros-card__header-left">
+                                <div class="admin-cobros-header-icon"><i class="pi pi-sitemap"></i></div>
+                                <h3>Permisos y Roles</h3>
+                            </div>
+                        </div>
 
-                    <div class="overflow-x-auto p-6" v-if="permisosRoles?.permisos?.length">
-                        <table class="w-full text-sm min-w-[420px]">
-                            <thead>
-                                <tr class="text-left text-gray-400 border-b border-gray-100 text-xs uppercase tracking-wider">
-                                    <th class="pb-2 font-semibold">Módulo</th>
-                                    <th v-for="rol in permisosRoles.roles" :key="rol" class="pb-2 font-semibold text-center" :class="rolColorHeader[rol]">
-                                        {{ rolLabel[rol] ?? rol }}
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-50">
-                                <tr v-for="p in permisosRoles.permisos" :key="p.clave">
-                                    <td class="py-2.5 text-gray-700">{{ p.nombre }}</td>
-                                    <td v-for="rol in permisosRoles.roles" :key="rol" class="py-2.5 text-center">
-                                        <i v-if="permisosRoles.matriz[rol]?.[p.clave]" class="pi pi-check text-green-600"></i>
-                                        <i v-else class="pi pi-times text-gray-300"></i>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div class="overflow-x-auto" style="padding:1.5rem" v-if="permisosRoles?.permisos?.length">
+                            <table class="admin-cobros-table min-w-[420px]">
+                                <thead>
+                                    <tr>
+                                        <th>Módulo</th>
+                                        <th v-for="rol in permisosRoles.roles" :key="rol" class="text-center" :class="rolColorHeader[rol]">
+                                            {{ rolLabel[rol] ?? rol }}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="p in permisosRoles.permisos" :key="p.clave">
+                                        <td class="text-gray-700">{{ p.nombre }}</td>
+                                        <td v-for="rol in permisosRoles.roles" :key="rol" class="text-center">
+                                            <i v-if="permisosRoles.matriz[rol]?.[p.clave]" class="pi pi-check text-green-600"></i>
+                                            <i v-else class="pi pi-times text-gray-300"></i>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p v-else class="admin-cobros-empty">Aún no hay permisos configurados.</p>
                     </div>
-                    <p v-else class="text-center py-8 text-gray-400 text-xs">Aún no hay permisos configurados.</p>
                 </div>
             </div>
 

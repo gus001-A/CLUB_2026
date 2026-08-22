@@ -1,7 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useToast } from '@/composables/useToast';
 
 const props = defineProps({
@@ -15,7 +15,7 @@ const form = useForm({
     sku: props.producto.sku || '',
     nombre: props.producto.nombre || '',
     descripcion: props.producto.descripcion || '',
-    categoria: props.producto.categoria || props.categorias[0] || '',
+    categoria: props.producto.categoria || props.categorias?.[0] || '',
     marca: props.producto.marca || '',
     precio: props.producto.precio || '',
     stock: props.producto.stock ?? 0,
@@ -24,6 +24,24 @@ const form = useForm({
     variantes: {},
     imagenes_nuevas: [],
 });
+
+const descripcionMax = 500;
+
+const precioFormateado = computed(() => {
+    const valor = Number(form.precio);
+    if (!form.precio || Number.isNaN(valor) || valor <= 0) return null;
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(valor);
+});
+
+const camposFaltantes = computed(() => {
+    const faltan = [];
+    if (!form.nombre.trim()) faltan.push('nombre');
+    if (!form.sku.trim()) faltan.push('SKU');
+    if (!form.categoria) faltan.push('categoría');
+    if (form.precio === '' || form.precio === null || Number(form.precio) <= 0) faltan.push('precio');
+    return faltan;
+});
+const formularioValido = computed(() => camposFaltantes.value.length === 0);
 
 // --- Etiquetas ---
 const nuevaEtiqueta = ref('');
@@ -59,25 +77,59 @@ function construirVariantes() {
     return obj;
 }
 
-// --- Imágenes existentes (URLs ya guardadas, se pueden quitar) + nuevas (archivos) ---
+// --- Imágenes: existentes (URLs ya guardadas, se pueden quitar) + nuevas (archivos) ---
+const MAX_IMAGENES = 8;
+const MAX_TAMANO_MB = 5;
 const imagenesExistentes = ref([...(props.producto.imagenes || [])]);
+const previewsNuevas = ref([]);
+
+function totalImagenes() {
+    return imagenesExistentes.value.length + previewsNuevas.value.length;
+}
+
 function quitarExistente(i) {
     imagenesExistentes.value.splice(i, 1);
 }
 
-const previewsNuevas = ref([]);
 function onImagenesChange(e) {
     const archivos = Array.from(e.target.files || []);
-    form.imagenes_nuevas = [...form.imagenes_nuevas, ...archivos];
-    previewsNuevas.value = [...previewsNuevas.value, ...archivos.map((f) => URL.createObjectURL(f))];
+    const validos = [];
+
+    for (const archivo of archivos) {
+        if (!archivo.type.startsWith('image/')) {
+            toast.error(`"${archivo.name}" no es una imagen válida.`);
+            continue;
+        }
+        if (archivo.size > MAX_TAMANO_MB * 1024 * 1024) {
+            toast.error(`"${archivo.name}" supera los ${MAX_TAMANO_MB}MB.`);
+            continue;
+        }
+        validos.push(archivo);
+    }
+
+    const espacioDisponible = MAX_IMAGENES - totalImagenes();
+    if (validos.length > espacioDisponible) {
+        toast.error(`Máximo ${MAX_IMAGENES} imágenes por producto.`);
+        validos.splice(Math.max(espacioDisponible, 0));
+    }
+
+    form.imagenes_nuevas = [...form.imagenes_nuevas, ...validos];
+    previewsNuevas.value = [...previewsNuevas.value, ...validos.map((f) => URL.createObjectURL(f))];
     e.target.value = '';
 }
+
 function quitarNueva(i) {
+    URL.revokeObjectURL(previewsNuevas.value[i]);
     form.imagenes_nuevas.splice(i, 1);
     previewsNuevas.value.splice(i, 1);
 }
 
 function guardar() {
+    if (!formularioValido.value) {
+        toast.error(`Faltan campos obligatorios: ${camposFaltantes.value.join(', ')}.`);
+        return;
+    }
+
     // OJO: PATCH con multipart/form-data no lo puede leer PHP — hay que
     // mandarlo como POST con _method spoof y forceFormData.
     form.transform((data) => ({
@@ -94,163 +146,219 @@ function guardar() {
 </script>
 
 <template>
+
     <Head :title="`Editar ${producto.nombre}`" />
 
     <AdminLayout>
         <template #title>Editar Producto</template>
-        <template #breadcrumb>Dashboard &gt; Productos &gt; {{ producto.nombre }}</template>
+        <template #breadcrumb>Dashboard / Productos / {{ producto.nombre }}</template>
 
-        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
-
-            <Link :href="route('admin.productos.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
-                <i class="pi pi-arrow-left text-xs"></i> Volver a Productos
+        <div class="admin-prod-form-page">
+            <!-- Botón volver -->
+            <Link :href="route('admin.productos.show', producto.id)" class="admin-prod-back-link">
+                <i class="pi pi-arrow-left"></i>
+                Volver al producto
             </Link>
 
-            <form @submit.prevent="guardar" class="admin-producto-show-grid gap-6 w-full">
-
-                <!-- Columna izquierda: datos del producto -->
-                <div class="min-w-0 flex flex-col gap-6" style="grid-area:izquierda">
-
-                    <div class="admin-card overflow-hidden">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-info-circle text-brand"></i> Información básica</span>
+            <!-- ============================================================ -->
+            <!-- GRID PRINCIPAL: FORMULARIO | ETIQUETAS + VARIANTES + IMÁGENES -->
+            <!-- ============================================================ -->
+            <div class="admin-prod-form-grid">
+                <!-- COLUMNA IZQUIERDA: FORMULARIO PRINCIPAL -->
+                <div class="admin-prod-form">
+                    <!-- Cabecera -->
+                    <div class="admin-prod-form-header">
+                        <div class="admin-prod-form-header__icon">
+                            <i class="pi pi-pencil"></i>
                         </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6">
-                            <div class="sm:col-span-2">
-                                <label class="text-xs font-semibold text-gray-600">Nombre</label>
-                                <input v-model="form.nombre" type="text" class="admin-input mt-1" />
-                                <p v-if="form.errors.nombre" class="text-xs text-red-500 mt-1">{{ form.errors.nombre }}</p>
-                            </div>
-                            <div>
-                                <label class="text-xs font-semibold text-gray-600">SKU</label>
-                                <input v-model="form.sku" type="text" class="admin-input mt-1" />
-                                <p v-if="form.errors.sku" class="text-xs text-red-500 mt-1">{{ form.errors.sku }}</p>
-                            </div>
-                            <div>
-                                <label class="text-xs font-semibold text-gray-600">Marca</label>
-                                <input v-model="form.marca" type="text" class="admin-input mt-1" />
-                            </div>
-                            <div>
-                                <label class="text-xs font-semibold text-gray-600">Categoría</label>
-                                <select v-model="form.categoria" class="admin-input mt-1">
-                                    <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
-                                </select>
-                                <p v-if="form.errors.categoria" class="text-xs text-red-500 mt-1">{{ form.errors.categoria }}</p>
-                            </div>
-                            <div>
-                                <label class="text-xs font-semibold text-gray-600">Precio (MXN)</label>
-                                <input v-model="form.precio" type="number" min="0" step="0.01" class="admin-input mt-1" />
-                                <p v-if="form.errors.precio" class="text-xs text-red-500 mt-1">{{ form.errors.precio }}</p>
-                            </div>
-                            <div>
-                                <label class="text-xs font-semibold text-gray-600">Stock</label>
-                                <input v-model="form.stock" type="number" min="0" class="admin-input mt-1" />
-                                <p v-if="form.errors.stock" class="text-xs text-red-500 mt-1">{{ form.errors.stock }}</p>
-                            </div>
-                            <div class="flex items-center gap-2 pt-6">
-                                <input id="esta_activo" v-model="form.esta_activo" type="checkbox" class="w-4 h-4 rounded text-brand focus:ring-brand" />
-                                <label for="esta_activo" class="text-sm text-gray-700">Producto activo (visible en la tienda)</label>
-                            </div>
-                            <div class="sm:col-span-2">
-                                <label class="text-xs font-semibold text-gray-600">Descripción</label>
-                                <textarea v-model="form.descripcion" rows="4" class="admin-input mt-1 resize-none"></textarea>
-                            </div>
+                        <div>
+                            <h1>Editar Producto</h1>
+                            <p>{{ producto.nombre }}</p>
                         </div>
                     </div>
 
-                    <!-- Etiquetas -->
-                    <div class="admin-card overflow-hidden">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-hashtag text-brand"></i> Etiquetas</span>
+                    <!-- Campos -->
+                    <div class="admin-prod-form-body">
+                        <!-- Nombre -->
+                        <div class="admin-prod-field">
+                            <label>Nombre del producto <span class="admin-prod-required">*</span></label>
+                            <input v-model="form.nombre" type="text" placeholder="Ej. Aceite de masaje relajante"
+                                :class="{ 'admin-prod-input-error': form.errors.nombre }" />
+                            <p v-if="form.errors.nombre" class="admin-prod-error-text">{{ form.errors.nombre }}</p>
                         </div>
-                        <div class="p-6">
-                            <div class="flex gap-2">
-                                <input v-model="nuevaEtiqueta" type="text" class="admin-input" placeholder="Escribe y presiona Enter..." @keydown.enter.prevent="agregarEtiqueta" />
-                                <button type="button" @click="agregarEtiqueta" class="admin-btn-secondary flex-none" style="padding:0.5rem 1rem">Agregar</button>
+
+                        <!-- Descripción -->
+                        <div class="admin-prod-field">
+                            <div class="admin-prod-field-header">
+                                <label>Descripción</label>
+                                <span class="admin-prod-char-count">{{ form.descripcion.length }}/{{ descripcionMax }}</span>
                             </div>
-                            <div v-if="form.etiquetas.length" class="flex flex-wrap gap-2 mt-3">
-                                <span v-for="(et, i) in form.etiquetas" :key="i" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-brand/10 text-brand">
+                            <textarea v-model="form.descripcion" rows="3" :maxlength="descripcionMax"
+                                placeholder="Describe el producto..."></textarea>
+                            <p v-if="form.errors.descripcion" class="admin-prod-error-text">{{ form.errors.descripcion }}</p>
+                        </div>
+
+                        <!-- SKU, Categoría, Marca -->
+                        <div class="admin-prod-field-row">
+                            <div class="admin-prod-field">
+                                <label>SKU <span class="admin-prod-required">*</span></label>
+                                <input v-model="form.sku" type="text" placeholder="Ej. ACE-001"
+                                    :class="{ 'admin-prod-input-error': form.errors.sku }" />
+                                <p v-if="form.errors.sku" class="admin-prod-error-text">{{ form.errors.sku }}</p>
+                            </div>
+                            <div class="admin-prod-field">
+                                <label>Categoría <span class="admin-prod-required">*</span></label>
+                                <select v-model="form.categoria" :class="{ 'admin-prod-input-error': form.errors.categoria }">
+                                    <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
+                                </select>
+                                <p v-if="form.errors.categoria" class="admin-prod-error-text">{{ form.errors.categoria }}</p>
+                            </div>
+                            <div class="admin-prod-field">
+                                <label>Marca <span class="admin-prod-optional">(opcional)</span></label>
+                                <input v-model="form.marca" type="text" placeholder="Ej. L'Occitane" />
+                            </div>
+                        </div>
+
+                        <!-- Precio y Stock -->
+                        <div class="admin-prod-field-row">
+                            <div class="admin-prod-field">
+                                <label>Precio (MXN) <span class="admin-prod-required">*</span></label>
+                                <div class="admin-prod-price-input">
+                                    <span class="admin-prod-price-symbol">$</span>
+                                    <input v-model="form.precio" type="number" min="0" step="0.01" placeholder="0.00"
+                                        :class="{ 'admin-prod-input-error': form.errors.precio }" />
+                                    <span v-if="precioFormateado" class="admin-prod-price-format">{{ precioFormateado }}</span>
+                                </div>
+                                <p v-if="form.errors.precio" class="admin-prod-error-text">{{ form.errors.precio }}</p>
+                            </div>
+                            <div class="admin-prod-field">
+                                <label>Stock</label>
+                                <input v-model="form.stock" type="number" min="0"
+                                    :class="{ 'admin-prod-input-error': form.errors.stock }" />
+                                <p v-if="form.errors.stock" class="admin-prod-error-text">{{ form.errors.stock }}</p>
+                                <p v-else-if="Number(form.stock) === 0" class="admin-prod-stock-warning">
+                                    <i class="pi pi-info-circle"></i> Producto agotado
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Activo -->
+                        <div class="admin-prod-field">
+                            <label class="admin-prod-toggle-label">
+                                <span class="admin-prod-toggle">
+                                    <input v-model="form.esta_activo" type="checkbox" />
+                                    <span class="admin-prod-toggle-slider"></span>
+                                </span>
+                                <span class="admin-prod-toggle-text">
+                                    <i class="pi pi-eye"></i> Producto activo
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA: ETIQUETAS + VARIANTES + IMÁGENES -->
+                <div class="admin-prod-sidebar">
+                    <!-- Etiquetas -->
+                    <div class="admin-prod-sidebar-card">
+                        <div class="admin-prod-sidebar-card__header">
+                            <h3><i class="pi pi-hashtag"></i> Etiquetas</h3>
+                        </div>
+                        <div class="admin-prod-sidebar-card__body">
+                            <div class="admin-prod-tag-input">
+                                <input v-model="nuevaEtiqueta" type="text" placeholder="Escribe y presiona Enter..."
+                                    @keydown.enter.prevent="agregarEtiqueta" />
+                                <button type="button" @click="agregarEtiqueta">
+                                    <i class="pi pi-plus"></i>
+                                </button>
+                            </div>
+                            <div v-if="form.etiquetas.length" class="admin-prod-tags">
+                                <span v-for="(et, i) in form.etiquetas" :key="i" class="admin-prod-tag">
                                     {{ et }}
-                                    <button type="button" @click="quitarEtiqueta(i)"><i class="pi pi-times text-[10px]"></i></button>
+                                    <button type="button" @click="quitarEtiqueta(i)">
+                                        <i class="pi pi-times"></i>
+                                    </button>
                                 </span>
                             </div>
+                            <p v-else class="admin-prod-hint">Ayudan a que el producto aparezca en más búsquedas</p>
                         </div>
                     </div>
 
                     <!-- Variantes -->
-                    <div class="admin-card overflow-hidden">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-sliders-h text-brand"></i> Variantes</span>
+                    <div class="admin-prod-sidebar-card">
+                        <div class="admin-prod-sidebar-card__header">
+                            <h3><i class="pi pi-sliders-h"></i> Variantes</h3>
                         </div>
-                        <div class="p-6 space-y-3">
-                            <p class="text-xs" style="color:var(--muted)">Opcional. Ej. "Talla" con valores "S, M, L".</p>
-                            <div v-for="(fila, i) in filasVariantes" :key="i" class="flex gap-2 items-start">
-                                <input v-model="fila.nombre" type="text" class="admin-input" style="flex:1" placeholder="Nombre (ej. Talla)" />
-                                <input v-model="fila.valores" type="text" class="admin-input" style="flex:2" placeholder="Valores separados por coma" />
-                                <button type="button" @click="quitarFilaVariante(i)" class="admin-table-action text-red-600 flex-none"><i class="pi pi-trash text-xs"></i></button>
+                        <div class="admin-prod-sidebar-card__body">
+                            <p class="admin-prod-hint">Opcional. Ej. "Talla" con valores "S, M, L".</p>
+                            <div class="admin-prod-variants">
+                                <div v-for="(fila, i) in filasVariantes" :key="i" class="admin-prod-variant-row">
+                                    <input v-model="fila.nombre" type="text" placeholder="Nombre" />
+                                    <input v-model="fila.valores" type="text"
+                                        placeholder="Valores (separados por coma)" />
+                                    <button type="button" @click="quitarFilaVariante(i)">
+                                        <i class="pi pi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
-                            <button type="button" @click="agregarFilaVariante" class="text-xs font-semibold text-brand hover:underline">
-                                <i class="pi pi-plus text-[10px]"></i> Agregar variante
+                            <button type="button" @click="agregarFilaVariante" class="admin-prod-add-variant">
+                                <i class="pi pi-plus"></i> Agregar variante
                             </button>
                         </div>
                     </div>
-                </div>
 
-                <!-- Columna derecha: imágenes + guardar -->
-                <div class="min-w-0 flex flex-col gap-6" style="grid-area:derecha">
-
-                    <div class="admin-card overflow-hidden">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-images text-brand"></i> Imágenes</span>
+                    <!-- Imágenes -->
+                    <div class="admin-prod-sidebar-card">
+                        <div class="admin-prod-sidebar-card__header">
+                            <h3><i class="pi pi-images"></i> Imágenes</h3>
+                            <span class="admin-prod-count">{{ totalImagenes() }}/{{ MAX_IMAGENES }}</span>
                         </div>
-                        <div class="p-6">
-                            <div v-if="imagenesExistentes.length" class="mb-4">
-                                <p class="text-xs font-semibold text-gray-600 mb-2">Actuales</p>
-                                <div class="grid grid-cols-3 gap-2">
-                                    <div v-for="(src, i) in imagenesExistentes" :key="src" class="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                                        <img :src="src" class="w-full h-full object-cover" />
-                                        <button type="button" @click="quitarExistente(i)" class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center text-[10px]">
-                                            <i class="pi pi-times"></i>
-                                        </button>
-                                    </div>
+                        <div class="admin-prod-sidebar-card__body">
+                            <div v-if="imagenesExistentes.length" class="admin-prod-image-grid">
+                                <div v-for="(src, i) in imagenesExistentes" :key="src" class="admin-prod-image-item">
+                                    <img :src="src" />
+                                    <span v-if="i === 0" class="admin-prod-image-badge">Portada</span>
+                                    <button type="button" @click="quitarExistente(i)" class="admin-prod-image-btn admin-prod-image-btn--delete">
+                                        <i class="pi pi-times"></i>
+                                    </button>
                                 </div>
                             </div>
 
-                            <label class="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-6 cursor-pointer hover:bg-gray-50 transition" style="border-color:var(--line)">
-                                <i class="pi pi-cloud-upload text-2xl text-gray-400"></i>
-                                <span class="text-xs text-gray-500">Agregar más imágenes</span>
-                                <input type="file" accept="image/*" multiple class="hidden" @change="onImagenesChange" />
+                            <label v-if="totalImagenes() < MAX_IMAGENES" class="admin-prod-upload-area">
+                                <i class="pi pi-cloud-upload"></i>
+                                <span>Agregar imágenes</span>
+                                <small>JPG o PNG, máx. {{ MAX_TAMANO_MB }}MB c/u</small>
+                                <input type="file" accept="image/*" multiple @change="onImagenesChange" />
                             </label>
-                            <p v-if="form.errors.imagenes" class="text-xs text-red-500 mt-2">{{ form.errors.imagenes }}</p>
+                            <p v-if="form.errors.imagenes" class="admin-prod-error-text">{{ form.errors.imagenes }}</p>
 
-                            <div v-if="previewsNuevas.length" class="mt-4">
-                                <p class="text-xs font-semibold text-gray-600 mb-2">Nuevas</p>
-                                <div class="grid grid-cols-3 gap-2">
-                                    <div v-for="(src, i) in previewsNuevas" :key="i" class="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                                        <img :src="src" class="w-full h-full object-cover" />
-                                        <button type="button" @click="quitarNueva(i)" class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center text-[10px]">
+                            <template v-if="previewsNuevas.length">
+                                <p class="admin-prod-hint" style="margin-top:0.6rem">Nuevas (se suben al guardar)</p>
+                                <div class="admin-prod-image-grid">
+                                    <div v-for="(src, i) in previewsNuevas" :key="i" class="admin-prod-image-item">
+                                        <img :src="src" />
+                                        <button type="button" @click="quitarNueva(i)" class="admin-prod-image-btn admin-prod-image-btn--delete">
                                             <i class="pi pi-times"></i>
                                         </button>
                                     </div>
                                 </div>
-                            </div>
+                            </template>
+                            <p v-if="imagenesExistentes.length" class="admin-prod-hint">La primera imagen es la portada</p>
                         </div>
                     </div>
 
-                    <div class="admin-card overflow-hidden">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-bolt text-brand"></i> Acciones</span>
-                        </div>
-                        <div class="flex flex-col gap-2.5 p-6">
-                            <button type="submit" :disabled="form.processing" class="admin-btn-primary justify-center">
-                                <i class="pi pi-check text-xs"></i> Guardar cambios
-                            </button>
-                            <Link :href="route('admin.productos.show', producto.id)" class="admin-btn-secondary text-center">Cancelar</Link>
-                        </div>
+                    <!-- Botones de acción -->
+                    <div class="admin-prod-action-card">
+                        <button type="submit" :disabled="form.processing" class="admin-prod-btn-save" @click="guardar">
+                            <i class="pi" :class="form.processing ? 'pi-spin pi-spinner' : 'pi-save'"></i>
+                            {{ form.processing ? 'Guardando...' : 'Guardar cambios' }}
+                        </button>
+                        <Link :href="route('admin.productos.show', producto.id)" class="admin-prod-btn-cancel">
+                            Cancelar
+                        </Link>
                     </div>
                 </div>
-
-            </form>
+            </div>
         </div>
     </AdminLayout>
 </template>

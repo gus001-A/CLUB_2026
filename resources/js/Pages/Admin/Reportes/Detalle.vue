@@ -32,10 +32,20 @@ const chartData = computed(() => props.chart && {
             label: props.titulo,
             data: props.chart.data,
             borderColor: '#C81E3A',
-            backgroundColor: 'rgba(200, 30, 58, 0.08)',
+            backgroundColor: (context) => {
+                const { ctx, chartArea } = context.chart;
+                if (!chartArea) return 'rgba(200, 30, 58, 0.08)';
+                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                gradient.addColorStop(0, 'rgba(200, 30, 58, 0.28)');
+                gradient.addColorStop(1, 'rgba(200, 30, 58, 0)');
+                return gradient;
+            },
             fill: true,
             tension: 0.35,
             pointRadius: 2,
+            pointBackgroundColor: '#fff',
+            pointBorderColor: '#C81E3A',
+            pointBorderWidth: 2,
         },
     ],
 });
@@ -51,6 +61,8 @@ function urlExportar(formato) {
     return route(`admin.reportes.exportar-${formato}`, { tipo: props.tipo, periodo: props.periodo });
 }
 
+const periodos = [['dia', 'Día'], ['semana', 'Semana'], ['mes', 'Mes'], ['anio', 'Año']];
+
 const LIMITE_PREVIA = 8;
 const filasPrevia = computed(() => props.filas.slice(0, LIMITE_PREVIA));
 const hayMasFilas = computed(() => props.filas.length > LIMITE_PREVIA);
@@ -63,29 +75,29 @@ const hayMasFilas = computed(() => props.filas.length > LIMITE_PREVIA);
         <template #title>{{ titulo }}</template>
         <template #breadcrumb>Dashboard &gt; Reportes &gt; {{ titulo }}</template>
 
-        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4 space-y-6">
-
-            <Link :href="route('admin.reportes.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand">
-                <i class="pi pi-arrow-left text-xs"></i> Volver a Reportes
+        <div class="admin-reportes-page">
+            <Link :href="route('admin.reportes.index')" class="admin-user-back-link">
+                <i class="pi pi-arrow-left"></i>
+                Volver a Reportes
             </Link>
 
             <!-- Encabezado + periodo + descargas -->
-            <div class="admin-card overflow-hidden">
-                <div class="admin-card-header">
-                    <span class="admin-card-header-title"><i class="pi" :class="catalogo.icono" style="color:var(--brand)"></i> {{ titulo }}</span>
+            <div class="admin-cobros-card mb-6">
+                <div class="admin-cobros-card__header">
+                    <div class="admin-cobros-card__header-left">
+                        <div class="admin-cobros-header-icon"><i class="pi" :class="catalogo.icono"></i></div>
+                        <h3>{{ titulo }}</h3>
+                    </div>
                 </div>
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4" style="padding:1.5rem">
                     <div>
                         <p class="text-sm text-gray-600">{{ catalogo.descripcion }}</p>
-                        <p v-if="periodoLabel" class="text-xs mt-0.5" style="color:var(--muted)">Periodo: {{ periodoLabel }} · Generado el {{ generadoEn }}</p>
-                        <p v-else class="text-xs mt-0.5" style="color:var(--muted)">Generado el {{ generadoEn }}</p>
+                        <p v-if="periodoLabel" class="admin-cobros-header-subtitle" style="margin-top:0.2rem">Periodo: {{ periodoLabel }} · Generado el {{ generadoEn }}</p>
+                        <p v-else class="admin-cobros-header-subtitle" style="margin-top:0.2rem">Generado el {{ generadoEn }}</p>
 
-                        <div v-if="catalogo.usaPeriodo" class="flex items-center gap-2 mt-3">
-                            <button v-for="p in [['dia','Día'],['semana','Semana'],['mes','Mes'],['anio','Año']]" :key="p[0]"
-                                type="button" @click="cambiarPeriodo(p[0])"
-                                class="px-3 py-1.5 rounded-full text-xs font-semibold transition"
-                                :class="periodo === p[0] ? 'text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'"
-                                :style="periodo === p[0] ? 'background:var(--brand)' : ''">
+                        <div v-if="catalogo.usaPeriodo" class="admin-user-toggle-group" style="margin-top:0.9rem">
+                            <button v-for="p in periodos" :key="p[0]" type="button" @click="cambiarPeriodo(p[0])"
+                                class="admin-user-toggle-pill" :class="{ 'admin-user-toggle-pill--active': periodo === p[0] }" style="padding:0.4rem 0.9rem;font-size:0.75rem">
                                 {{ p[1] }}
                             </button>
                         </div>
@@ -94,7 +106,7 @@ const hayMasFilas = computed(() => props.filas.length > LIMITE_PREVIA);
                         <a :href="urlExportar('pdf')" class="admin-btn-secondary">
                             <i class="pi pi-file-pdf text-red-500"></i> PDF
                         </a>
-                        <a :href="urlExportar('excel')" class="admin-btn-primary">
+                        <a :href="urlExportar('excel')" class="admin-cobros-btn-primary">
                             <i class="pi pi-file-excel"></i> Excel
                         </a>
                     </div>
@@ -102,53 +114,59 @@ const hayMasFilas = computed(() => props.filas.length > LIMITE_PREVIA);
             </div>
 
             <!-- Resumen -->
-            <div v-if="resumen?.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div v-for="r in resumen" :key="r.label" class="admin-card px-5 py-4">
-                    <p class="text-xs" style="color:var(--muted)">{{ r.label }}</p>
-                    <p class="text-lg font-bold text-gray-900 mt-1">{{ r.valor }}</p>
+            <div v-if="resumen?.length" class="admin-cobros-tipo-grid" style="padding:0;margin-bottom:1.5rem">
+                <div v-for="r in resumen" :key="r.label" class="admin-cobros-tipo-tile">
+                    <p class="admin-cobros-tipo-label">{{ r.label }}</p>
+                    <p class="admin-cobros-tipo-value">{{ r.valor }}</p>
                 </div>
             </div>
 
             <!-- Gráfica (solo si el reporte trae una) -->
-            <div v-if="chart" class="admin-card overflow-hidden">
-                <div class="admin-card-header">
-                    <span class="admin-card-header-title"><i class="pi pi-chart-line text-brand"></i> Tendencia</span>
+            <div v-if="chart" class="admin-cobros-card mb-6">
+                <div class="admin-cobros-card__header">
+                    <div class="admin-cobros-card__header-left">
+                        <div class="admin-cobros-header-icon"><i class="pi pi-chart-line"></i></div>
+                        <h3>Tendencia</h3>
+                    </div>
                 </div>
-                <div class="p-6" style="height:280px">
+                <div style="padding:1.5rem;height:280px">
                     <Line :data="chartData" :options="chartOptions" />
                 </div>
             </div>
 
             <!-- Tabla (vista previa — el detalle completo va en PDF/Excel) -->
-            <div class="admin-card overflow-hidden">
-                <div class="admin-card-header">
-                    <span class="admin-card-header-title"><i class="pi pi-table text-brand"></i> Vista Previa</span>
-                    <span v-if="hayMasFilas" class="text-xs" style="color:var(--muted)">
+            <div class="admin-cobros-card">
+                <div class="admin-cobros-card__header">
+                    <div class="admin-cobros-card__header-left">
+                        <div class="admin-cobros-header-icon"><i class="pi pi-table"></i></div>
+                        <h3>Vista Previa</h3>
+                    </div>
+                    <span v-if="hayMasFilas" class="admin-cobros-header-subtitle">
                         Mostrando {{ filasPrevia.length }} de {{ filas.length }}
                     </span>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm min-w-[500px]">
+                    <table class="admin-cobros-table min-w-[500px]">
                         <thead>
-                            <tr class="border-y text-xs uppercase tracking-wider" style="border-color:var(--line);background:var(--surface);color:var(--muted)">
-                                <th v-for="(col, i) in columnas" :key="col" class="px-6 py-3 font-semibold" :class="i > 0 ? 'text-right' : 'text-left'">{{ col }}</th>
+                            <tr>
+                                <th v-for="(col, i) in columnas" :key="col" :class="i > 0 ? 'text-right' : 'text-left'">{{ col }}</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            <tr v-for="(fila, i) in filasPrevia" :key="i" class="hover:bg-gray-50/50 transition">
-                                <td v-for="(valor, j) in fila" :key="j" class="px-6 py-3" :class="j > 0 ? 'text-right text-gray-700' : 'font-medium text-gray-900'">
+                        <tbody>
+                            <tr v-for="(fila, i) in filasPrevia" :key="i">
+                                <td v-for="(valor, j) in fila" :key="j" :class="j > 0 ? 'text-right text-gray-700' : 'font-medium text-gray-900'">
                                     {{ valor }}
                                 </td>
                             </tr>
                             <tr v-if="!filas.length">
-                                <td :colspan="columnas.length" class="py-10 text-center text-gray-400 text-xs">No hay datos para este periodo.</td>
+                                <td :colspan="columnas.length" class="admin-cobros-empty">No hay datos para este periodo.</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
                 <!-- Aviso + CTA de descarga si hay más datos de los que se muestran -->
-                <div v-if="hayMasFilas" class="border-t px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3" style="border-color:var(--line);background:var(--surface)">
+                <div v-if="hayMasFilas" class="admin-cobros-table-footer flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <p class="text-sm text-gray-600">
                         Hay <strong>{{ filas.length }}</strong> filas en total — descarga el reporte completo para verlas todas.
                     </p>
@@ -156,13 +174,12 @@ const hayMasFilas = computed(() => props.filas.length > LIMITE_PREVIA);
                         <a :href="urlExportar('pdf')" class="admin-btn-secondary" style="padding:0.4rem 0.85rem;font-size:0.8rem">
                             <i class="pi pi-file-pdf text-red-500"></i> PDF
                         </a>
-                        <a :href="urlExportar('excel')" class="admin-btn-primary" style="padding:0.4rem 0.85rem;font-size:0.8rem">
+                        <a :href="urlExportar('excel')" class="admin-cobros-btn-primary" style="padding:0.4rem 0.85rem;font-size:0.8rem">
                             <i class="pi pi-file-excel"></i> Excel
                         </a>
                     </div>
                 </div>
             </div>
-
         </div>
     </AdminLayout>
 </template>

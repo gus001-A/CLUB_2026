@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Evento;
 use App\Models\Reserva;
-use App\Models\FotosEvento;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -230,9 +229,6 @@ class EventoController extends Controller
                 'estado' => ['required', 'in:borrador,publicado,cancelado,completo'],
                 'imagen' => ['nullable', 'image', 'max:10240'],
                 'destacado' => ['boolean'],
-                'fotos' => ['nullable', 'array'],
-                'fotos.*.file' => ['nullable', 'image', 'max:10240'],
-                'fotos.*.nombre' => ['nullable', 'string', 'max:255'],
             ]);
 
             Log::info('Datos validados', ['user_id' => auth()->id()]);
@@ -251,63 +247,6 @@ class EventoController extends Controller
                 Log::info('Imagen principal guardada', [
                     'evento_id' => $evento->id,
                     'path' => $imagenPath
-                ]);
-            }
-
-            // ============================================================
-            // PROCESAR FOTOS ADICIONALES
-            // ============================================================
-            if ($request->has('fotos') && is_array($request->fotos)) {
-                $fotosGuardadas = 0;
-                foreach ($request->fotos as $index => $fotoData) {
-                    try {
-                        $nombreImagen = $fotoData['nombre'] ?? 'foto_' . ($index + 1);
-
-                        if (isset($fotoData['file']) && $fotoData['file'] instanceof \Illuminate\Http\UploadedFile) {
-                            $path = $fotoData['file']->store('eventos/' . $evento->id . '/fotos', 'public');
-                            
-                            FotosEvento::create([
-                                'evento_id' => $evento->id,
-                                'nombre_imagen' => $nombreImagen,
-                                'ruta' => $path,
-                                'usuario_subio' => auth()->id(),
-                                'fecha_subida' => now(),
-                            ]);
-                            
-                            $fotosGuardadas++;
-                            Log::debug('Foto adicional guardada', [
-                                'evento_id' => $evento->id,
-                                'path' => $path,
-                                'nombre' => $nombreImagen
-                            ]);
-                        } elseif (isset($fotoData['url']) && filter_var($fotoData['url'], FILTER_VALIDATE_URL)) {
-                            // Si se proporciona una URL (para compatibilidad)
-                            FotosEvento::create([
-                                'evento_id' => $evento->id,
-                                'nombre_imagen' => $nombreImagen,
-                                'ruta' => $fotoData['url'],
-                                'usuario_subio' => auth()->id(),
-                                'fecha_subida' => now(),
-                            ]);
-                            
-                            $fotosGuardadas++;
-                            Log::debug('Foto adicional guardada como URL', [
-                                'evento_id' => $evento->id,
-                                'url' => $fotoData['url']
-                            ]);
-                        }
-                    } catch (\Exception $e) {
-                        Log::error('Error al guardar foto adicional', [
-                            'evento_id' => $evento->id,
-                            'index' => $index,
-                            'error' => $e->getMessage()
-                        ]);
-                    }
-                }
-                
-                Log::info('Fotos adicionales guardadas', [
-                    'evento_id' => $evento->id,
-                    'total_guardadas' => $fotosGuardadas
                 ]);
             }
 
@@ -338,29 +277,8 @@ class EventoController extends Controller
         // Cargar el organizador
         $evento->load('organizador:id,nombre');
 
-        // Cargar las fotos del evento
-        $fotos = $evento->fotos()->orderBy('created_at', 'asc')->get()->map(function($foto) {
-            return [
-                'id' => $foto->id,
-                'nombre_imagen' => $foto->nombre_imagen,
-                'ruta' => $foto->ruta,
-                'url_completa' => asset('storage/' . $foto->ruta),
-                'fecha_subida' => $foto->fecha_subida_formateada,
-                'usuario_subio' => $foto->usuario ? $foto->usuario->name : 'Desconocido',
-            ];
-        });
-
-        // Estadísticas de fotos
-        $statsFotos = [
-            'total' => $fotos->count(),
-            'fecha_primera' => $fotos->first() ? $fotos->first()['fecha_subida'] : null,
-            'fecha_ultima' => $fotos->last() ? $fotos->last()['fecha_subida'] : null,
-        ];
-
         $data = $evento->toArray();
         $data['imagen'] = $evento->imagen_url;
-        $data['fotos'] = $fotos;
-        $data['stats_fotos'] = $statsFotos;
 
         return Inertia::render('Admin/Eventos/Show', [
             'evento' => $data,
@@ -371,17 +289,6 @@ class EventoController extends Controller
     {
         $data = $evento->toArray();
         $data['imagen'] = $evento->imagen_url;
-
-        // Cargar fotos existentes
-        $fotos = $evento->fotos()->orderBy('created_at', 'asc')->get()->map(function($foto) {
-            return [
-                'id' => $foto->id,
-                'nombre_imagen' => $foto->nombre_imagen,
-                'ruta' => $foto->ruta,
-                'url_completa' => asset('storage/' . $foto->ruta),
-            ];
-        });
-        $data['fotos'] = $fotos;
 
         return Inertia::render('Admin/Eventos/Edit', [
             'evento' => $data,
@@ -411,11 +318,6 @@ class EventoController extends Controller
                 'imagen' => ['nullable', 'image', 'max:10240'],
                 'destacado' => ['boolean'],
                 'eliminar_imagen' => ['boolean'],
-                'fotos' => ['nullable', 'array'],
-                'fotos.*.file' => ['nullable', 'image', 'max:10240'],
-                'fotos.*.nombre' => ['nullable', 'string', 'max:255'],
-                'fotos_eliminar' => ['nullable', 'array'],
-                'fotos_eliminar.*' => ['integer', 'exists:fotos_eventos,id'],
             ]);
 
             Log::info('Datos validados para update', ['evento_id' => $evento->id]);
@@ -447,82 +349,6 @@ class EventoController extends Controller
             // Actualizar evento
             $evento->update($data);
             Log::info('Evento actualizado', ['evento_id' => $evento->id]);
-
-            // ============================================================
-            // ELIMINAR FOTOS SELECCIONADAS
-            // ============================================================
-            if ($request->has('fotos_eliminar') && is_array($request->fotos_eliminar)) {
-                $fotosEliminar = FotosEvento::whereIn('id', $request->fotos_eliminar)
-                    ->where('evento_id', $evento->id)
-                    ->get();
-
-                foreach ($fotosEliminar as $foto) {
-                    // Eliminar archivo físico
-                    if (Storage::disk('public')->exists($foto->ruta)) {
-                        Storage::disk('public')->delete($foto->ruta);
-                        Log::debug('Foto eliminada del storage', [
-                            'evento_id' => $evento->id,
-                            'foto_id' => $foto->id,
-                            'path' => $foto->ruta
-                        ]);
-                    }
-                    $foto->delete();
-                }
-                
-                Log::info('Fotos eliminadas', [
-                    'evento_id' => $evento->id,
-                    'cantidad' => $fotosEliminar->count()
-                ]);
-            }
-
-            // ============================================================
-            // AGREGAR NUEVAS FOTOS
-            // ============================================================
-            if ($request->has('fotos') && is_array($request->fotos)) {
-                $fotosGuardadas = 0;
-                foreach ($request->fotos as $index => $fotoData) {
-                    // Si la foto tiene ID, es una foto existente (no hacer nada)
-                    if (isset($fotoData['id'])) {
-                        continue;
-                    }
-
-                    try {
-                        $nombreImagen = $fotoData['nombre'] ?? 'foto_' . ($index + 1);
-
-                        if (isset($fotoData['file']) && $fotoData['file'] instanceof \Illuminate\Http\UploadedFile) {
-                            $path = $fotoData['file']->store('eventos/' . $evento->id . '/fotos', 'public');
-                            
-                            FotosEvento::create([
-                                'evento_id' => $evento->id,
-                                'nombre_imagen' => $nombreImagen,
-                                'ruta' => $path,
-                                'usuario_subio' => auth()->id(),
-                                'fecha_subida' => now(),
-                            ]);
-                            
-                            $fotosGuardadas++;
-                            Log::debug('Nueva foto adicional guardada', [
-                                'evento_id' => $evento->id,
-                                'path' => $path,
-                                'nombre' => $nombreImagen
-                            ]);
-                        }
-                    } catch (\Exception $e) {
-                        Log::error('Error al guardar nueva foto en update', [
-                            'evento_id' => $evento->id,
-                            'index' => $index,
-                            'error' => $e->getMessage()
-                        ]);
-                    }
-                }
-                
-                if ($fotosGuardadas > 0) {
-                    Log::info('Nuevas fotos guardadas en update', [
-                        'evento_id' => $evento->id,
-                        'total_guardadas' => $fotosGuardadas
-                    ]);
-                }
-            }
 
             Log::info('=== FIN update evento - EXITOSO ===', ['evento_id' => $evento->id]);
 

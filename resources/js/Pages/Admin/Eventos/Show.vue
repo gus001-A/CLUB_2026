@@ -1,6 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 import { useFormatters } from '@/composables/useFormatters';
@@ -13,25 +14,30 @@ const { confirm } = useConfirm();
 const toast = useToast();
 const { money, formatDate } = useFormatters();
 
-const estadoColores = {
-    en_vivo: 'bg-red-50 text-red-600 border border-red-200',
-    programado: 'bg-orange-50 text-orange-600 border border-orange-200',
-    completado: 'bg-emerald-50 text-emerald-600 border border-emerald-200',
-    cancelado: 'bg-gray-50 text-gray-600 border border-gray-200',
-    borrador: 'bg-yellow-50 text-yellow-600 border border-yellow-200',
-};
-const estadoLabel = {
-    en_vivo: 'En vivo',
-    programado: 'Programado',
-    completado: 'Completado',
-    cancelado: 'Cancelado',
-    borrador: 'Borrador',
-};
+const estadoLabel = { en_vivo: 'En vivo', programado: 'Programado', completado: 'Completado', cancelado: 'Cancelado', borrador: 'Borrador' };
+const tipoLabel = { vip: 'VIP', general: 'General' };
 
-const tipoColores = {
-    vip: 'bg-rose-50 text-rose-600 border border-rose-100',
-    general: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-};
+// ============================================================
+// COMPUTADAS
+// ============================================================
+const publicacionColor = computed(() => {
+    const colores = {
+        publicado: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500', label: 'Publicado' },
+        borrador: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', dot: 'bg-amber-500', label: 'Borrador' },
+        cancelado: { bg: 'bg-gray-50', text: 'text-gray-500', border: 'border-gray-200', dot: 'bg-gray-400', label: 'Cancelado' },
+        completo: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500', label: 'Completado' },
+    };
+    return colores[props.evento.estado] ?? colores.borrador;
+});
+
+const estadoActualColor = computed(() => {
+    const colores = {
+        en_vivo: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', dot: 'bg-red-500', label: 'En vivo ahora' },
+        programado: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', dot: 'bg-orange-500', label: 'Programado' },
+        completado: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500', label: 'Completado' },
+    };
+    return colores[props.evento.estado_display] ?? colores.programado;
+});
 
 async function eliminar() {
     const ok = await confirm(`Esto eliminará el evento "${props.evento.nombre}". Esta acción no se puede deshacer.`, {
@@ -52,179 +58,201 @@ async function eliminar() {
 
     <AdminLayout>
         <template #title>{{ evento.nombre }}</template>
-        <template #breadcrumb>Dashboard &gt; Eventos &gt; {{ evento.nombre }}</template>
+        <template #breadcrumb>Dashboard / Eventos / {{ evento.nombre }}</template>
 
-        <div class="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
-
-            <Link :href="route('admin.eventos.index')" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand mb-4">
-                <i class="pi pi-arrow-left text-xs"></i> Volver a Eventos
+        <div class="admin-prod-show-page">
+            <!-- Botón volver -->
+            <Link :href="route('admin.eventos.index')" class="admin-prod-back-link">
+                <i class="pi pi-arrow-left"></i>
+                <span>Volver a Eventos</span>
             </Link>
 
-            <!-- Header compacto: la imagen real ya vive en la tarjeta "Archivos" de abajo,
-                 así que aquí solo un thumbnail chico + título + chips de datos rápidos. -->
-            <div class="admin-card overflow-hidden mb-6">
-                <div class="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div class="flex items-center gap-4 min-w-0">
-                        <div class="rounded-2xl bg-brand/10 text-brand flex items-center justify-center shrink-0 overflow-hidden" style="width:64px;height:64px">
-                            <img v-if="evento.imagen" :src="evento.imagen" class="w-full h-full object-cover" />
-                            <i v-else class="pi pi-calendar" style="font-size:1.5rem"></i>
+            <!-- ============================================================ -->
+            <!-- HEADER DEL EVENTO -->
+            <!-- ============================================================ -->
+            <div class="admin-prod-header">
+                <div class="admin-prod-header-content">
+                    <div class="admin-prod-header-left">
+                        <!-- Imagen -->
+                        <div class="admin-prod-header-image-wrapper">
+                            <div class="admin-prod-header-image-ring">
+                                <div class="admin-prod-header-image">
+                                    <img v-if="evento.imagen" :src="evento.imagen" :alt="evento.nombre"
+                                        @error="(e) => { e.target.src = '/images/placeholder-image.png' }" />
+                                    <div v-else class="admin-prod-header-placeholder">
+                                        <i class="pi pi-calendar"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="admin-prod-header-status-badge"
+                                :class="publicacionColor.bg + ' ' + publicacionColor.text + ' ' + publicacionColor.border">
+                                <span class="admin-prod-header-status-dot" :class="publicacionColor.dot"></span>
+                                {{ publicacionColor.label }}
+                            </div>
                         </div>
-                        <div class="min-w-0">
-                            <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2 flex-wrap">
-                                {{ evento.nombre }}
-                                <span v-if="evento.destacado" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 flex items-center gap-1">
-                                    <i class="pi pi-star-fill"></i> Destacado
-                                </span>
-                            </h1>
-                            <p class="text-sm text-gray-400 mt-0.5">{{ evento.categoria || 'Sin categoría asignada' }}</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2 shrink-0">
-                        <span class="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase" :class="tipoColores[evento.tipo]">{{ evento.tipo }}</span>
-                        <span class="px-3 py-1.5 rounded-lg text-xs font-semibold" :class="estadoColores[evento.estado_display]">
-                            {{ estadoLabel[evento.estado_display] }}
-                        </span>
-                    </div>
-                </div>
 
-                <!-- Detalles del evento -->
-                <div class="border-t border-gray-100 admin-evento-detalles-grid p-6">
-                    <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                        <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-calendar text-sm"></i></div>
-                        <div>
-                            <p class="text-[11px] text-gray-400 uppercase font-medium">Fecha</p>
-                            <p class="text-sm font-semibold text-gray-800">{{ formatDate(evento.fecha, { month: 'long' }) }}</p>
+                        <!-- Información -->
+                        <div class="admin-prod-header-info">
+                            <div class="admin-prod-header-name-row">
+                                <h1>
+                                    {{ evento.nombre }}
+                                    <i v-if="evento.destacado" class="pi pi-star-fill" style="color:#F59E0B;font-size:0.9rem;margin-left:0.3rem" title="Evento destacado"></i>
+                                </h1>
+                                <span class="admin-prod-header-sku">{{ tipoLabel[evento.tipo] }}</span>
+                            </div>
+
+                            <div class="admin-prod-header-meta">
+                                <span class="admin-prod-meta-item">
+                                    <i class="pi pi-map-marker"></i>
+                                    {{ evento.ciudad }}
+                                </span>
+                                <span class="admin-prod-meta-divider">•</span>
+                                <span v-if="evento.categoria" class="admin-prod-meta-item">
+                                    <i class="pi pi-folder"></i>
+                                    {{ evento.categoria }}
+                                </span>
+                                <span v-else class="admin-prod-meta-item admin-prod-meta-item--empty">
+                                    <i class="pi pi-folder"></i>
+                                    Sin categoría
+                                </span>
+                            </div>
+
+                            <div class="admin-prod-header-stats">
+                                <div class="admin-prod-stat-item">
+                                    <i class="pi pi-calendar"></i>
+                                    <span class="admin-prod-stat-value">{{ formatDate(evento.fecha, { month: 'long' }) }}</span>
+                                    <span class="admin-prod-stat-label">{{ evento.hora?.slice(0, 5) }}</span>
+                                </div>
+                                <div class="admin-prod-stat-divider"></div>
+                                <div class="admin-prod-stat-item">
+                                    <i class="pi pi-ticket"></i>
+                                    <span class="admin-prod-stat-value">{{ money(evento.precio) }}</span>
+                                    <span class="admin-prod-stat-label">precio</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                        <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-clock text-sm"></i></div>
-                        <div>
-                            <p class="text-[11px] text-gray-400 uppercase font-medium">Hora</p>
-                            <p class="text-sm font-semibold text-gray-800">{{ evento.hora?.slice(0, 5) }}</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                        <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-map-marker text-sm"></i></div>
-                        <div>
-                            <p class="text-[11px] text-gray-400 uppercase font-medium">Ciudad</p>
-                            <p class="text-sm font-semibold text-gray-800">{{ evento.ciudad }}</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                        <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-map text-sm"></i></div>
-                        <div>
-                            <p class="text-[11px] text-gray-400 uppercase font-medium">Zona / lugar</p>
-                            <p class="text-sm font-semibold text-gray-800">{{ evento.zona_ubicacion || '—' }}</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                        <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-ticket text-sm"></i></div>
-                        <div>
-                            <p class="text-[11px] text-gray-400 uppercase font-medium">Precio</p>
-                            <p class="text-sm font-semibold text-gray-800">{{ money(evento.precio) }}</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                        <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-users text-sm"></i></div>
-                        <div>
-                            <p class="text-[11px] text-gray-400 uppercase font-medium">Capacidad</p>
-                            <p class="text-sm font-semibold text-gray-800">{{ evento.capacidad || 'Ilimitada' }}</p>
-                        </div>
-                    </div>
-                    <div v-if="evento.codigo_vestimenta" class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                        <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-star text-sm"></i></div>
-                        <div>
-                            <p class="text-[11px] text-gray-400 uppercase font-medium">Código de vestimenta</p>
-                            <p class="text-sm font-semibold text-gray-800">{{ evento.codigo_vestimenta }}</p>
-                        </div>
-                    </div>
-                    <div v-if="evento.organizador" class="flex items-center gap-3 bg-gray-50/60 rounded-xl p-3">
-                        <div class="admin-icon-circle" style="width:40px;height:40px"><i class="pi pi-user text-sm"></i></div>
-                        <div>
-                            <p class="text-[11px] text-gray-400 uppercase font-medium">Organizado por</p>
-                            <p class="text-sm font-semibold text-gray-800">{{ evento.organizador.nombre }}</p>
+
+                    <div class="admin-prod-header-right">
+                        <div class="admin-prod-stock-badge"
+                            :class="estadoActualColor.bg + ' ' + estadoActualColor.text + ' ' + estadoActualColor.border">
+                            <span class="admin-prod-stock-dot" :class="estadoActualColor.dot"></span>
+                            <span class="admin-prod-stock-label">{{ estadoActualColor.label }}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="admin-evento-show-grid gap-6 w-full">
-
-                <!-- Columna izquierda: detalles -->
-                <div class="min-w-0 flex flex-col gap-6" style="grid-area:izquierda">
-
+            <!-- ============================================================ -->
+            <!-- GRID PRINCIPAL -->
+            <!-- ============================================================ -->
+            <div class="admin-prod-show-grid">
+                <!-- COLUMNA IZQUIERDA: INFORMACIÓN -->
+                <div class="admin-prod-show-left">
                     <!-- Descripción -->
-                    <div v-if="evento.descripcion" class="admin-card overflow-hidden">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-align-left text-brand"></i> Descripción</span>
+                    <div class="admin-prod-info-card admin-prod-info-card--highlight">
+                        <div class="admin-prod-info-card-header">
+                            <h3><i class="pi pi-align-left"></i> Descripción</h3>
                         </div>
-                        <p class="text-sm text-gray-600 leading-relaxed p-6">{{ evento.descripcion }}</p>
+                        <div class="admin-prod-info-card-body">
+                            <p v-if="evento.descripcion" class="admin-prod-description-text">
+                                {{ evento.descripcion }}
+                            </p>
+                            <div v-else class="admin-prod-inline-empty">
+                                <i class="pi pi-file-edit"></i>
+                                <span>No hay descripción disponible</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Archivos (imagen promocional, para verificar qué se subió de verdad) -->
-                    <div v-if="evento.imagen" class="admin-card overflow-hidden">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-folder text-brand"></i> Archivos (1)</span>
+                    <!-- Detalles del evento -->
+                    <div class="admin-prod-info-card">
+                        <div class="admin-prod-info-card-header">
+                            <h3><i class="pi pi-list"></i> Detalles</h3>
                         </div>
-                        <div class="p-6">
-                            <div class="rounded-xl overflow-hidden border border-gray-100 mx-auto" style="max-width:320px">
-                                <img :src="evento.imagen" class="w-full h-auto object-cover" style="max-height:320px" />
+                        <div class="admin-prod-info-card-body">
+                            <div class="admin-evento-detalles-grid">
+                                <div class="admin-user-data-item">
+                                    <div class="admin-user-data-icon"><i class="pi pi-map"></i></div>
+                                    <div>
+                                        <p class="admin-user-data-label">Zona / lugar</p>
+                                        <p class="admin-user-data-value">{{ evento.zona_ubicacion || '—' }}</p>
+                                    </div>
+                                </div>
+                                <div class="admin-user-data-item">
+                                    <div class="admin-user-data-icon"><i class="pi pi-users"></i></div>
+                                    <div>
+                                        <p class="admin-user-data-label">Capacidad</p>
+                                        <p class="admin-user-data-value">{{ evento.capacidad || 'Ilimitada' }}</p>
+                                    </div>
+                                </div>
+                                <div v-if="evento.codigo_vestimenta" class="admin-user-data-item">
+                                    <div class="admin-user-data-icon"><i class="pi pi-star"></i></div>
+                                    <div>
+                                        <p class="admin-user-data-label">Código de vestimenta</p>
+                                        <p class="admin-user-data-value">{{ evento.codigo_vestimenta }}</p>
+                                    </div>
+                                </div>
+                                <div v-if="evento.organizador" class="admin-user-data-item">
+                                    <div class="admin-user-data-icon"><i class="pi pi-user"></i></div>
+                                    <div>
+                                        <p class="admin-user-data-label">Organizado por</p>
+                                        <p class="admin-user-data-value">{{ evento.organizador.nombre }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Imagen -->
+                    <div v-if="evento.imagen" class="admin-prod-info-card">
+                        <div class="admin-prod-info-card-header">
+                            <h3><i class="pi pi-image"></i> Imagen</h3>
+                        </div>
+                        <div class="admin-prod-info-card-body">
+                            <div class="admin-prod-gallery-grid">
+                                <div class="admin-prod-gallery-item admin-prod-gallery-item--principal">
+                                    <img :src="evento.imagen" :alt="evento.nombre" />
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Columna derecha: estado + detalles + acciones -->
-                <div class="min-w-0 h-full flex flex-col gap-6" style="grid-area:derecha">
-
-                    <!-- Estado destacado -->
-                    <div class="admin-card overflow-hidden">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-info-circle text-brand"></i> Estado actual</span>
+                <!-- COLUMNA DERECHA: ESTADO + ACCIONES -->
+                <div class="admin-prod-show-right">
+                    <!-- Estado actual -->
+                    <div class="admin-prod-info-card" style="text-align:center;padding:1.5rem">
+                        <div :class="estadoActualColor.bg + ' ' + estadoActualColor.text"
+                            style="width:64px;height:64px;border-radius:50%;margin:0 auto 0.8rem;display:flex;align-items:center;justify-content:center;font-size:1.5rem">
+                            <i class="pi" :class="{
+                                'pi-wifi': evento.estado_display === 'en_vivo',
+                                'pi-clock': evento.estado_display === 'programado',
+                                'pi-check-circle': evento.estado_display === 'completado',
+                            }"></i>
                         </div>
-                        <div class="p-6 text-center">
-                            <div
-                                class="mx-auto mb-3 rounded-full flex items-center justify-center"
-                                :class="estadoColores[evento.estado_display]"
-                                style="width:64px;height:64px"
-                            >
-                                <i
-                                    class="pi"
-                                    style="font-size:1.5rem"
-                                    :class="{
-                                        'pi-wifi': evento.estado_display === 'en_vivo',
-                                        'pi-clock': evento.estado_display === 'programado',
-                                        'pi-check-circle': evento.estado_display === 'completado',
-                                        'pi-ban': evento.estado_display === 'cancelado',
-                                        'pi-file': evento.estado_display === 'borrador',
-                                    }"
-                                ></i>
-                            </div>
-                            <p class="text-lg font-bold text-gray-900">{{ estadoLabel[evento.estado_display] }}</p>
-                            <p v-if="evento.estado_display === 'en_vivo'" class="text-xs text-red-500 mt-1">Este evento está en curso ahora mismo</p>
-                            <p v-else-if="evento.estado_display === 'programado'" class="text-xs text-gray-400 mt-1">Aún no llega la hora de inicio</p>
-                        </div>
+                        <p style="font-size:1.05rem;font-weight:700;color:var(--ink)">{{ estadoLabel[evento.estado_display] }}</p>
+                        <p v-if="evento.estado_display === 'en_vivo'" class="text-xs mt-1" style="color:#DC2626">Este evento está en curso ahora mismo</p>
+                        <p v-else-if="evento.estado_display === 'programado'" class="admin-user-hint mt-1">Aún no llega la hora de inicio</p>
                     </div>
 
                     <!-- Acciones -->
-                    <div class="admin-card overflow-hidden flex-1 flex flex-col">
-                        <div class="admin-card-header">
-                            <span class="admin-card-header-title"><i class="pi pi-bolt text-brand"></i> Acciones</span>
-                        </div>
-                        <div class="flex-1 flex flex-col justify-center gap-2.5 p-6">
-                            <Link :href="route('admin.eventos.edit', evento.id)" class="admin-btn-primary">
-                                <i class="pi pi-pencil text-xs"></i> Editar evento
+                    <div class="admin-prod-actions-card">
+                        <div class="admin-prod-actions-card-header"><h3><i class="pi pi-bolt"></i> Acciones</h3></div>
+                        <div class="admin-prod-actions-card-body">
+                            <Link :href="route('admin.eventos.edit', evento.id)" class="admin-prod-btn-edit">
+                                <i class="pi pi-pencil"></i><span>Editar evento</span>
                             </Link>
-                            <button @click="eliminar" class="border border-red-200 text-red-600 hover:bg-red-50 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2">
-                                <i class="pi pi-trash text-xs"></i> Eliminar evento
+                            <button @click="eliminar" class="admin-prod-btn-delete">
+                                <i class="pi pi-trash"></i><span>Eliminar evento</span>
                             </button>
-                            <Link :href="route('admin.eventos.index')" class="admin-btn-secondary text-center">
-                                Volver al listado
+                            <div class="admin-prod-actions-divider"></div>
+                            <Link :href="route('admin.eventos.index')" class="admin-prod-btn-back">
+                                <i class="pi pi-arrow-left"></i><span>Volver al listado</span>
                             </Link>
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     </AdminLayout>
