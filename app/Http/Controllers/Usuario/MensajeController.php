@@ -9,6 +9,7 @@ use App\Models\Chat;
 use App\Models\Mensaje;
 use App\Models\Coincidencia;
 use App\Models\Fotos;
+use App\Models\Notificacion;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -164,15 +165,25 @@ class MensajeController extends Controller
                     $intereses = $this->formatearIntereses($perfil->intereses);
                 }
 
+                // 🔧 FIX: el frontend (Mensajes.vue) lee "conv.usuario.nombre",
+                // "conv.usuario.avatar", "conv.usuario.verificado" — un objeto
+                // ANIDADO — pero antes se mandaban esos campos sueltos en la
+                // raíz. También el frontend lee "no_leidos" y "ultimo_mensaje"
+                // (snake_case), no "noLeidos"/"preview" — por eso el badge de
+                // no leídos y el preview del último mensaje se veían vacíos
+                // aunque los datos sí existieran en la respuesta.
                 $resultados[] = [
                     'id' => $chat->id,
-                    'nombre' => $nombreMostrar,
-                    'avatar' => $avatar,
+                    'usuario' => [
+                        'id' => $otroUsuario->id,
+                        'nombre' => $nombreMostrar,
+                        'avatar' => $avatar,
+                        'verificado' => $perfil && $perfil->esta_verificado ?? false,
+                    ],
                     'enLinea' => $otroUsuario->esta_activo ?? false,
-                    'verificado' => $perfil && $perfil->esta_verificado ?? false,
-                    'preview' => $preview,
+                    'ultimo_mensaje' => $preview,
                     'tiempo' => $tiempo,
-                    'noLeidos' => $noLeidos,
+                    'no_leidos' => $noLeidos,
                     'ciudad' => $perfil->ubicacion_ciudad ?? $otroUsuario->ciudad ?? 'Ciudad no especificada',
                     'distancia' => 'A ' . rand(1, 5) . ' km de ti',
                     'compatibilidad' => $coincidencia->compatibilidad ?? 85,
@@ -231,11 +242,21 @@ class MensajeController extends Controller
                     'id' => $mensaje->id,
                     'remitente_id' => $mensaje->remitente_id,
                     'texto' => $mensaje->texto,
+                    // 🔧 FIX: el template revisa "msg.tipo === 'texto'" para decidir
+                    // si pinta la burbuja de texto — sin este campo, NINGÚN mensaje
+                    // se mostraba (la condición nunca era verdadera). Este backend
+                    // por ahora solo maneja mensajes de texto, así que el valor es
+                    // fijo — si más adelante agregas fotos/video/audio aquí, hay que
+                    // calcularlo según el mensaje real.
+                    'tipo' => 'texto',
                     'esRemitente' => $esRemitente,
                     'nombre' => $nombre,
                     'avatar' => $avatar,
                     'tiempo' => $this->formatearTiempo($mensaje->created_at),
                     'fecha' => $mensaje->created_at->format('H:i'),
+                    // 🔧 FIX: el template hace "new Date(msg.created_at)" para pintar
+                    // la hora — sin este campo, siempre daba "Invalid Date".
+                    'created_at' => $mensaje->created_at->toIso8601String(),
                     'leido' => $mensaje->leido,
                     'leido_en' => $mensaje->leido_en,
                     'archivos_adjuntos' => $mensaje->archivos_adjuntos ?? [],
@@ -302,6 +323,19 @@ class MensajeController extends Controller
                 'ultimo_mensaje_en' => now()
             ]);
 
+            // 🔔 Notificar al OTRO participante de la conversación (no a quien envía)
+            $otroUsuarioId = $coincidencia->usuario_a_id === $user->id
+                ? $coincidencia->usuario_b_id
+                : $coincidencia->usuario_a_id;
+
+            Notificacion::crear(
+                usuarioId: $otroUsuarioId,
+                emisorId: $user->id,
+                tipo: 'mensaje',
+                mensaje: "<strong>{$user->nombre}</strong> te envió un mensaje",
+                link: '/mensajes',
+            );
+
             Log::info('Mensaje enviado', [
                 'mensaje_id' => $mensaje->id,
                 'chat_id' => $request->chat_id,
@@ -313,12 +347,14 @@ class MensajeController extends Controller
                 'mensaje' => [
                     'id' => $mensaje->id,
                     'texto' => $mensaje->texto,
+                    'tipo' => 'texto',
                     'remitente_id' => $mensaje->remitente_id,
                     'esRemitente' => true,
                     'nombre' => $user->nombre ?? $user->apodo ?? 'Usuario',
                     'avatar' => $user->avatar,
                     'tiempo' => $this->formatearTiempo($mensaje->created_at),
                     'fecha' => $mensaje->created_at->format('H:i'),
+                    'created_at' => $mensaje->created_at->toIso8601String(),
                     'leido' => $mensaje->leido,
                 ],
                 'message' => 'Mensaje enviado correctamente'

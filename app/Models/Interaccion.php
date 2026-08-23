@@ -17,6 +17,7 @@ class Interaccion extends Model
         'tipo',
         'comentario',
         'metadatos',
+        'publicacion_id', // Para diferenciar si es de una publicación
     ];
 
     protected $casts = [
@@ -37,6 +38,11 @@ class Interaccion extends Model
         return $this->belongsTo(User::class, 'usuario_id');
     }
 
+    public function publicacion()
+    {
+        return $this->belongsTo(Publicacion::class, 'publicacion_id');
+    }
+
     // Scopes
     public function scopeLikes($query)
     {
@@ -51,6 +57,16 @@ class Interaccion extends Model
     public function scopeVistas($query)
     {
         return $query->where('tipo', 'vista');
+    }
+
+    public function scopeCompartidos($query)
+    {
+        return $query->where('tipo', 'compartir');
+    }
+
+    public function scopeDePublicacion($query, $publicacionId)
+    {
+        return $query->where('publicacion_id', $publicacionId);
     }
 
     // Accesors
@@ -73,5 +89,33 @@ class Interaccion extends Model
     public function getEsComentarioAttribute()
     {
         return $this->tipo === 'comentario';
+    }
+
+    public function getEsVistaAttribute()
+    {
+        return $this->tipo === 'vista';
+    }
+
+    public function getEsCompartidoAttribute()
+    {
+        return $this->tipo === 'compartir';
+    }
+
+    // Helpers para el frontend
+    public function toArrayForFeed()
+    {
+        return [
+            'id' => $this->id,
+            'tipo' => $this->tipo,
+            'tipo_nombre' => $this->tipo_nombre,
+            'comentario' => $this->comentario,
+            'metadatos' => $this->metadatos,
+            'created_at' => $this->created_at->toIso8601String(),
+            'usuario' => [
+                'id' => $this->usuario->id,
+                'nombre' => $this->usuario->nombre ?? $this->usuario->name,
+                'avatar' => $this->usuario->avatar,
+            ]
+        ];
     }
 }

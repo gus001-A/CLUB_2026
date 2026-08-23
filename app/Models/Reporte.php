@@ -76,10 +76,20 @@ class Reporte extends Model
     public function getTipoNombreAttribute()
     {
         $tipos = [
-            'spam' => 'Spam',
+            'spam' => 'Spam o publicidad no deseada',
+            'lenguaje_inapropiado' => 'Lenguaje inapropiado u ofensivo',
+            'menor_edad' => 'Sospecha de menor de edad',
+            'acoso' => 'Acoso o intimidación',
+            'perfil_falso' => 'Perfil falso o suplantación de identidad',
+            'contenido_no_solicitado' => 'Contenido explícito no solicitado',
+            'amenazas' => 'Amenazas o violencia',
+            'estafa' => 'Intento de estafa o fraude',
+            'informacion_privada' => 'Compartió información privada sin consentimiento',
+            'discriminacion' => 'Discurso de odio o discriminación',
+            'venta_no_autorizada' => 'Venta de productos o servicios no autorizados',
+            // Compatibilidad con motivos previos ya guardados en la BD
             'inapropiado' => 'Contenido inapropiado',
             'falso' => 'Perfil falso',
-            'acoso' => 'Acoso',
             'otro' => 'Otro',
         ];
         return $tipos[$this->tipo] ?? $this->tipo;

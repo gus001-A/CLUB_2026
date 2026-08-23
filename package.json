@@ -11,8 +11,10 @@
         "autoprefixer": "^10.5.2",
         "axios": "^1.11.0",
         "concurrently": "^9.0.1",
+        "laravel-echo": "^2.4.0",
         "laravel-vite-plugin": "^2.1.0",
         "postcss": "^8.5.16",
+        "pusher-js": "^8.6.0",
         "tailwindcss": "^4.3.2",
         "vite": "^7.3.6",
         "ziggy-js": "^2.6.3"

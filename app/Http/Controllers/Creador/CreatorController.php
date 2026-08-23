@@ -7,17 +7,19 @@ use App\Models\User;
 use App\Models\Creador;
 use App\Models\Perfil;
 use App\Models\Fotos;
-use App\Models\Publicacion;
 use App\Models\Contenido;
 use App\Models\ConfiguracionMonetizacion;
 use App\Models\Suscripcion;
 use App\Models\Transaccion;
+use App\Models\Evento;
+use App\Models\Reserva;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class CreatorController extends Controller
 {
@@ -91,7 +93,6 @@ class CreatorController extends Controller
         ]);
     }
 
-
     /**
      * Muestra las ganancias del creador
      */
@@ -107,7 +108,6 @@ class CreatorController extends Controller
                 ->with('info', 'Completa el proceso para convertirte en creador.');
         }
 
-        // 🔥 CARGAR LA RELACIÓN PERFIL PARA TENER EL AVATAR
         $user->load(['perfil.fotos', 'creador.configuracionMonetizacion']);
         
         $creador = $user->creador;
@@ -143,7 +143,7 @@ class CreatorController extends Controller
         $gananciasNetas = $gananciasTotales - $comisionesTotales;
 
         // ============================================================
-        // 3. INGRESOS MENSUALES PARA LA GRÁFICA (6 meses) - EN MXN
+        // 3. INGRESOS MENSUALES PARA LA GRÁFICA (6 meses)
         // ============================================================
         $ingresosMensuales = [];
         $mesesLabels = [];
@@ -162,10 +162,10 @@ class CreatorController extends Controller
         }
 
         // ============================================================
-        // 4. TRANSACCIONES RECIENTES - CON AVATAR
+        // 4. TRANSACCIONES RECIENTES
         // ============================================================
         $transaccionesRecientes = Transaccion::where('creador_id', $creador->id)
-            ->with('usuario.perfil.fotos')
+            ->with('usuario')
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()
@@ -173,10 +173,9 @@ class CreatorController extends Controller
                 $usuario = $transaccion->usuario;
                 $nombreUsuario = $usuario ? $usuario->nombre : 'Anónimo';
                 
-                // 🔥 OBTENER AVATAR USANDO EL ACCESOR DEL MODELO
                 $avatar = null;
                 if ($usuario) {
-                    $avatar = $usuario->avatar; // Usa el accesor del modelo User
+                    $avatar = $usuario->avatar;
                 }
                 
                 $tipos = [
@@ -188,19 +187,10 @@ class CreatorController extends Controller
                 
                 $tipo = $tipos[$transaccion->tipo] ?? $transaccion->tipo;
                 
-                $tipoColor = match($transaccion->tipo) {
-                    'suscripcion' => 'green',
-                    'compra_contenido' => 'blue',
-                    'propina' => 'orange',
-                    'retiro' => 'red',
-                    default => 'gray',
-                };
-                
                 return [
                     'usuario' => $nombreUsuario,
                     'avatar' => $avatar,
                     'tipo' => $tipo,
-                    'tipoColor' => $tipoColor,
                     'descripcion' => $this->getDescripcionTransaccion($transaccion),
                     'monto' => '$' . number_format($transaccion->monto, 2) . ' MXN',
                     'fecha' => $transaccion->created_at->format('d/m/Y, H:i'),
@@ -248,14 +238,13 @@ class CreatorController extends Controller
             ->orderBy('created_at', 'asc')
             ->first();
 
-        // 🔥 MÉTODO DE COBRO - PENDIENTE
         $metodoCobro = [
             'nombre' => 'Pendiente de configurar',
             'email' => 'Configura tu método de cobro',
         ];
 
         // ============================================================
-        // 7. METRICAS PARA EL DASHBOARD - EN MXN
+        // 7. METRICAS PARA EL DASHBOARD
         // ============================================================
         $metricas = [
             [
@@ -325,15 +314,11 @@ class CreatorController extends Controller
             ],
         ];
 
-        // ============================================================
-        // 9. RENDERIZAR VUE - CON AVATAR DEL USUARIO
-        // ============================================================
         return Inertia::render('Creador/GananciasCreador', [
-            // 🔥 USUARIO CON AVATAR USANDO EL ACCESOR DEL MODELO
             'usuario' => [
                 'id' => $user->id,
                 'nombre' => $user->nombre,
-                'avatar' => $user->avatar, // 🔥 USA EL ACCESOR DEL MODELO
+                'avatar' => $user->avatar,
                 'verificado' => $user->estado === 'verificado',
                 'rol' => $user->rol,
             ],
@@ -351,164 +336,6 @@ class CreatorController extends Controller
             'metodoCobro' => $metodoCobro,
             'footerColumnas' => $this->getFooterColumnas(),
         ]);
-    }
-
-    /**
-     * Obtiene la descripción de una transacción
-     */
-    private function getDescripcionTransaccion($transaccion)
-    {
-        $metadatos = $transaccion->metadatos ?? [];
-        
-        return match($transaccion->tipo) {
-            'suscripcion' => 'Renovación ' . ($metadatos['plan'] ?? 'mensual'),
-            'compra_contenido' => $metadatos['contenido_titulo'] ?? 'Contenido exclusivo',
-            'propina' => $metadatos['mensaje'] ?? 'Propina por mensaje',
-            'retiro' => 'Retiro de fondos',
-            default => 'Transacción',
-        };
-    }
-
-    /**
-     * Obtiene la imagen de portada de un contenido
-     */
-    private function getImagenContenido($contenido)
-    {
-        if ($contenido->archivos && is_array($contenido->archivos) && count($contenido->archivos) > 0) {
-            $primerArchivo = $contenido->archivos[0];
-            if (isset($primerArchivo['url'])) {
-                return $primerArchivo['url'];
-            }
-            if (isset($primerArchivo['ruta'])) {
-                return Storage::url($primerArchivo['ruta']);
-            }
-        }
-        return '/images/ganancias/contenido-default.jpg';
-    }
-
-    /**
-     * Calcula la tasa de conversión de un contenido
-     */
-    private function calcularConversion($contenido)
-    {
-        $vistas = $contenido->total_vistas ?? 0;
-        $compras = $contenido->total_compras ?? 0;
-        
-        if ($vistas === 0) return '0%';
-        return number_format(($compras / $vistas) * 100, 1) . '%';
-    }
-
-    /**
-     * Calcula la variación de ingresos
-     */
-    private function calcularVariacion($creadorId, $tipo)
-    {
-        if ($tipo === 'mensual') {
-            $mesActual = Transaccion::where('creador_id', $creadorId)
-                ->where('estado', 'aprobada')
-                ->whereMonth('created_at', now()->month)
-                ->sum('monto');
-                
-            $mesAnterior = Transaccion::where('creador_id', $creadorId)
-                ->where('estado', 'aprobada')
-                ->whereMonth('created_at', now()->subMonth()->month)
-                ->sum('monto');
-                
-            if ($mesAnterior == 0) return '+0%';
-            $variacion = (($mesActual - $mesAnterior) / $mesAnterior) * 100;
-            return ($variacion >= 0 ? '+' : '') . number_format($variacion, 1) . '%';
-        }
-        
-        return '+18%';
-    }
-
-    /**
-     * Calcula la variación de suscriptores
-     */
-    private function calcularVariacionSuscriptores($creadorId)
-    {
-        $mesActual = Suscripcion::where('creador_id', $creadorId)
-            ->where('estado', 'activa')
-            ->whereMonth('created_at', now()->month)
-            ->count();
-            
-        $mesAnterior = Suscripcion::where('creador_id', $creadorId)
-            ->where('estado', 'activa')
-            ->whereMonth('created_at', now()->subMonth()->month)
-            ->count();
-            
-        if ($mesAnterior == 0) return '+0%';
-        $variacion = (($mesActual - $mesAnterior) / $mesAnterior) * 100;
-        return ($variacion >= 0 ? '+' : '') . number_format($variacion, 1) . '%';
-    }
-
-    /**
-     * Calcula la tasa de renovación
-     */
-    private function calcularTasaRenovacion($creadorId)
-    {
-        $totalSuscripciones = Suscripcion::where('creador_id', $creadorId)->count();
-        $renovadas = Suscripcion::where('creador_id', $creadorId)
-            ->where('estado', 'activa')
-            ->where('created_at', '>=', now()->subMonths(6))
-            ->count();
-            
-        if ($totalSuscripciones == 0) return 0;
-        return round(($renovadas / $totalSuscripciones) * 100);
-    }
-
-    /**
-     * Obtiene las columnas del footer
-     */
-    private function getFooterColumnas()
-    {
-        return [
-            'navegacion' => ['Inicio', 'Descubrir', 'Eventos'],
-            'comunidad' => ['Mensajes', 'Creadores'],
-            'soporte' => ['Sobre nosotros', 'Términos y condiciones', 'Política de privacidad'],
-            'legal' => ['Centro de ayuda', 'Contacto', 'Reportar un problema'],
-        ];
-    }
-
-    /**
-     * Obtiene la URL del avatar del usuario
-     */
-    private function getAvatarUrl($user)
-    {
-        Log::info('Obteniendo avatar para usuario:', ['user_id' => $user->id]);
-        
-        // 1. Si tiene foto_principal en el usuario
-        if ($user->foto_principal) {
-            if (filter_var($user->foto_principal, FILTER_VALIDATE_URL)) {
-                Log::info('Avatar: usando foto_principal URL');
-                return $user->foto_principal;
-            }
-            $url = Storage::url($user->foto_principal);
-            Log::info('Avatar: usando foto_principal storage:', ['url' => $url]);
-            return $url;
-        }
-
-        // 2. Buscar en el perfil las fotos
-        if ($user->perfil) {
-            $perfil = $user->perfil;
-            
-            // Buscar foto principal en el perfil
-            $fotoPrincipal = $perfil->fotos()->where('es_principal', true)->first();
-            if ($fotoPrincipal) {
-                Log::info('Avatar: usando foto principal del perfil');
-                return $fotoPrincipal->url;
-            }
-            
-            // Si no hay principal, usar la primera foto
-            $primeraFoto = $perfil->fotos()->first();
-            if ($primeraFoto) {
-                Log::info('Avatar: usando primera foto del perfil');
-                return $primeraFoto->url;
-            }
-        }
-
-        Log::info('Avatar: usando default');
-        return '/images/shared/avatar-default.jpg';
     }
 
     /**
@@ -583,13 +410,11 @@ class CreatorController extends Controller
 
         Log::info('Creador encontrado:', ['id' => $creador->id]);
 
-        // OBTENER LOS DOCUMENTOS ACTUALES DE LA BD
         $documentos = $creador->documentos_verificacion ?? [];
         if (!is_array($documentos)) {
             $documentos = [];
         }
 
-        // Validar que las URLs no sean blob
         $validated = $request->validate([
             'selfieUrl' => 'nullable|string',
             'fotosVerificacionUrls' => 'nullable|array',
@@ -600,10 +425,9 @@ class CreatorController extends Controller
         Log::info('Datos validados:', [
             'selfieUrl' => $validated['selfieUrl'] ?? 'no',
             'count_fotosVerificacionUrls' => count($validated['fotosVerificacionUrls'] ?? []),
-            'fotosVerificacionUrls' => $validated['fotosVerificacionUrls'] ?? []
         ]);
 
-        // 1. GUARDAR SELFIE - Solo si es una URL de storage real
+        // 1. GUARDAR SELFIE
         if (isset($validated['selfieUrl']) && !empty($validated['selfieUrl'])) {
             $selfiePath = $this->extractPathFromUrl($validated['selfieUrl']);
             if ($selfiePath && !str_starts_with($selfiePath, 'blob:')) {
@@ -642,7 +466,7 @@ class CreatorController extends Controller
             }
         }
 
-        // 3. GUARDAR DOCUMENTO DE IDENTIDAD (opcional)
+        // 3. GUARDAR DOCUMENTO DE IDENTIDAD
         if (isset($validated['documentoIdentidadUrl']) && !empty($validated['documentoIdentidadUrl'])) {
             $path = $this->extractPathFromUrl($validated['documentoIdentidadUrl']);
             if ($path && !str_starts_with($path, 'blob:')) {
@@ -688,23 +512,19 @@ class CreatorController extends Controller
      */
     private function extractPathFromUrl($url)
     {
-        // Ignorar URLs blob
         if (str_starts_with($url, 'blob:')) {
             return null;
         }
 
-        // Si es una URL completa de storage
         if (str_contains($url, '/storage/')) {
             $parts = explode('/storage/', $url);
             return end($parts);
         }
         
-        // Si ya es una ruta relativa
         if (str_starts_with($url, '/')) {
             return ltrim($url, '/');
         }
         
-        // Si es una ruta de storage sin el prefijo
         if (str_starts_with($url, 'storage/')) {
             return str_replace('storage/', '', $url);
         }
@@ -714,6 +534,7 @@ class CreatorController extends Controller
 
     /**
      * Guarda la configuración de monetización (Paso 3)
+     * ✅ MODIFICADO: Ahora guarda los precios en el campo 'precios' del creador
      */
     public function guardarMonetizacion(Request $request)
     {
@@ -742,7 +563,7 @@ class CreatorController extends Controller
 
         Log::info('Datos validados:', $validated);
 
-        // Construir el array con todos los campos
+        // ✅ 1. Guardar en ConfiguracionMonetizacion
         $data = [
             'creador_id' => $creador->id,
             'modelo_ingresos' => $validated['modeloSeleccionado'] ?? 'suscripcion',
@@ -762,7 +583,7 @@ class CreatorController extends Controller
             'tarjeta_marca' => 'Visa',
         ];
 
-        Log::info('Datos a guardar:', $data);
+        Log::info('Datos a guardar en ConfiguracionMonetizacion:', $data);
 
         $configuracion = ConfiguracionMonetizacion::updateOrCreate(
             ['creador_id' => $creador->id],
@@ -775,13 +596,57 @@ class CreatorController extends Controller
             'modelo_ingresos' => $configuracion->modelo_ingresos
         ]);
 
-        // Actualizar estadísticas del creador
+        // ✅ 2. Guardar precios en el campo 'precios' del creador
+        $precios = [];
+        $modelo = $validated['modeloSeleccionado'];
+        
+        // Establecer precios según el modelo seleccionado
+        switch ($modelo) {
+            case 'suscripcion':
+                $precios = [
+                    'modelo' => 'suscripcion',
+                    'frecuencia' => $validated['frecuenciaPago'] ?? 'Mensual',
+                    'suscripcion' => 199.99,
+                    'foto' => null,
+                    'video' => null,
+                    'precio_personalizado' => null,
+                ];
+                break;
+            case 'exclusivo':
+                $precios = [
+                    'modelo' => 'exclusivo',
+                    'frecuencia' => $validated['frecuenciaPago'] ?? 'Mensual',
+                    'suscripcion' => null,
+                    'foto' => null,
+                    'video' => null,
+                    'precio_personalizado' => $validated['precioPersonalizado'] ?? null,
+                ];
+                break;
+            case 'gratis':
+            default:
+                $precios = [
+                    'modelo' => 'gratis',
+                    'frecuencia' => $validated['frecuenciaPago'] ?? 'Mensual',
+                    'suscripcion' => 0,
+                    'foto' => 0,
+                    'video' => 0,
+                    'precio_personalizado' => null,
+                ];
+                break;
+        }
+
+        $creador->precios = $precios;
+        Log::info('Precios guardados en creador:', $precios);
+
+        // ✅ 3. Actualizar estadísticas
         $estadisticas = $creador->estadisticas ?? [];
-        $estadisticas['tipo_monetizacion'] = $validated['modeloSeleccionado'];
+        $estadisticas['tipo_monetizacion'] = $modelo;
         if ($validated['precioPersonalizado']) {
             $estadisticas['precio_seleccionado'] = $validated['precioPersonalizado'];
         }
-        $creador->update(['estadisticas' => $estadisticas]);
+        $creador->estadisticas = $estadisticas;
+
+        $creador->save();
 
         return redirect()->back()->with('success', 'Configuración de monetización guardada correctamente.');
     }
@@ -809,7 +674,6 @@ class CreatorController extends Controller
 
         Log::info('Datos validados:', $validated);
 
-        // Guardar preferencias en estadisticas
         $estadisticas = $creador->estadisticas ?? [];
         $estadisticas['privacidad'] = [
             'aprobar_seguidores' => $validated['aprobarSeguidores'] ?? true,
@@ -824,18 +688,9 @@ class CreatorController extends Controller
         return redirect()->back()->with('success', 'Preferencias de privacidad guardadas correctamente.');
     }
 
-    /**
-     * Publica el contenido del creador (Paso 4)
-     */
     public function publicar(Request $request)
     {
         Log::info('=== INICIO PUBLICAR CONTENIDO ===');
-        Log::info('Datos recibidos:', $request->all());
-        Log::info('Archivos recibidos:', [
-            'has_archivos' => $request->hasFile('archivos'),
-            'count' => $request->hasFile('archivos') ? count($request->file('archivos')) : 0,
-        ]);
-
         $user = Auth::user();
         Log::info('Usuario autenticado:', ['id' => $user->id, 'nombre' => $user->nombre, 'rol' => $user->rol]);
 
@@ -863,7 +718,6 @@ class CreatorController extends Controller
 
             Log::info('Validación exitosa:', $validated);
 
-            // Decodificar etiquetas si vienen como string JSON
             if (isset($validated['etiquetas']) && is_string($validated['etiquetas'])) {
                 $validated['etiquetas'] = json_decode($validated['etiquetas'], true) ?? [];
             }
@@ -879,7 +733,6 @@ class CreatorController extends Controller
         // VERIFICAR DOCUMENTOS DE VERIFICACIÓN
         $documentos = $creador->documentos_verificacion ?? [];
 
-        // Si no tiene documentos, intentar obtenerlos de la base de datos nuevamente
         if (empty($documentos['selfie']) || empty($documentos['fotos_ine'])) {
             $creador->refresh();
             $documentos = $creador->documentos_verificacion ?? [];
@@ -891,7 +744,6 @@ class CreatorController extends Controller
             'count_fotos_ine' => count($documentos['fotos_ine'] ?? [])
         ]);
 
-        // Validar que tenga selfie y ambas fotos del INE
         $tieneSelfie = isset($documentos['selfie']);
         $tieneINE = isset($documentos['fotos_ine']) && count($documentos['fotos_ine']) >= 2;
 
@@ -949,7 +801,6 @@ class CreatorController extends Controller
                 return redirect()->back()->with('error', 'Error al crear la configuración de monetización.');
             }
             
-            // Actualizar estadísticas del creador
             try {
                 $estadisticas = $creador->estadisticas ?? [];
                 $estadisticas['tipo_monetizacion'] = 'suscripcion';
@@ -1048,6 +899,44 @@ class CreatorController extends Controller
             return redirect()->back()->with('error', 'Error al guardar el contenido: ' . $e->getMessage());
         }
 
+        // ✅ ============================================================
+        // ✅ NOTIFICACIONES PARA SUSCRIPTORES (SOLO SI ES PREMIUM)
+        // ✅ ============================================================
+        if ($contenido->es_premium) {
+            try {
+                Log::info('Creando notificaciones para suscriptores del contenido premium...');
+                
+                $suscriptoresActivos = Suscripcion::where('creador_id', $creador->id)
+                    ->where('estado', 'activa')
+                    ->pluck('usuario_id');
+
+                Log::info('Suscriptores activos encontrados:', ['count' => count($suscriptoresActivos)]);
+
+                foreach ($suscriptoresActivos as $usuarioId) {
+                    Notificacion::crear(
+                        usuarioId: $usuarioId,
+                        emisorId: $creador->usuario_id,
+                        tipo: 'contenido_nuevo',
+                        mensaje: "<strong>{$user->nombre}</strong> subió contenido premium nuevo",
+                        contenidoId: $contenido->id,
+                        link: '/contenido/' . $contenido->id,
+                    );
+                }
+
+                Log::info('Notificaciones creadas para suscriptores:', [
+                    'cantidad' => count($suscriptoresActivos),
+                    'contenido_id' => $contenido->id,
+                ]);
+
+            } catch (\Exception $e) {
+                Log::error('Error al crear notificaciones para suscriptores:', [
+                    'message' => $e->getMessage(),
+                    'contenido_id' => $contenido->id,
+                ]);
+                // No detenemos el proceso si fallan las notificaciones
+            }
+        }
+
         // Actualizar estadísticas del creador
         try {
             Log::info('Actualizando estadísticas del creador...');
@@ -1091,119 +980,11 @@ class CreatorController extends Controller
             Log::error('Error al actualizar estado de verificación:', ['error' => $e->getMessage()]);
         }
 
-        // Crear publicación de bienvenida
-        try {
-            $totalPublicaciones = Publicacion::where('usuario_id', $user->id)->count();
-            
-            if ($totalPublicaciones === 0) {
-                $publicacion = Publicacion::create([
-                    'usuario_id' => $user->id,
-                    'texto' => '¡Hola! Soy ' . $user->nombre . ' y acabo de unirme como creador. Estoy emocionado/a de compartir contenido exclusivo con ustedes. Suscríbanse para no perderse nada.',
-                    'estado' => 'publicado',
-                    'es_premium' => false,
-                ]);
-                Log::info('Publicación de bienvenida creada:', ['publicacion_id' => $publicacion->id]);
-            }
-        } catch (\Exception $e) {
-            Log::error('Error al crear publicación de bienvenida:', ['error' => $e->getMessage()]);
-        }
-
         Log::info('PUBLICACIÓN EXITOSA');
         Log::info('Contenido guardado en tabla "contenidos" con ID:', ['id' => $contenido->id]);
         
-        // REDIRIGIR A COMUNIDAD CREADOR
         return redirect()->route('creador.comunidad')
             ->with('success', '¡Felicidades! Tu contenido ha sido publicado exitosamente.');
-    }
-
-    /**
-     * Muestra la comunidad del creador (dashboard del creador)
-     */
-    public function comunidad()
-    {
-        Log::info('=== COMUNIDAD CREADOR ===');
-        $user = Auth::user();
-        Log::info('Usuario:', ['id' => $user->id, 'nombre' => $user->nombre, 'rol' => $user->rol]);
-        
-        // Verificar que el usuario sea creador
-        if ($user->rol !== 'creador' || !$user->creador) {
-            Log::warning('Usuario no es creador o no tiene perfil de creador');
-            return redirect()->route('creador.index')
-                ->with('info', 'Completa el proceso para convertirte en creador.');
-        }
-
-        $creador = $user->creador;
-        $configuracion = $creador->configuracionMonetizacion;
-        Log::info('Creador encontrado:', ['id' => $creador->id]);
-
-        // Contar contenidos del creador
-        $totalContenidos = $creador->contenidos()->where('estado', 'publicado')->count();
-        Log::info('Total contenidos del creador:', ['total' => $totalContenidos]);
-
-        // Obtener contenidos recientes del creador
-        $contenidosRecientes = $creador->contenidos()
-            ->where('estado', 'publicado')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get()
-            ->map(function ($contenido) {
-                return [
-                    'id' => $contenido->id,
-                    'titulo' => $contenido->titulo,
-                    'tipo' => $contenido->tipo,
-                    'descripcion' => $contenido->descripcion,
-                    'precio' => $contenido->precio,
-                    'es_premium' => $contenido->es_premium,
-                    'visibilidad' => $contenido->visibilidad,
-                    'archivos' => $contenido->archivos,
-                    'created_at' => $contenido->created_at->diffForHumans(),
-                    'total_likes' => $contenido->total_likes,
-                    'total_comentarios' => $contenido->total_comentarios,
-                ];
-            });
-
-        // Estadísticas del creador
-        $estadisticas = [
-            'total_publicaciones' => $totalContenidos,
-            'total_suscriptores' => Suscripcion::where('creador_id', $creador->id)
-                ->where('estado', 'activa')
-                ->count(),
-            'total_ganancias' => Transaccion::where('creador_id', $creador->id)
-                ->where('estado', 'aprobada')
-                ->sum('monto') ?? 0,
-            'visitas' => $creador->estadisticas['visitas'] ?? 0,
-            'interacciones' => $creador->estadisticas['interacciones'] ?? 0,
-        ];
-
-        $data = [
-            'usuario' => [
-                'nombre' => $user->nombre,
-                'avatar' => $this->getAvatarUrl($user),
-                'verificado' => $user->estado === 'verificado',
-            ],
-            'creador' => [
-                'biografia' => $creador->biografia,
-                'categorias' => $creador->categorias,
-                'es_premium' => $creador->es_premium,
-                'esta_verificado' => $creador->estado_verificacion === 'aprobado',
-                'estado_verificacion' => $creador->estado_verificacion,
-            ],
-            'estadisticas' => $estadisticas,
-            'contenidos_recientes' => $contenidosRecientes,
-            'configuracion_monetizacion' => $configuracion ? [
-                'modelo_ingresos' => $configuracion->modelo_ingresos,
-                'precio_personalizado' => $configuracion->precio_personalizado,
-                'tiene_tarjeta' => !is_null($configuracion->tarjeta_ultimos4),
-                'tarjeta_display' => $configuracion->tarjeta_ultimos4 ? '**** ' . $configuracion->tarjeta_ultimos4 : null,
-                'frecuencia_pago' => $configuracion->frecuencia_pago,
-                'comision_plataforma' => $configuracion->comision_plataforma,
-                'comision_creador' => 100 - ($configuracion->comision_plataforma ?? 20),
-            ] : null,
-            'footerColumnas' => $this->getFooterColumnas(),
-        ];
-
-        Log::info('Datos de la comunidad preparados');
-        return Inertia::render('Creador/ComunidadCreador', $data);
     }
 
     /**
@@ -1224,7 +1005,6 @@ class CreatorController extends Controller
         $user = Auth::user();
         Log::info('Usuario:', ['id' => $user->id, 'nombre' => $user->nombre, 'rol' => $user->rol]);
         
-        // Verificar que el usuario sea creador
         if ($user->rol !== 'creador' || !$user->creador) {
             Log::warning('Usuario no es creador o no tiene perfil de creador');
             return redirect()->route('creador.index')
@@ -1234,23 +1014,15 @@ class CreatorController extends Controller
         $creador = $user->creador;
         Log::info('Creador encontrado:', ['id' => $creador->id]);
         
-        // Cargar relaciones
         $user->load(['perfil.fotos', 'creador.configuracionMonetizacion', 'creador.contenidos']);
         
-        // ============================================================
-        // 1. DATOS DEL PERFIL
-        // ============================================================
-        
-        // Obtener foto de portada
         $estadisticas = $creador->estadisticas ?? [];
         $fotoPortada = isset($estadisticas['foto_portada']) 
             ? Storage::url($estadisticas['foto_portada']) 
             : '/images/perfil-creador/portada-default.jpg';
         
-        // Obtener avatar
         $avatar = $this->getAvatarUrl($user);
         
-        // Obtener fotos del perfil
         $fotosPerfil = [];
         if ($user->perfil) {
             $fotosPerfil = $user->perfil->fotos()
@@ -1264,12 +1036,7 @@ class CreatorController extends Controller
                         'ruta_foto' => $foto->ruta_foto,
                     ];
                 });
-            Log::info('Fotos de perfil obtenidas:', ['count' => count($fotosPerfil)]);
         }
-        
-        // ============================================================
-        // 2. ESTADÍSTICAS DEL CREADOR
-        // ============================================================
         
         $totalPublicaciones = $creador->contenidos()->where('estado', 'publicado')->count();
         $totalSuscriptores = Suscripcion::where('creador_id', $creador->id)
@@ -1279,15 +1046,10 @@ class CreatorController extends Controller
             ->where('estado', 'aprobada')
             ->sum('monto') ?? 0;
         
-        // Calcular likes de todas las publicaciones
         $totalLikes = 0;
         foreach ($creador->contenidos()->where('estado', 'publicado')->get() as $contenido) {
             $totalLikes += $contenido->total_likes ?? 0;
         }
-        
-        // ============================================================
-        // 3. CONTENIDOS RECIENTES
-        // ============================================================
         
         $contenidosRecientes = $creador->contenidos()
             ->where('estado', 'publicado')
@@ -1295,7 +1057,6 @@ class CreatorController extends Controller
             ->limit(10)
             ->get()
             ->map(function ($contenido) {
-                // Procesar archivos para asegurar URLs correctas
                 $archivos = [];
                 if ($contenido->archivos && is_array($contenido->archivos)) {
                     foreach ($contenido->archivos as $archivo) {
@@ -1328,10 +1089,6 @@ class CreatorController extends Controller
                 ];
             });
         
-        // ============================================================
-        // 4. SUSCRIPCIONES ACTIVAS
-        // ============================================================
-        
         $suscripcionesActivas = Suscripcion::where('creador_id', $creador->id)
             ->with('usuario')
             ->where('estado', 'activa')
@@ -1349,15 +1106,7 @@ class CreatorController extends Controller
                 ];
             });
         
-        // ============================================================
-        // 5. CONFIGURACIÓN DE MONETIZACIÓN
-        // ============================================================
-        
         $configuracion = $creador->configuracionMonetizacion;
-        
-        // ============================================================
-        // 6. DATOS PARA LA VUE
-        // ============================================================
         
         $perfilData = [
             'portada' => $fotoPortada,
@@ -1398,10 +1147,6 @@ class CreatorController extends Controller
             'comision_plataforma' => $configuracion->comision_plataforma,
         ] : null;
         
-        // ============================================================
-        // 7. RENDERIZAR VUE
-        // ============================================================
-        
         return Inertia::render('Creador/PerfilCreador', [
             'usuario' => [
                 'nombre' => $user->nombre,
@@ -1419,19 +1164,9 @@ class CreatorController extends Controller
         ]);
     }
 
-    /**
-     * Formatea un número a formato abreviado (ej: 12.4K)
-     */
-    private function formatearNumero($numero)
-    {
-        if ($numero >= 1000000) {
-            return number_format($numero / 1000000, 1) . 'M';
-        }
-        if ($numero >= 1000) {
-            return number_format($numero / 1000, 1) . 'K';
-        }
-        return (string)$numero;
-    }
+    // ============================================================
+    // MÉTODOS PARA SUBIR ARCHIVOS (API)
+    // ============================================================
 
     /**
      * Sube una selfie (foto de verificación) - API
@@ -1450,7 +1185,6 @@ class CreatorController extends Controller
         $url = Storage::url($path);
         Log::info('Selfie guardada:', ['path' => $path, 'url' => $url]);
 
-        // Guardar inmediatamente en la base de datos
         if ($user->creador) {
             $documentos = $user->creador->documentos_verificacion ?? [];
             if (!is_array($documentos)) {
@@ -1458,7 +1192,6 @@ class CreatorController extends Controller
             }
             $documentos['selfie'] = $path;
             
-            // Verificar si ya tiene INE para actualizar estado
             $tieneINE = isset($documentos['fotos_ine']) && count($documentos['fotos_ine']) >= 2;
             if ($tieneINE) {
                 $user->creador->estado_verificacion = 'pendiente';
@@ -1503,32 +1236,26 @@ class CreatorController extends Controller
             return redirect()->back()->with('error', 'Creador no encontrado');
         }
 
-        // Obtener documentos actuales
         $documentos = $creador->documentos_verificacion ?? [];
         if (!is_array($documentos)) {
             $documentos = [];
         }
 
-        // Obtener fotos INE existentes
         $fotosINE = $documentos['fotos_ine'] ?? [];
         $urls = [];
 
-        // Procesar cada foto subida
         foreach ($request->file('fotos') as $index => $file) {
             $path = $file->store('CREADOR_REVISAR/ine', 'public');
             $fotosINE[] = $path;
             $urls[] = Storage::url($path);
-            Log::info('INE guardada:', ['index' => $index + 1, 'path' => $path, 'url' => Storage::url($path)]);
+            Log::info('INE guardada:', ['index' => $index + 1, 'path' => $path]);
         }
 
-        // Guardar las fotos del INE en documentos
         $documentos['fotos_ine'] = $fotosINE;
         
-        // Verificar si ya tiene selfie
         $tieneSelfie = isset($documentos['selfie']) && !empty($documentos['selfie']);
         $tieneINECompleto = count($fotosINE) >= 2;
         
-        // Actualizar estado de verificación si tiene ambos documentos
         if ($tieneSelfie && $tieneINECompleto) {
             $creador->estado_verificacion = 'pendiente';
             Log::info('Estado de verificación actualizado a: pendiente (tiene selfie y INE)');
@@ -1539,12 +1266,6 @@ class CreatorController extends Controller
             'estado_verificacion' => $creador->estado_verificacion ?? 'pendiente',
         ]);
 
-        Log::info('INE guardadas en BD:', [
-            'count' => count($fotosINE),
-            'documentos' => $documentos
-        ]);
-
-        // MENSAJE DE CONFIRMACIÓN CON TOAST
         $mensaje = count($fotosINE) >= 2 
             ? '¡Excelente! Ambas fotos de tu INE (frente y reverso) se han subido correctamente. ¡Verificación completada!'
             : 'Foto de INE subida correctamente. Sube la otra foto (frente o reverso) para completar la verificación.';
@@ -1588,7 +1309,6 @@ class CreatorController extends Controller
         $url = Storage::url($path);
         Log::info('Documento guardado:', ['path' => $path]);
 
-        // Guardar inmediatamente en la base de datos
         if ($creador) {
             $documentos = $creador->documentos_verificacion ?? [];
             if (!is_array($documentos)) {
@@ -1873,9 +1593,44 @@ class CreatorController extends Controller
         return response()->json(['success' => true]);
     }
 
-    /**
-     * Obtiene datos del formulario desde el modelo Creador
-     */
+    // ============================================================
+    // MÉTODOS PRIVADOS
+    // ============================================================
+
+    private function getAvatarUrl($user)
+    {
+        if ($user->foto_principal) {
+            if (filter_var($user->foto_principal, FILTER_VALIDATE_URL)) {
+                return $user->foto_principal;
+            }
+            return Storage::url($user->foto_principal);
+        }
+
+        if ($user->perfil) {
+            $fotoPrincipal = $user->perfil->fotos()->where('es_principal', true)->first();
+            if ($fotoPrincipal) {
+                return $fotoPrincipal->url;
+            }
+            
+            $primeraFoto = $user->perfil->fotos()->first();
+            if ($primeraFoto) {
+                return $primeraFoto->url;
+            }
+        }
+
+        return '/images/shared/avatar-default.jpg';
+    }
+
+    private function getFooterColumnas()
+    {
+        return [
+            'navegacion' => ['Inicio', 'Descubrir', 'Eventos'],
+            'comunidad' => ['Mensajes', 'Creadores'],
+            'soporte' => ['Sobre nosotros', 'Términos y condiciones', 'Política de privacidad'],
+            'legal' => ['Centro de ayuda', 'Contacto', 'Reportar un problema'],
+        ];
+    }
+
     private function getFormDataFromCreador($creador)
     {
         if (!$creador) {
@@ -1899,9 +1654,6 @@ class CreatorController extends Controller
         ];
     }
 
-    /**
-     * Obtiene datos de verificación desde el modelo Creador
-     */
     private function getVerificacionDataFromCreador($creador)
     {
         if (!$creador) {
@@ -1918,11 +1670,9 @@ class CreatorController extends Controller
             $documentos = [];
         }
 
-        // Verificar selfie
         $tieneSelfie = isset($documentos['selfie']);
         $urlSelfie = $tieneSelfie ? Storage::url($documentos['selfie']) : null;
 
-        // Verificar INE
         $fotosINE = $documentos['fotos_ine'] ?? [];
         $urlsINE = array_map(function ($path) {
             return Storage::url($path);
@@ -1944,9 +1694,6 @@ class CreatorController extends Controller
         ];
     }
 
-    /**
-     * Obtiene datos de monetización desde el modelo Creador
-     */
     private function getMonetizacionDataFromCreador($creador)
     {
         if (!$creador) {
@@ -1957,16 +1704,14 @@ class CreatorController extends Controller
         }
 
         $estadisticas = $creador->estadisticas ?? [];
+        $precios = $creador->precios ?? [];
         
         return [
             'seleccionada' => $estadisticas['tipo_monetizacion'] ?? 'suscripcion',
-            'precios' => $creador->precios ?? [],
+            'precios' => $precios,
         ];
     }
 
-    /**
-     * Obtiene datos de privacidad desde el modelo Creador
-     */
     private function getPrivacidadDataFromCreador($creador)
     {
         if (!$creador) {
@@ -1989,9 +1734,6 @@ class CreatorController extends Controller
         ];
     }
 
-    /**
-     * Determina el paso activo del wizard
-     */
     private function getPasoActivo($creador)
     {
         if (!$creador) {
@@ -2025,5 +1767,106 @@ class CreatorController extends Controller
         }
 
         return 1;
+    }
+
+    // ============================================================
+    // MÉTODOS DE AYUDA PARA GANANCIAS
+    // ============================================================
+
+    private function getDescripcionTransaccion($transaccion)
+    {
+        $metadatos = $transaccion->metadatos ?? [];
+        
+        return match($transaccion->tipo) {
+            'suscripcion' => 'Renovación ' . ($metadatos['plan'] ?? 'mensual'),
+            'compra_contenido' => $metadatos['contenido_titulo'] ?? 'Contenido exclusivo',
+            'propina' => $metadatos['mensaje'] ?? 'Propina por mensaje',
+            'retiro' => 'Retiro de fondos',
+            default => 'Transacción',
+        };
+    }
+
+    private function getImagenContenido($contenido)
+    {
+        if ($contenido->archivos && is_array($contenido->archivos) && count($contenido->archivos) > 0) {
+            $primerArchivo = $contenido->archivos[0];
+            if (isset($primerArchivo['url'])) {
+                return $primerArchivo['url'];
+            }
+            if (isset($primerArchivo['ruta'])) {
+                return Storage::url($primerArchivo['ruta']);
+            }
+        }
+        return '/images/ganancias/contenido-default.jpg';
+    }
+
+    private function calcularConversion($contenido)
+    {
+        $vistas = $contenido->total_vistas ?? 0;
+        $compras = $contenido->total_compras ?? 0;
+        
+        if ($vistas === 0) return '0%';
+        return number_format(($compras / $vistas) * 100, 1) . '%';
+    }
+
+    private function calcularVariacion($creadorId, $tipo)
+    {
+        if ($tipo === 'mensual') {
+            $mesActual = Transaccion::where('creador_id', $creadorId)
+                ->where('estado', 'aprobada')
+                ->whereMonth('created_at', now()->month)
+                ->sum('monto');
+                
+            $mesAnterior = Transaccion::where('creador_id', $creadorId)
+                ->where('estado', 'aprobada')
+                ->whereMonth('created_at', now()->subMonth()->month)
+                ->sum('monto');
+                
+            if ($mesAnterior == 0) return '+0%';
+            $variacion = (($mesActual - $mesAnterior) / $mesAnterior) * 100;
+            return ($variacion >= 0 ? '+' : '') . number_format($variacion, 1) . '%';
+        }
+        
+        return '+18%';
+    }
+
+    private function calcularVariacionSuscriptores($creadorId)
+    {
+        $mesActual = Suscripcion::where('creador_id', $creadorId)
+            ->where('estado', 'activa')
+            ->whereMonth('created_at', now()->month)
+            ->count();
+            
+        $mesAnterior = Suscripcion::where('creador_id', $creadorId)
+            ->where('estado', 'activa')
+            ->whereMonth('created_at', now()->subMonth()->month)
+            ->count();
+            
+        if ($mesAnterior == 0) return '+0%';
+        $variacion = (($mesActual - $mesAnterior) / $mesAnterior) * 100;
+        return ($variacion >= 0 ? '+' : '') . number_format($variacion, 1) . '%';
+    }
+
+    private function calcularTasaRenovacion($creadorId)
+    {
+        $totalSuscripciones = Suscripcion::where('creador_id', $creadorId)->count();
+        $renovadas = Suscripcion::where('creador_id', $creadorId)
+            ->where('estado', 'activa')
+            ->where('created_at', '>=', now()->subMonths(6))
+            ->count();
+            
+        if ($totalSuscripciones == 0) return 0;
+        return round(($renovadas / $totalSuscripciones) * 100);
+    }
+
+    private function formatearNumero($numero)
+    {
+        if ($numero >= 1000000) {
+            return number_format($numero / 1000000, 1) . 'M';
+        }
+        if ($numero >= 1000) {
+            return number_format($numero / 1000, 1) . 'K';
+        }
+        return (string)$numero;
     }
 }

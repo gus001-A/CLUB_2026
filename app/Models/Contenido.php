@@ -39,18 +39,52 @@ class Contenido extends Model
         'deleted_at' => 'datetime',
     ];
 
+    // ---------------------------------------------------------------
     // Relaciones
+    // ---------------------------------------------------------------
     public function creador()
     {
         return $this->belongsTo(Creador::class, 'creador_id');
     }
 
+    // Comentarios específicos del contenido (para creadores)
+    public function comentarios()
+    {
+        return $this->hasMany(Comentario::class, 'contenido_id')
+            ->whereNull('parent_id') // Solo comentarios principales
+            ->orderBy('created_at', 'desc');
+    }
+
+    // Todas las interacciones (likes, comentarios de publicaciones, vistas, etc)
     public function interacciones()
     {
         return $this->hasMany(Interaccion::class, 'contenido_id');
     }
 
+    // Likes (desde Interaccion)
+    public function likes()
+    {
+        return $this->hasMany(Interaccion::class, 'contenido_id')
+            ->where('tipo', 'like');
+    }
+
+    // Vistas (desde Interaccion)
+    public function vistas()
+    {
+        return $this->hasMany(Interaccion::class, 'contenido_id')
+            ->where('tipo', 'vista');
+    }
+
+    // Comentarios de publicaciones (desde Interaccion)
+    public function interaccionesComentarios()
+    {
+        return $this->hasMany(Interaccion::class, 'contenido_id')
+            ->where('tipo', 'comentario');
+    }
+
+    // ---------------------------------------------------------------
     // Scopes
+    // ---------------------------------------------------------------
     public function scopePublicados($query)
     {
         return $query->where('estado', 'publicado');
@@ -71,7 +105,9 @@ class Contenido extends Model
         return $query->where('visibilidad', 'suscriptores');
     }
 
-    // Accesors
+    // ---------------------------------------------------------------
+    // Accesores
+    // ---------------------------------------------------------------
     public function getEstaPublicadoAttribute()
     {
         return $this->estado === 'publicado';
@@ -82,18 +118,62 @@ class Contenido extends Model
         return $this->precio == 0;
     }
 
+    // Total de likes (desde Interaccion)
     public function getTotalLikesAttribute()
     {
-        return $this->interacciones()->where('tipo', 'like')->count();
+        return $this->likes()->count();
     }
 
+    // Total de comentarios (desde Comentario - modelo dedicado)
     public function getTotalComentariosAttribute()
     {
-        return $this->interacciones()->where('tipo', 'comentario')->count();
+        return $this->comentarios()->count();
     }
 
+    // Total de vistas (desde Interaccion)
     public function getTotalVistasAttribute()
     {
         return $this->interacciones()->where('tipo', 'vista')->count();
+    }
+
+    // Total de compartidos (desde Interaccion)
+    public function getTotalCompartidosAttribute()
+    {
+        return $this->interacciones()->where('tipo', 'compartir')->count();
+    }
+
+    /**
+     * ¿El usuario dado ya le dio like a este contenido?
+     */
+    public function tieneLikeDe(?int $usuarioId): bool
+    {
+        if (!$usuarioId) {
+            return false;
+        }
+
+        return $this->likes()->where('usuario_id', $usuarioId)->exists();
+    }
+
+    /**
+     * Regla central de acceso a contenido premium
+     */
+    public function usuarioTieneAcceso(?User $usuario): bool
+    {
+        if (!$this->es_premium) {
+            return true;
+        }
+
+        if (!$usuario) {
+            return false;
+        }
+
+        if ($this->creador && $this->creador->usuario_id === $usuario->id) {
+            return true;
+        }
+
+        return Suscripcion::where('usuario_id', $usuario->id)
+            ->where('creador_id', $this->creador_id)
+            ->where('estado', 'activa')
+            ->exists();
     }
 }

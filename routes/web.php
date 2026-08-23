@@ -15,8 +15,20 @@ use App\Http\Controllers\Usuario\MensajeController;
 use App\Http\Controllers\Usuario\PerfilVerController;
 use App\Http\Controllers\Usuario\UserController;
 use App\Http\Controllers\Creador\CreatorController;
+use App\Http\Controllers\Creador\ComunidadCreadorController;
+use App\Http\Controllers\Creador\EditarPerfilCreadorController;
+use App\Http\Controllers\Creador\NuevoContenidoController;
+use App\Http\Controllers\Usuario\InteraccionContenidoController;
+use App\Http\Controllers\Usuario\SuscripcionCreadorController;
+use App\Http\Controllers\Usuario\SuscripcionController;
+use App\Http\Controllers\Usuario\PerfilCreadorPublicoController;
+use App\Http\Controllers\Usuario\ChatController;
+use App\Http\Controllers\Usuario\LlamadaController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Usuario\NotificacionController;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Broadcast;
+use App\Http\Controllers\Usuario\ReporteController;
 
 // =======================================================================
 // RUTAS PÚBLICAS
@@ -96,15 +108,6 @@ require __DIR__.'/admin.php';
 Route::get('/tienda', [ShopController::class, 'index'])->name('tienda');
 Route::get('/tienda/filtrar', [ShopController::class, 'filtrar'])->name('tienda.filtrar');
 
-// 🔧 FIX: la ruta '/tienda/{id}' se movió hasta el final de este archivo.
-// Antes estaba aquí y "se robaba" cualquier petición a /tienda/checkout,
-// /tienda/carrito y /tienda/mis-pedidos (todas rutas de un solo segmento
-// bajo /tienda/*), porque Laravel usa la PRIMERA ruta que hace match, y
-// un wildcard como {id} matchea literalmente cualquier texto, incluida
-// la palabra "checkout". Eso terminaba llamando a ShopController::show()
-// con $id = "checkout", que no encontraba ningún producto con ese id y
-// lanzaba el 404 que estabas viendo.
-
 // =======================================================================
 // RUTAS PROTEGIDAS (requieren autenticación)
 // =======================================================================
@@ -176,13 +179,25 @@ Route::middleware(['auth'])->group(function () {
     })->name('favoritos');
     
     // ============================================
-    // DESCUBRIR
+    // DESCUBRIR - TODAS LAS RUTAS JUNTAS
     // ============================================
     Route::get('/descubrir', [DescubrirController::class, 'index'])->name('descubrir');
     Route::post('/descubrir/pasar', [DescubrirController::class, 'pasar'])->name('descubrir.pasar');
     Route::post('/descubrir/conectar', [DescubrirController::class, 'conectar'])->name('descubrir.conectar');
     Route::post('/descubrir/destacar', [DescubrirController::class, 'destacar'])->name('descubrir.destacar');
+    Route::post('/descubrir/mensaje-flash', [DescubrirController::class, 'enviarMensajeFlash'])
+        ->name('descubrir.mensaje-flash');
     
+    // ✅ ============================================
+    // ✅ LIKES RECIBIDOS - NUEVAS RUTAS
+    // ✅ ============================================
+    Route::post('/descubrir/aceptar-like', [DescubrirController::class, 'aceptarLike'])->name('descubrir.aceptar-like');
+    Route::post('/descubrir/rechazar-like', [DescubrirController::class, 'rechazarLike'])->name('descubrir.rechazar-like');
+    Route::get('/descubrir/perfil', [DescubrirController::class, 'obtenerPerfil'])->name('descubrir.perfil');
+
+// ✅ LIKES RECIBIDOS - NUEVAS RUTAS
+Route::post('/descubrir/aceptar-like', [DescubrirController::class, 'aceptarLike'])->name('descubrir.aceptar-like');
+Route::post('/descubrir/rechazar-like', [DescubrirController::class, 'rechazarLike'])->name('descubrir.rechazar-like');
     // ============================================
     // EVENTOS
     // ============================================
@@ -225,7 +240,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('tienda.pedido.cancelar');
     
     // ============================================
-    // MENSAJES
+    // MENSAJES - VERSIÓN ORIGINAL (MensajeController)
     // ============================================
     Route::get('/mensajes', [MensajeController::class, 'index'])->name('mensajes');
     Route::post('/mensajes/enviar', [MensajeController::class, 'enviar'])->name('mensajes.enviar');
@@ -233,7 +248,24 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/mensajes/{chatId}', [MensajeController::class, 'getMensajes'])->name('mensajes.obtener');
     
     // ============================================
-    // COMUNIDAD
+    // CHAT - NUEVA VERSIÓN (ChatController)
+    // ============================================
+    Route::get('/chats', [ChatController::class, 'index'])->name('chats.index');
+    Route::get('/chats/{chat}/mensajes', [ChatController::class, 'show'])->name('chats.mensajes');
+    Route::post('/chats/{chat}/mensajes', [ChatController::class, 'store'])->name('chats.mensajes.store');
+    Route::delete('/mensajes/{mensaje}', [ChatController::class, 'destroy'])->name('mensajes.destroy');
+    Route::post('/chats/{chat}/marcar-leido', [ChatController::class, 'marcarLeido'])->name('chats.marcar-leido');
+    Route::post('/chats/{chat}/escribiendo', [ChatController::class, 'escribiendo'])->name('chats.escribiendo');
+
+    // ============================================
+    // LLAMADAS (audio y video)
+    // ============================================
+    Route::post('/chats/{chat}/llamadas', [LlamadaController::class, 'store'])->name('llamadas.store');
+    Route::post('/llamadas/{llamada}/contestar', [LlamadaController::class, 'contestar'])->name('llamadas.contestar');
+    Route::post('/llamadas/{llamada}/colgar', [LlamadaController::class, 'colgar'])->name('llamadas.colgar');
+    
+    // ============================================
+    // COMUNIDAD - PUBLICACIONES DE USUARIOS
     // ============================================
     Route::get('/comunidad', [ComunidadController::class, 'index'])->name('comunidad.index');
     Route::post('/comunidad/publicar', [ComunidadController::class, 'crearPublicacion'])->name('comunidad.publicar');
@@ -244,6 +276,46 @@ Route::middleware(['auth'])->group(function () {
         ->name('comunidad.comentar');
     Route::delete('/comunidad/publicacion/{publicacion}', [ComunidadController::class, 'eliminarPublicacion'])
         ->name('comunidad.eliminar');
+    Route::delete('/comunidad/comentario/{comentario}', [ComunidadController::class, 'eliminarComentario'])
+        ->name('comunidad.eliminar-comentario');
+
+    // ============================================
+    // INTERACCIONES CON CONTENIDO DE CREADORES
+    // ============================================
+    Route::post('/contenidos/{contenido}/like', [InteraccionContenidoController::class, 'toggleLike'])
+        ->name('contenidos.like');
+    Route::get('/contenidos/{contenido}/comentarios', [InteraccionContenidoController::class, 'comentarios'])
+        ->name('contenidos.comentarios');
+    Route::post('/contenidos/{contenido}/comentarios', [InteraccionContenidoController::class, 'comentar'])
+        ->name('contenidos.comentarios.store');
+    Route::delete('/contenido-comentarios/{comentario}', [InteraccionContenidoController::class, 'eliminarComentario'])
+        ->name('contenido-comentarios.destroy');
+
+    // ============================================
+    // SUSCRIPCIÓN A CREADORES
+    // ============================================
+    Route::get('/creador/{creador}/{slug}/suscripcion', [SuscripcionCreadorController::class, 'mostrar'])
+        ->name('creador.suscripcion.mostrar');
+    Route::post('/creador/{creador}/suscripcion/procesar', [SuscripcionCreadorController::class, 'procesar'])
+        ->name('creador.suscripcion.procesar');
+
+    // ============================================
+    // PERFIL PÚBLICO DEL CREADOR
+    // ============================================
+    Route::get('/creador/{id}/{slug?}', [PerfilCreadorPublicoController::class, 'show'])
+        ->name('creador.publico.show');
+    Route::get('/creador/{id}/contenidos', [PerfilCreadorPublicoController::class, 'contenidos'])
+        ->name('creador.publico.contenidos');
+
+    // ============================================
+    // SUSCRIPCIONES DEL USUARIO
+    // ============================================
+    Route::get('/suscripciones', [SuscripcionController::class, 'index'])->name('suscripciones.index');
+    Route::get('/suscripciones/{id}', [SuscripcionController::class, 'show'])->name('suscripciones.show');
+    Route::post('/suscripciones/{id}/cancelar', [SuscripcionController::class, 'cancelar'])->name('suscripciones.cancelar');
+    Route::post('/suscripciones/{id}/reactivar', [SuscripcionController::class, 'reactivar'])->name('suscripciones.reactivar');
+    Route::get('/suscripciones/creador/{creadorId}', [SuscripcionController::class, 'verificarSuscripcion'])->name('suscripciones.verificar');
+    Route::get('/suscripciones/estadisticas', [SuscripcionController::class, 'estadisticas'])->name('suscripciones.estadisticas');
 
     // ============================================
     // CREADOR - WIZARD
@@ -261,11 +333,42 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/creador/ganancias', [CreatorController::class, 'ganancias'])->name('creador.ganancias');
     
     // ============================================
-    // CREADOR - DASHBOARD
+    // CREADOR - DASHBOARD Y COMUNIDAD
     // ============================================
-    Route::get('/creador/comunidad', [CreatorController::class, 'comunidad'])->name('creador.comunidad');
+    Route::get('/creador/comunidad', [ComunidadCreadorController::class, 'index'])
+        ->name('creador.comunidad');
     Route::get('/creador/dashboard', [CreatorController::class, 'dashboard'])->name('creador.dashboard');
     
+    // ============================================
+    // CREADOR - EDITAR PERFIL
+    // ============================================
+    Route::get('/creador/editar-perfil', [EditarPerfilCreadorController::class, 'index'])
+        ->name('creador.editar-perfil');
+    Route::post('/creador/editar-perfil', [EditarPerfilCreadorController::class, 'update'])
+        ->name('creador.editar-perfil.update');
+    Route::post('/creador/portada', [EditarPerfilCreadorController::class, 'subirPortada'])
+        ->name('creador.portada.subir');
+    Route::delete('/creador/portada', [EditarPerfilCreadorController::class, 'eliminarPortada'])
+        ->name('creador.portada.eliminar');
+    Route::post('/creador/foto-perfil', [EditarPerfilCreadorController::class, 'subirFotoPerfil'])
+        ->name('creador.foto-perfil.subir');
+    Route::post('/creador/foto-principal', [EditarPerfilCreadorController::class, 'setFotoPrincipal'])
+        ->name('creador.foto-principal.set');
+    Route::delete('/creador/foto-perfil/{foto_id}', [EditarPerfilCreadorController::class, 'eliminarFotoPerfil'])
+        ->name('creador.foto-perfil.eliminar');
+
+    // ============================================
+    // CREADOR - NUEVO CONTENIDO
+    // ============================================
+    Route::get('/creador/nuevo-contenido', [NuevoContenidoController::class, 'index'])
+        ->name('creador.nuevo-contenido');
+    Route::post('/creador/nuevo-contenido', [NuevoContenidoController::class, 'store'])
+        ->name('creador.nuevo-contenido.store');
+    Route::post('/creador/contenido/archivo', [NuevoContenidoController::class, 'subirArchivo'])
+        ->name('creador.contenido.archivo.subir');
+    Route::delete('/creador/contenido/archivo', [NuevoContenidoController::class, 'eliminarArchivo'])
+        ->name('creador.contenido.archivo.eliminar');
+
     // ============================================
     // CREADOR - CONFIGURACIÓN DE MONETIZACIÓN
     // ============================================
@@ -294,7 +397,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('creador.subir.portada');
     Route::get('/creador/foto-portada', [CreatorController::class, 'getFotoPortada'])
         ->name('creador.foto.portada');
-    
+    Route::post('/reportes', [ReporteController::class, 'store'])->name('reportes.store');
     // ============================================
     // CREADOR - FOTOS DE PERFIL
     // ============================================
@@ -306,6 +409,12 @@ Route::middleware(['auth'])->group(function () {
         ->name('creador.establecerPrincipal');
     Route::delete('/creador/eliminar-foto-perfil', [CreatorController::class, 'eliminarFotoPerfil'])
         ->name('creador.eliminarFotoPerfil');
+
+    Route::get('/notificaciones', [NotificacionController::class, 'index'])->name('notificaciones.index');
+    Route::post('/notificaciones/marcar-leidas', [NotificacionController::class, 'marcarLeidas'])->name('notificaciones.marcar-leidas');
+    Route::post('/notificaciones/{id}/marcar-leida', [NotificacionController::class, 'marcarLeida'])->name('notificaciones.marcar-leida');
+    Route::get('/notificaciones/nuevas', [NotificacionController::class, 'nuevas'])->name('notificaciones.nuevas');
+
 });
 
 // =======================================================================
@@ -321,3 +430,7 @@ Route::get('/tienda/{id}', [ShopController::class, 'show'])
 Route::fallback(function () {
     return Inertia::render('Errors/404');
 });
+
+Route::post('/broadcasting/auth', function (Request $request) {
+    return Broadcast::auth($request);
+})->middleware('auth');

@@ -6,25 +6,57 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up()
+    public function up(): void
     {
-        Schema::create('interacciones', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('contenido_id')->constrained('contenidos')->onDelete('cascade');
-            $table->foreignId('usuario_id')->constrained('users')->onDelete('cascade');
-            $table->enum('tipo', ['like', 'comentario', 'compartir', 'vista']);
-            $table->text('comentario')->nullable();
-            $table->json('metadatos')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
+        if (!Schema::hasTable('interacciones')) {
+            Schema::create('interacciones', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('contenido_id');
+                $table->unsignedBigInteger('usuario_id');
+                $table->enum('tipo', ['like', 'comentario', 'vista', 'compartir']);
+                $table->text('comentario')->nullable();
+                $table->json('metadatos')->nullable();
+                $table->unsignedBigInteger('publicacion_id')->nullable();
+                $table->timestamps();
+                $table->softDeletes();
 
-            $table->unique(['contenido_id', 'usuario_id', 'tipo']);
-            $table->index(['contenido_id', 'tipo']);
-            $table->index('usuario_id');
-        });
+                // Índices
+                $table->index('contenido_id');
+                $table->index('usuario_id');
+                $table->index('tipo');
+                $table->index('publicacion_id');
+
+                // Llaves foráneas
+                $table->foreign('contenido_id')
+                    ->references('id')
+                    ->on('contenidos')
+                    ->onDelete('cascade');
+
+                $table->foreign('usuario_id')
+                    ->references('id')
+                    ->on('users')
+                    ->onDelete('cascade');
+
+                $table->foreign('publicacion_id')
+                    ->references('id')
+                    ->on('publicaciones')
+                    ->onDelete('cascade');
+            });
+        } else {
+            // Si la tabla existe, agregamos columnas faltantes
+            Schema::table('interacciones', function (Blueprint $table) {
+                if (!Schema::hasColumn('interacciones', 'publicacion_id')) {
+                    $table->unsignedBigInteger('publicacion_id')->nullable()->after('metadatos');
+                    $table->foreign('publicacion_id')
+                        ->references('id')
+                        ->on('publicaciones')
+                        ->onDelete('cascade');
+                }
+            });
+        }
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::dropIfExists('interacciones');
     }

@@ -254,9 +254,6 @@
                                 <i class="pi pi-users" style="color: var(--brand); margin-right: 0.5rem;"></i>
                                 Creadores
                             </h3>
-                            <button class="creadores-card__btn-link" @click="irAComunidadCreadores">
-                                Ver todos <i class="pi pi-chevron-right"></i>
-                            </button>
                         </div>
                         <div class="creadores-card__content">
                             <p class="creadores-card__desc">
@@ -314,7 +311,7 @@
                                         </span>
                                         <span class="event-item__meta">
                                             <i class="pi pi-clock"></i> {{ e.nombre_dia }}, {{ e.fecha_completa }} - {{
-                                            e.fecha_hora }} hrs
+                                                e.fecha_hora }} hrs
                                         </span>
                                         <span v-if="e.asistentes !== undefined" class="event-item__asistentes">
                                             <i class="pi pi-users"></i> {{ e.asistentes }} asistentes
@@ -338,7 +335,7 @@
 </template>
 
 <script setup>
-import { reactive, computed, onMounted, ref, watch } from 'vue';
+import { reactive, computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Head, usePage, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import axios from 'axios';
@@ -457,6 +454,104 @@ function toggleComentarios(postId) {
     comentariosVisibles.value[postId] = !comentariosVisibles.value[postId];
     if (!nuevoComentario.value[postId]) {
         nuevoComentario.value[postId] = '';
+    }
+}
+
+// ============================================================
+// ✅ SINCRONIZACIÓN EN VIVO — para ver likes/comentarios NUEVOS de
+// OTROS usuarios sin recargar la página. No agrega ningún endpoint
+// nuevo: reutiliza la misma acción index() del controlador que ya
+// carga esta página, pero como un "partial reload" de Inertia que
+// solo trae de vuelta la prop 'publicaciones' (no vuelve a montar el
+// componente ni pierde el estado de la UI: paneles de comentarios
+// abiertos, texto que estás escribiendo, etc. quedan intactos porque
+// esos viven en refs aparte, no en el array de publicaciones).
+// ============================================================
+const INTERVALO_SYNC_MS = 12000; // cada 12s — suficiente para sentirse "en vivo" sin saturar al servidor
+let intervaloSync = null;
+const sincronizando = ref(false);
+
+function mergePublicacionesServidor(nuevas) {
+    if (!Array.isArray(nuevas)) return;
+
+    nuevas.forEach((nueva) => {
+        const local = publicaciones.value.find(p => p.id === nueva.id);
+
+        if (!local) {
+            // Publicación nueva de otro usuario que no estaba en pantalla:
+            // se agrega al principio del feed.
+            publicaciones.value.unshift(nueva);
+            return;
+        }
+
+        // Solo se actualizan los campos que pueden cambiar por la
+        // actividad de OTROS usuarios (likes, conteo y lista de
+        // comentarios) — todo lo demás del post local se deja intacto,
+        // y sobre todo, nunca se pisa mientras el usuario tiene una
+        // publicación "es_temporal" en optimista (esa se resuelve sola
+        // cuando el POST de crearla responde).
+        if (local.es_temporal) return;
+
+        local.likes = nueva.likes;
+        // 'liked' (si YO le di like) también se resincroniza — cubre el
+        // caso de que hayas dado like desde otra pestaña/dispositivo.
+        local.liked = nueva.liked;
+        local.comentarios = nueva.comentarios;
+
+        // Comentarios: se agregan los que falten (por id), sin duplicar
+        // ni reordenar los que ya tenías cargados/leídos en pantalla.
+        if (Array.isArray(nueva.comentarios_list)) {
+            const idsLocales = new Set((local.comentarios_list || []).map(c => c.id));
+            const nuevosComentarios = nueva.comentarios_list.filter(c => !idsLocales.has(c.id));
+            if (nuevosComentarios.length > 0) {
+                local.comentarios_list = [...nuevosComentarios, ...(local.comentarios_list || [])];
+            }
+        }
+    });
+
+    // Si alguien eliminó una publicación desde otra sesión, se retira
+    // del feed local (a menos que sea una que sigue en estado optimista).
+    const idsServidor = new Set(nuevas.map(p => p.id));
+    publicaciones.value = publicaciones.value.filter(p => p.es_temporal || idsServidor.has(p.id));
+}
+
+function sincronizarPublicaciones() {
+    if (sincronizando.value || document.hidden) return; // no pedir de más si la pestaña no está visible
+
+    sincronizando.value = true;
+    router.reload({
+        only: ['publicaciones'],
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            mergePublicacionesServidor(page.props.publicaciones);
+        },
+        onFinish: () => {
+            sincronizando.value = false;
+        },
+    });
+}
+
+function iniciarSincronizacion() {
+    detenerSincronizacion();
+    intervaloSync = setInterval(sincronizarPublicaciones, INTERVALO_SYNC_MS);
+}
+
+function detenerSincronizacion() {
+    if (intervaloSync) {
+        clearInterval(intervaloSync);
+        intervaloSync = null;
+    }
+}
+
+// Pausa el polling si el usuario cambia de pestaña, y sincroniza de
+// inmediato al volver (para no hacerlo esperar hasta el próximo tick).
+function alCambiarVisibilidad() {
+    if (document.hidden) {
+        detenerSincronizacion();
+    } else {
+        sincronizarPublicaciones();
+        iniciarSincronizacion();
     }
 }
 
@@ -998,6 +1093,15 @@ onMounted(() => {
     console.log('Eventos:', proximosEventos.value);
     console.log('🔍 Route creador.index disponible?', typeof route !== 'undefined' && route('creador.index'));
     console.log('🔍 Route creador.comunidad disponible?', typeof route !== 'undefined' && route('creador.comunidad'));
+
+    // ✅ Arranca la sincronización en vivo de likes/comentarios
+    iniciarSincronizacion();
+    document.addEventListener('visibilitychange', alCambiarVisibilidad);
+});
+
+onUnmounted(() => {
+    detenerSincronizacion();
+    document.removeEventListener('visibilitychange', alCambiarVisibilidad);
 });
 </script>
 

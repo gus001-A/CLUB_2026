@@ -4,13 +4,11 @@ namespace App\Http\Controllers\Usuario;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Models\Perfil;
-use App\Models\Fotos;
 use App\Models\Publicacion;
-use App\Models\Comentario;
+use App\Models\Interaccion;
 use App\Models\LikePublicacion;
+use App\Models\Notificacion;
 use App\Models\Evento;
-use App\Models\Suscripcion;
 use App\Models\Reserva;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -33,11 +31,7 @@ class ComunidadController extends Controller
             return redirect()->route('login');
         }
 
-        // Datos del usuario logueado
-        $avatar = '/images/shared/avatar-default.jpg';
-        if ($user->foto_principal) {
-            $avatar = asset('storage/' . $user->foto_principal);
-        }
+        $avatar = $user->avatar;
 
         $usuarioData = [
             'id' => $user->id,
@@ -48,20 +42,13 @@ class ComunidadController extends Controller
             'verificado' => $user->estado === 'verificado',
             'rol' => $user->rol ?? 'usuario',
             'tiene_perfil' => $user->perfil ? true : false,
+            'foto_principal' => $user->foto_principal,
         ];
 
-        // Publicaciones con avatar de cada autor
         $publicaciones = $this->getPublicaciones($user);
         $metricas = $this->getMetricas();
         $temasTendencia = $this->getTemasTendencia();
         $proximosEventos = $this->getProximosEventos();
-
-        Log::info('=== FIN ComunidadController@index ===', [
-            'user_id' => $user->id,
-            'avatar' => $usuarioData['avatar'],
-            'publicaciones' => count($publicaciones),
-            'eventos' => count($proximosEventos),
-        ]);
 
         return Inertia::render('Usuario/Comunidad', [
             'usuario' => $usuarioData,
@@ -72,25 +59,14 @@ class ComunidadController extends Controller
         ]);
     }
 
-    /**
-     * Obtiene el avatar de un usuario desde su foto_principal
-     */
     private function getAvatarFromUser($user): string
     {
         if (!$user) {
             return '/images/shared/avatar-default.jpg';
         }
-
-        if ($user->foto_principal) {
-            return asset('storage/' . $user->foto_principal);
-        }
-
-        return '/images/shared/avatar-default.jpg';
+        return $user->avatar;
     }
 
-    /**
-     * Obtiene las publicaciones del feed con los avatares de los autores
-     */
     private function getPublicaciones($user): array
     {
         $publicaciones = Publicacion::with(['usuario'])
@@ -104,7 +80,7 @@ class ComunidadController extends Controller
         foreach ($publicaciones as $pub) {
             $avatarAutor = $this->getAvatarFromUser($pub->usuario);
 
-            // Verificar si el usuario ya le dio like
+            // ✅ Verificar like - incluye registros con soft delete
             $liked = false;
             if ($user) {
                 $liked = LikePublicacion::where([
@@ -113,33 +89,35 @@ class ComunidadController extends Controller
                 ])->exists();
             }
 
-            // Obtener comentarios (ultimos 5)
-            $comentarios = Comentario::with(['usuario'])
-                ->where('publicacion_id', $pub->id)
-                ->where('estado', 'aprobado')
+            $comentarios = Interaccion::with(['usuario'])
+                ->where('contenido_id', $pub->id)
+                ->where('tipo', 'comentario')
                 ->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get()
                 ->map(function($com) {
+                    $avatar = $this->getAvatarFromUser($com->usuario);
                     return [
                         'id' => $com->id,
                         'usuario' => $com->usuario ? $com->usuario->nombre : 'Usuario',
-                        'avatar' => $this->getAvatarFromUser($com->usuario),
-                        'texto' => $com->texto,
+                        'avatar' => $avatar,
+                        'texto' => $com->comentario,
                         'tiempo' => $com->created_at->diffForHumans(),
                         'usuario_id' => $com->usuario_id,
                     ];
                 })
                 ->toArray();
 
-            // DETERMINAR TIPO DE MEDIA
+            $totalLikes = LikePublicacion::where('publicacion_id', $pub->id)->count();
+            $totalComentarios = Interaccion::where('contenido_id', $pub->id)
+                ->where('tipo', 'comentario')
+                ->count();
+
             $tipoMedia = 'texto';
             $mediaUrl = null;
             $mediaThumbnail = null;
 
-            // Verificar si hay imagen
             if ($pub->imagen) {
-                // Verificar si es video por la extensión
                 $extension = pathinfo($pub->imagen, PATHINFO_EXTENSION);
                 $videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'm4v', '3gp'];
                 
@@ -153,7 +131,6 @@ class ComunidadController extends Controller
                 }
             }
 
-            // Si hay metadatos, sobrescribir
             if (isset($pub->metadatos) && is_array($pub->metadatos)) {
                 if (isset($pub->metadatos['tipo_media'])) {
                     $tipoMedia = $pub->metadatos['tipo_media'];
@@ -174,9 +151,9 @@ class ComunidadController extends Controller
                 'media_url' => $mediaUrl,
                 'media_type' => $tipoMedia,
                 'media_thumbnail' => $mediaThumbnail,
-                'likes' => $pub->likes,
+                'likes' => $totalLikes,
                 'liked' => $liked,
-                'comentarios' => $pub->comentarios_count,
+                'comentarios' => $totalComentarios,
                 'comentarios_list' => $comentarios,
                 'premium' => $pub->es_premium,
                 'verificado' => $pub->usuario->estado === 'verificado',
@@ -188,9 +165,6 @@ class ComunidadController extends Controller
         return $result;
     }
 
-    /**
-     * Obtiene las métricas de la comunidad
-     */
     private function getMetricas(): array
     {
         $usuariosActivos = User::whereHas('publicaciones', function($query) {
@@ -232,9 +206,6 @@ class ComunidadController extends Controller
         ];
     }
 
-    /**
-     * Obtiene los temas en tendencia
-     */
     private function getTemasTendencia(): array
     {
         return [
@@ -251,9 +222,6 @@ class ComunidadController extends Controller
         ];
     }
 
-    /**
-     * Obtiene próximos eventos con formato en español
-     */
     private function getProximosEventos(): array
     {
         Carbon::setLocale('es');
@@ -266,7 +234,6 @@ class ComunidadController extends Controller
 
         if ($eventos->count() > 0) {
             return $eventos->map(function($evento) {
-                // Obtener la imagen del evento
                 $imagen = '/images/comunidad/evento-default.jpg';
                 if ($evento->imagen) {
                     if (filter_var($evento->imagen, FILTER_VALIDATE_URL)) {
@@ -278,7 +245,6 @@ class ComunidadController extends Controller
                     }
                 }
 
-                // Formatear fecha en español
                 $fecha = Carbon::parse($evento->fecha);
                 
                 $meses = [
@@ -309,7 +275,6 @@ class ComunidadController extends Controller
                 $nombreMes = $meses[$fecha->format('F')] ?? $fecha->format('F');
                 $nombreDia = $dias[$fecha->format('l')] ?? $fecha->format('l');
 
-                // Calcular asistentes usando el modelo Reserva
                 $asistentesCount = 0;
                 try {
                     $asistentesCount = Reserva::where('evento_id', $evento->id)
@@ -346,7 +311,6 @@ class ComunidadController extends Controller
             })->toArray();
         }
 
-        // Eventos de muestra si no hay en la base de datos
         return [
             [
                 'id' => 1,
@@ -424,12 +388,9 @@ class ComunidadController extends Controller
     }
 
     // ============================================================
-    // METODOS PARA INTERACCIONES CON PUBLICACIONES
+    // MÉTODOS DE INTERACCIÓN
     // ============================================================
 
-    /**
-     * Crear una nueva publicación con soporte para imágenes y videos
-     */
     public function crearPublicacion(Request $request)
     {
         Log::info('=== INICIO crearPublicacion ===', ['user_id' => Auth::id()]);
@@ -440,7 +401,6 @@ class ComunidadController extends Controller
                 'imagen' => ['nullable', 'image', 'max:10240'],
                 'video' => ['nullable', 'file', 'mimes:mp4,avi,mov,wmv,flv,webm,mkv,m4v,3gp', 'max:51200'],
                 'es_premium' => ['boolean'],
-                'tipo_media' => ['nullable', 'in:imagen,video'],
             ]);
 
             if (!$request->texto && !$request->hasFile('imagen') && !$request->hasFile('video')) {
@@ -461,7 +421,6 @@ class ComunidadController extends Controller
                 $path = $request->file('imagen')->store('publicaciones', 'public');
                 $data['imagen'] = $path;
                 $data['metadatos']['tipo_media'] = 'imagen';
-                Log::info('Imagen subida', ['path' => $path]);
             }
 
             if ($request->hasFile('video')) {
@@ -469,37 +428,15 @@ class ComunidadController extends Controller
                 $data['imagen'] = $path;
                 $data['metadatos']['tipo_media'] = 'video';
                 $data['metadatos']['video_path'] = $path;
-                Log::info('Video subido', ['path' => $path]);
-            }
-
-            if ($request->tipo_media === 'imagen' && !$request->hasFile('imagen')) {
-                return redirect()->back()->with('error', 'Selecciona una imagen para publicar.');
-            }
-
-            if ($request->tipo_media === 'video' && !$request->hasFile('video')) {
-                return redirect()->back()->with('error', 'Selecciona un video para publicar.');
             }
 
             $publicacion = Publicacion::create($data);
 
-            Log::info('Publicación creada', [
-                'publicacion_id' => $publicacion->id,
-                'user_id' => $user->id,
-                'tipo_media' => $data['metadatos']['tipo_media'] ?? 'texto',
-            ]);
-
             return redirect()->back()->with('success', 'Publicación creada correctamente.');
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Error de validación al crear publicación', [
-                'errors' => $e->errors(),
-                'user_id' => Auth::id(),
-            ]);
-            return redirect()->back()->withErrors($e->errors())->with('error', 'Error en la validación de los datos.');
         } catch (\Exception $e) {
             Log::error('Error al crear publicación', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
                 'user_id' => Auth::id(),
             ]);
             return redirect()->back()->with('error', 'Error al crear la publicación: ' . $e->getMessage());
@@ -507,7 +444,8 @@ class ComunidadController extends Controller
     }
 
     /**
-     * Like a una publicación - DEVUELVE JSON (ASINCRONO)
+     * ✅ LIKE / QUITAR LIKE - CORREGIDO PARA SoftDeletes
+     * Usa forceDelete() para eliminar físicamente y evitar duplicados
      */
     public function likePublicacion($publicacionId)
     {
@@ -520,70 +458,117 @@ class ComunidadController extends Controller
             $user = Auth::user();
             $publicacion = Publicacion::findOrFail($publicacionId);
 
-            $likeExistente = LikePublicacion::where([
+            // ✅ Buscar el like (incluye eliminados con soft delete)
+            $like = LikePublicacion::where([
                 'publicacion_id' => $publicacionId,
                 'usuario_id' => $user->id,
             ])->first();
 
-            if ($likeExistente) {
-                $likeExistente->forceDelete();
-                $publicacion->decrement('likes');
-                $mensaje = 'Like eliminado';
+            if ($like) {
+                // ✅ Si existe, lo ELIMINAMOS FÍSICAMENTE (forceDelete)
+                // Esto evita el problema de duplicados con soft deletes
+                $like->forceDelete();
                 $liked = false;
-            } else {
-                LikePublicacion::create([
+                $mensaje = 'Like eliminado';
+                Log::info('Like eliminado (forceDelete)', [
                     'publicacion_id' => $publicacionId,
-                    'usuario_id' => $user->id,
+                    'user_id' => $user->id,
+                    'like_id' => $like->id
                 ]);
-                $publicacion->increment('likes');
-                $mensaje = 'Like agregado';
-                $liked = true;
+            } else {
+                // ✅ Verificar si hay un registro eliminado (soft delete)
+                // y restaurarlo en lugar de crear uno nuevo
+                $likeTrashed = LikePublicacion::withTrashed()
+                    ->where([
+                        'publicacion_id' => $publicacionId,
+                        'usuario_id' => $user->id,
+                    ])->first();
+
+                if ($likeTrashed) {
+                    // ✅ Restaurar el registro eliminado
+                    $likeTrashed->restore();
+                    $liked = true;
+                    $mensaje = 'Like restaurado';
+                    Log::info('Like restaurado desde soft delete', [
+                        'publicacion_id' => $publicacionId,
+                        'user_id' => $user->id,
+                        'like_id' => $likeTrashed->id
+                    ]);
+                } else {
+                    // ✅ Crear nuevo like
+                    LikePublicacion::create([
+                        'publicacion_id' => $publicacionId,
+                        'usuario_id' => $user->id,
+                    ]);
+                    $liked = true;
+                    $mensaje = 'Like agregado';
+                    Log::info('Like agregado', [
+                        'publicacion_id' => $publicacionId,
+                        'user_id' => $user->id
+                    ]);
+                }
             }
 
-            Log::info('Like procesado', [
+            // ✅ Contar likes totales y actualizar la publicación
+            $totalLikes = LikePublicacion::where('publicacion_id', $publicacionId)->count();
+            $publicacion->update(['likes' => $totalLikes]);
+
+            // 🔔 Notificar al dueño de la publicación (solo cuando SE DA el
+            // like, no cuando se quita) — cubre tanto "Like agregado" como
+            // "Like restaurado", ambos casos dejan $liked = true.
+            if ($liked) {
+                Notificacion::crear(
+                    usuarioId: $publicacion->usuario_id,
+                    emisorId: $user->id,
+                    tipo: 'like',
+                    mensaje: "<strong>{$user->nombre}</strong> le dio like a tu publicación",
+                    contenidoId: $publicacion->id,
+                );
+            }
+
+            Log::info('Like procesado correctamente', [
                 'publicacion_id' => $publicacionId,
-                'user_id' => $user->id,
-                'accion' => $mensaje,
+                'total_likes' => $totalLikes,
+                'liked' => $liked,
             ]);
 
             return response()->json([
                 'success' => true,
                 'liked' => $liked,
-                'likes' => $publicacion->fresh()->likes,
+                'likes' => $totalLikes,
                 'message' => $mensaje,
             ]);
 
         } catch (\Exception $e) {
             Log::error('Error al procesar like', [
                 'publicacion_id' => $publicacionId,
-                'error' => $e->getMessage(),
+                'user_id' => Auth::id(),
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error al procesar el like',
+                'message' => 'Error al procesar el like: ' . $e->getMessage(),
             ], 500);
         }
     }
 
-    /**
-     * Obtener comentarios de una publicación
-     */
     public function obtenerComentarios($publicacionId)
     {
         try {
-            $comentarios = Comentario::with(['usuario'])
-                ->where('publicacion_id', $publicacionId)
-                ->where('estado', 'aprobado')
+            $comentarios = Interaccion::with(['usuario'])
+                ->where('contenido_id', $publicacionId)
+                ->where('tipo', 'comentario')
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function($comentario) {
                     $avatar = $this->getAvatarFromUser($comentario->usuario);
-
                     return [
                         'id' => $comentario->id,
                         'usuario' => $comentario->usuario ? $comentario->usuario->nombre : 'Usuario desconocido',
                         'avatar' => $avatar,
-                        'texto' => $comentario->texto,
+                        'texto' => $comentario->comentario,
                         'tiempo' => $comentario->created_at->diffForHumans(),
                         'verificado' => $comentario->usuario ? $comentario->usuario->estado === 'verificado' : false,
                         'usuario_id' => $comentario->usuario_id,
@@ -598,7 +583,7 @@ class ComunidadController extends Controller
         } catch (\Exception $e) {
             Log::error('Error al obtener comentarios', [
                 'publicacion_id' => $publicacionId,
-                'error' => $e->getMessage(),
+                'message' => $e->getMessage()
             ]);
             return response()->json([
                 'success' => false,
@@ -607,16 +592,8 @@ class ComunidadController extends Controller
         }
     }
 
-    /**
-     * Crear un comentario - DEVUELVE JSON (ASINCRONO)
-     */
     public function crearComentario(Request $request, $publicacionId)
     {
-        Log::info('=== INICIO crearComentario ===', [
-            'publicacion_id' => $publicacionId,
-            'user_id' => Auth::id(),
-        ]);
-
         try {
             $request->validate([
                 'texto' => ['required', 'string', 'max:1000'],
@@ -625,23 +602,31 @@ class ComunidadController extends Controller
             $user = Auth::user();
             $publicacion = Publicacion::findOrFail($publicacionId);
 
-            $comentario = Comentario::create([
-                'publicacion_id' => $publicacionId,
+            $comentario = Interaccion::create([
+                'contenido_id' => $publicacionId,
                 'usuario_id' => $user->id,
-                'texto' => $request->texto,
-                'estado' => 'aprobado',
+                'tipo' => 'comentario',
+                'comentario' => $request->texto,
             ]);
-
-            $publicacion->increment('comentarios_count');
 
             $comentario->load('usuario');
-            
-            $avatar = $this->getAvatarFromUser($comentario->usuario);
 
-            Log::info('Comentario creado', [
-                'comentario_id' => $comentario->id,
-                'publicacion_id' => $publicacionId,
-            ]);
+            $totalComentarios = Interaccion::where('contenido_id', $publicacionId)
+                ->where('tipo', 'comentario')
+                ->count();
+
+            $publicacion->update(['comentarios_count' => $totalComentarios]);
+
+            // 🔔 Notificar al dueño de la publicación
+            Notificacion::crear(
+                usuarioId: $publicacion->usuario_id,
+                emisorId: $user->id,
+                tipo: 'comentario',
+                mensaje: "<strong>{$user->nombre}</strong> comentó tu publicación",
+                contenidoId: $publicacion->id,
+            );
+
+            $avatar = $this->getAvatarFromUser($comentario->usuario);
 
             return response()->json([
                 'success' => true,
@@ -649,36 +634,68 @@ class ComunidadController extends Controller
                     'id' => $comentario->id,
                     'usuario' => $comentario->usuario->nombre ?? 'Usuario',
                     'avatar' => $avatar,
-                    'texto' => $comentario->texto,
+                    'texto' => $comentario->comentario,
                     'tiempo' => $comentario->created_at->diffForHumans(),
                     'usuario_id' => $comentario->usuario_id,
                 ],
-                'total_comentarios' => $publicacion->fresh()->comentarios_count,
+                'total_comentarios' => $totalComentarios,
                 'message' => 'Comentario agregado correctamente',
             ]);
 
         } catch (\Exception $e) {
             Log::error('Error al crear comentario', [
                 'publicacion_id' => $publicacionId,
-                'error' => $e->getMessage(),
+                'message' => $e->getMessage()
             ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Error al agregar el comentario',
+                'message' => 'Error al agregar el comentario: ' . $e->getMessage(),
             ], 500);
         }
     }
 
-    /**
-     * Eliminar una publicación
-     */
+    public function eliminarComentario($comentarioId)
+    {
+        try {
+            $user = Auth::user();
+            $comentario = Interaccion::findOrFail($comentarioId);
+
+            if ($comentario->usuario_id !== $user->id && $user->rol !== 'admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No tienes permiso para eliminar este comentario',
+                ], 403);
+            }
+
+            $publicacionId = $comentario->contenido_id;
+            $comentario->delete();
+
+            $totalComentarios = Interaccion::where('contenido_id', $publicacionId)
+                ->where('tipo', 'comentario')
+                ->count();
+
+            Publicacion::where('id', $publicacionId)->update(['comentarios_count' => $totalComentarios]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Comentario eliminado correctamente',
+                'total_comentarios' => $totalComentarios,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error al eliminar comentario', [
+                'comentario_id' => $comentarioId,
+                'message' => $e->getMessage()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar el comentario',
+            ], 500);
+        }
+    }
+
     public function eliminarPublicacion($publicacionId)
     {
-        Log::info('=== INICIO eliminarPublicacion ===', [
-            'publicacion_id' => $publicacionId,
-            'user_id' => Auth::id(),
-        ]);
-
         try {
             $user = Auth::user();
             $publicacion = Publicacion::findOrFail($publicacionId);
@@ -690,22 +707,23 @@ class ComunidadController extends Controller
                 ], 403);
             }
 
+            // ✅ Eliminar likes (forceDelete para evitar problemas)
+            LikePublicacion::where('publicacion_id', $publicacionId)->forceDelete();
+
+            // ✅ Eliminar comentarios
+            Interaccion::where('contenido_id', $publicacionId)
+                ->where('tipo', 'comentario')
+                ->delete();
+
             if ($publicacion->imagen && Storage::disk('public')->exists($publicacion->imagen)) {
                 Storage::disk('public')->delete($publicacion->imagen);
-                Log::info('Archivo multimedia eliminado', ['path' => $publicacion->imagen]);
             }
 
             if (isset($publicacion->metadatos['video_path']) && Storage::disk('public')->exists($publicacion->metadatos['video_path'])) {
                 Storage::disk('public')->delete($publicacion->metadatos['video_path']);
-                Log::info('Video eliminado', ['path' => $publicacion->metadatos['video_path']]);
             }
 
             $publicacion->delete();
-
-            Log::info('Publicación eliminada', [
-                'publicacion_id' => $publicacionId,
-                'user_id' => $user->id,
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -715,7 +733,7 @@ class ComunidadController extends Controller
         } catch (\Exception $e) {
             Log::error('Error al eliminar publicación', [
                 'publicacion_id' => $publicacionId,
-                'error' => $e->getMessage(),
+                'message' => $e->getMessage()
             ]);
             return response()->json([
                 'success' => false,

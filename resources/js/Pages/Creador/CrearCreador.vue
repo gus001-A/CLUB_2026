@@ -1,13 +1,8 @@
 <template>
+
     <Head title="Publica tu contenido" />
 
-    <AppLayout
-        active-nav="comunidad"
-        :usuario="usuario"
-        :notificaciones="5"
-        :favoritos="2"
-        :mensajes="3"
-    >
+    <AppLayout active-nav="comunidad" :usuario="usuario" :notificaciones="5" :favoritos="2" :mensajes="3">
         <div class="publicar-page">
             <!-- Hero -->
             <section class="hero">
@@ -25,7 +20,7 @@
                             y <span class="hero__title-highlight">conecta</span> con tu comunidad
                         </h1>
                         <p class="hero__text">
-                            Sube tu contenido exclusivo, configura la visibilidad 
+                            Sube tu contenido exclusivo, configura la visibilidad
                             y publícalo para que tus suscriptores puedan disfrutarlo.
                         </p>
                     </div>
@@ -53,17 +48,11 @@
                 <div class="main-column">
                     <!-- Indicador de pasos -->
                     <div class="steps-indicator">
-                        <div 
-                            v-for="(paso, index) in pasos" 
-                            :key="paso.id"
-                            class="step-item"
-                            :class="{
-                                'step-item--active': pasoActivo === paso.id,
-                                'step-item--completed': paso.id < pasoActivo,
-                                'step-item--clickable': paso.id < pasoActivo
-                            }"
-                            @click="paso.id < pasoActivo && irAlPaso(paso.id)"
-                        >
+                        <div v-for="(paso, index) in pasos" :key="paso.id" class="step-item" :class="{
+                            'step-item--active': pasoActivo === paso.id,
+                            'step-item--completed': paso.id < pasoActivo,
+                            'step-item--clickable': paso.id < pasoActivo
+                        }" @click="paso.id < pasoActivo && irAlPaso(paso.id)">
                             <span class="step-number">{{ index + 1 }}</span>
                             <span class="step-label">{{ paso.label }}</span>
                             <span v-if="paso.id < pasoActivo" class="step-check"><i class="pi pi-check"></i></span>
@@ -81,29 +70,19 @@
                         <div class="field-grid">
                             <div class="field" :class="{ 'field--error': erroresForm.nombreMostrar }">
                                 <label>Nombre para mostrar <span class="required">*</span></label>
-                                <input
-                                    type="text"
-                                    v-model="form.nombreMostrar"
-                                    @blur="validarCampo('nombreMostrar')"
-                                    placeholder="Ej: Alexandra"
-                                    class="form-input"
-                                    :class="{ 'input-error': erroresForm.nombreMostrar }"
-                                />
+                                <input type="text" v-model="form.nombreMostrar" @blur="validarCampo('nombreMostrar')"
+                                    placeholder="Ej: Alexandra" class="form-input"
+                                    :class="{ 'input-error': erroresForm.nombreMostrar }" />
                                 <span v-if="erroresForm.nombreMostrar" class="error-message">
                                     <i class="pi pi-exclamation-circle"></i> {{ erroresForm.nombreMostrar }}
                                 </span>
                             </div>
                             <div class="field" :class="{ 'field--error': erroresForm.descripcion }">
                                 <label>Descripción</label>
-                                <textarea
-                                    v-model="form.descripcion"
-                                    :maxlength="descripcionMax"
-                                    rows="3"
-                                    @blur="validarCampo('descripcion')"
-                                    placeholder="Cuéntanos sobre ti..."
+                                <textarea v-model="form.descripcion" :maxlength="descripcionMax" rows="3"
+                                    @blur="validarCampo('descripcion')" placeholder="Cuéntanos sobre ti..."
                                     class="form-textarea"
-                                    :class="{ 'input-error': erroresForm.descripcion }"
-                                ></textarea>
+                                    :class="{ 'input-error': erroresForm.descripcion }"></textarea>
                                 <span class="char-count">{{ form.descripcion.length }}/{{ descripcionMax }}</span>
                             </div>
                         </div>
@@ -113,11 +92,7 @@
                                 <label>Categorías / Intereses <span class="required">*</span></label>
                                 <div class="categoria-selector">
                                     <div class="tag-input">
-                                        <span
-                                            v-for="cat in form.categorias"
-                                            :key="cat"
-                                            class="tag-chip"
-                                        >
+                                        <span v-for="cat in form.categorias" :key="cat" class="tag-chip">
                                             {{ cat }}
                                             <button @click="toggleCategoria(cat)" type="button">
                                                 <i class="pi pi-times"></i>
@@ -128,14 +103,9 @@
                                         </span>
                                     </div>
                                     <div class="categoria-options">
-                                        <button
-                                            v-for="cat in categoriasDisponibles"
-                                            :key="cat"
-                                            class="categoria-option"
+                                        <button v-for="cat in categoriasDisponibles" :key="cat" class="categoria-option"
                                             :class="{ selected: form.categorias.includes(cat) }"
-                                            @click="toggleCategoria(cat)"
-                                            type="button"
-                                        >
+                                            @click="toggleCategoria(cat)" type="button">
                                             {{ cat }}
                                         </button>
                                     </div>
@@ -147,28 +117,19 @@
                             <div class="field">
                                 <label>Tipo de contenido</label>
                                 <div class="content-type-row">
-                                    <button
-                                        class="content-type-pill"
+                                    <button class="content-type-pill"
                                         :class="{ selected: form.tipoContenido === 'fotos' }"
-                                        @click="form.tipoContenido = 'fotos'"
-                                        type="button"
-                                    >
+                                        @click="form.tipoContenido = 'fotos'" type="button">
                                         <i class="pi pi-image"></i> Fotos
                                     </button>
-                                    <button
-                                        class="content-type-pill"
+                                    <button class="content-type-pill"
                                         :class="{ selected: form.tipoContenido === 'videos' }"
-                                        @click="form.tipoContenido = 'videos'"
-                                        type="button"
-                                    >
+                                        @click="form.tipoContenido = 'videos'" type="button">
                                         <i class="pi pi-video"></i> Videos
                                     </button>
-                                    <button
-                                        class="content-type-pill"
+                                    <button class="content-type-pill"
                                         :class="{ selected: form.tipoContenido === 'exclusivo' }"
-                                        @click="form.tipoContenido = 'exclusivo'"
-                                        type="button"
-                                    >
+                                        @click="form.tipoContenido = 'exclusivo'" type="button">
                                         <i class="pi pi-lock"></i> Exclusivo
                                     </button>
                                 </div>
@@ -188,11 +149,7 @@
                         </div>
 
                         <div class="form-actions">
-                            <button
-                                class="btn btn--primary"
-                                @click="siguientePaso"
-                                :disabled="isSubmitting"
-                            >
+                            <button class="btn btn--primary" @click="siguientePaso" :disabled="isSubmitting">
                                 <i class="pi pi-arrow-right"></i>
                                 Siguiente
                             </button>
@@ -209,14 +166,11 @@
 
                         <div class="age-confirmation">
                             <div class="age-confirmation__checkbox">
-                                <input 
-                                    type="checkbox" 
-                                    id="age-confirmation" 
-                                    v-model="confirmacionEdad"
-                                />
+                                <input type="checkbox" id="age-confirmation" v-model="confirmacionEdad" />
                                 <label for="age-confirmation">
                                     <strong>Confirmo que soy mayor de 18 años</strong>
-                                    <span>Para poder publicar contenido en la plataforma, debes ser mayor de edad.</span>
+                                    <span>Para poder publicar contenido en la plataforma, debes ser mayor de
+                                        edad.</span>
                                 </label>
                             </div>
                             <div v-if="!confirmacionEdad && mostrarErrorEdad" class="age-confirmation__error">
@@ -232,30 +186,27 @@
                                     <span class="required">*</span>
                                 </span>
                                 <div class="verification-photo">
-                                    <img 
-                                        :src="verificacion.selfieUrl || '/images/shared/avatar-default.jpg'" 
-                                        alt="Selfie" 
-                                        @error="(e) => { e.target.src = '/images/shared/avatar-default.jpg' }"
-                                    />
+                                    <img :src="verificacion.selfieUrl || '/images/shared/avatar-default.jpg'"
+                                        alt="Selfie"
+                                        @error="(e) => { e.target.src = '/images/shared/avatar-default.jpg' }" />
                                     <label class="verification-upload-btn">
                                         <i class="pi pi-camera"></i>
                                         <input type="file" accept="image/*" @change="manejarSelfie" />
                                     </label>
                                     <div v-if="uploadingSelfie" class="upload-progress">
-                                        <div class="upload-progress__bar" :style="{ width: uploadProgress + '%' }"></div>
+                                        <div class="upload-progress__bar" :style="{ width: uploadProgress + '%' }">
+                                        </div>
                                     </div>
                                 </div>
-                                <span class="status-chip" :class="verificacion.selfieSubida ? 'status-chip--ok' : 'status-chip--pending'">
-                                    <i class="pi" :class="verificacion.selfieSubida ? 'pi-check-circle' : 'pi-clock'"></i>
+                                <span class="status-chip"
+                                    :class="verificacion.selfieSubida ? 'status-chip--ok' : 'status-chip--pending'">
+                                    <i class="pi"
+                                        :class="verificacion.selfieSubida ? 'pi-check-circle' : 'pi-clock'"></i>
                                     {{ verificacion.selfieSubida ? 'Selfie subida' : 'Pendiente' }}
                                 </span>
                                 <span class="verification-hint">Sube una foto clara de tu rostro</span>
-                                <button 
-                                    v-if="verificacion.selfieSubida" 
-                                    class="btn btn--danger btn--small"
-                                    @click="confirmarEliminarDocumento('selfie')"
-                                    type="button"
-                                >
+                                <button v-if="verificacion.selfieSubida" class="btn btn--danger btn--small"
+                                    @click="confirmarEliminarDocumento('selfie')" type="button">
                                     <i class="pi pi-trash"></i> Eliminar
                                 </button>
                             </div>
@@ -267,29 +218,34 @@
                                 </span>
                                 <div class="verification-thumbs">
                                     <!-- Mostrar fotos del INE ya subidas -->
-                                    <div
-                                        v-for="(url, i) in verificacion.fotosIdentificacionUrls"
-                                        :key="i"
-                                        class="verification-thumb"
-                                    >
-                                        <img :src="url" alt="Identificación" @error="(e) => { e.target.style.display = 'none' }" />
-                                        <button class="verification-thumb__delete" @click="confirmarEliminarDocumento('identificacion', i)" type="button">
+                                    <div v-for="(url, i) in verificacion.fotosIdentificacionUrls" :key="i"
+                                        class="verification-thumb">
+                                        <img :src="url" alt="Identificación"
+                                            @error="(e) => { e.target.style.display = 'none' }" />
+                                        <button class="verification-thumb__delete"
+                                            @click="confirmarEliminarDocumento('identificacion', i)" type="button">
                                             <i class="pi pi-times"></i>
                                         </button>
-                                        <span class="verification-thumb__label">{{ i === 0 ? 'Frente' : 'Reverso' }}</span>
+                                        <span class="verification-thumb__label">{{ i === 0 ? 'Frente' : 'Reverso'
+                                            }}</span>
                                     </div>
                                     <!-- Botón para subir una foto (si hay menos de 2) -->
-                                    <label class="verification-thumb verification-thumb--add" v-if="verificacion.fotosIdentificacionUrls.length < 2">
+                                    <label class="verification-thumb verification-thumb--add"
+                                        v-if="verificacion.fotosIdentificacionUrls.length < 2">
                                         <i class="pi pi-plus"></i>
-                                        <span>Subir {{ verificacion.fotosIdentificacionUrls.length === 0 ? 'frente' : 'reverso' }}</span>
+                                        <span>Subir {{ verificacion.fotosIdentificacionUrls.length === 0 ? 'frente' :
+                                            'reverso' }}</span>
                                         <input type="file" accept="image/*" @change="manejarIdentificacion" />
                                     </label>
                                 </div>
-                                <span class="status-chip" :class="verificacion.fotosIdentificacionUrls.length >= 2 ? 'status-chip--ok' : 'status-chip--pending'">
-                                    <i class="pi" :class="verificacion.fotosIdentificacionUrls.length >= 2 ? 'pi-check-circle' : 'pi-clock'"></i>
+                                <span class="status-chip"
+                                    :class="verificacion.fotosIdentificacionUrls.length >= 2 ? 'status-chip--ok' : 'status-chip--pending'">
+                                    <i class="pi"
+                                        :class="verificacion.fotosIdentificacionUrls.length >= 2 ? 'pi-check-circle' : 'pi-clock'"></i>
                                     {{ verificacion.fotosIdentificacionUrls.length }}/2 subidas
                                 </span>
-                                <span class="verification-hint">Sube una foto del frente y otra del reverso de tu identificación oficial</span>
+                                <span class="verification-hint">Sube una foto del frente y otra del reverso de tu
+                                    identificación oficial</span>
                             </div>
                         </div>
 
@@ -309,7 +265,8 @@
                             <button class="btn btn--secondary" @click="pasoAnterior" type="button">
                                 <i class="pi pi-arrow-left"></i> Anterior
                             </button>
-                            <button class="btn btn--primary" @click="siguientePaso" :disabled="isSubmitting" type="button">
+                            <button class="btn btn--primary" @click="siguientePaso" :disabled="isSubmitting"
+                                type="button">
                                 <i class="pi pi-arrow-right"></i> Siguiente
                             </button>
                         </div>
@@ -326,18 +283,12 @@
                         <div class="monetization-section">
                             <h3>Elige tu modelo de ingresos</h3>
                             <div class="monetization-grid">
-                                <button
-                                    v-for="m in modelosIngreso"
-                                    :key="m.key"
-                                    class="monetization-card"
-                                    :class="{ 
-                                        selected: modeloSeleccionado === m.key,
-                                        popular: m.popular
-                                    }"
-                                    @click="modeloSeleccionado = m.key"
-                                    type="button"
-                                >
-                                    <span class="monetization-card__radio" :class="{ checked: modeloSeleccionado === m.key }"></span>
+                                <button v-for="m in modelosIngreso" :key="m.key" class="monetization-card" :class="{
+                                    selected: modeloSeleccionado === m.key,
+                                    popular: m.popular
+                                }" @click="modeloSeleccionado = m.key" type="button">
+                                    <span class="monetization-card__radio"
+                                        :class="{ checked: modeloSeleccionado === m.key }"></span>
                                     <span v-if="m.popular" class="popular-badge">Popular</span>
                                     <i class="pi" :class="m.icon"></i>
                                     <strong>{{ m.titulo }}</strong>
@@ -355,23 +306,18 @@
 
                         <div v-if="modeloSeleccionado === 'exclusivo'" class="custom-price-field">
                             <label>Precio personalizado (MXN)</label>
-                            <input 
-                                type="number" 
-                                v-model="precioPersonalizado" 
-                                step="0.01" 
-                                min="0.99" 
-                                max="999.99"
-                                class="form-input"
-                                placeholder="Ej: 199.99"
-                            />
+                            <input type="number" v-model="precioPersonalizado" step="0.01" min="0.99" max="999.99"
+                                class="form-input" placeholder="Ej: 199.99" />
                         </div>
 
                         <div class="promociones-section">
                             <h3>Ofertas y beneficios para tus suscriptores</h3>
-                            <p class="promo-subtitle">Atrae más suscriptores con promociones especiales y contenido exclusivo</p>
-                            
+                            <p class="promo-subtitle">Atrae más suscriptores con promociones especiales y contenido
+                                exclusivo</p>
+
                             <div class="promo-grid-redesign">
-                                <div class="promo-card" :class="{ active: promociones.pruebaGratuita }" @click="promociones.pruebaGratuita = !promociones.pruebaGratuita">
+                                <div class="promo-card" :class="{ active: promociones.pruebaGratuita }"
+                                    @click="promociones.pruebaGratuita = !promociones.pruebaGratuita">
                                     <div class="promo-card__icon">
                                         <i class="pi pi-calendar"></i>
                                     </div>
@@ -386,7 +332,8 @@
                                     </div>
                                 </div>
 
-                                <div class="promo-card" :class="{ active: promociones.descuentoLanzamiento }" @click="promociones.descuentoLanzamiento = !promociones.descuentoLanzamiento">
+                                <div class="promo-card" :class="{ active: promociones.descuentoLanzamiento }"
+                                    @click="promociones.descuentoLanzamiento = !promociones.descuentoLanzamiento">
                                     <div class="promo-card__icon">
                                         <i class="pi pi-tag"></i>
                                     </div>
@@ -395,13 +342,15 @@
                                         <span>20% de descuento para los primeros 100 suscriptores</span>
                                     </div>
                                     <div class="promo-card__toggle">
-                                        <span class="promo-status" :class="{ active: promociones.descuentoLanzamiento }">
+                                        <span class="promo-status"
+                                            :class="{ active: promociones.descuentoLanzamiento }">
                                             {{ promociones.descuentoLanzamiento ? 'Activada' : 'Desactivada' }}
                                         </span>
                                     </div>
                                 </div>
 
-                                <div class="promo-card" :class="{ active: promociones.paqueteVip }" @click="promociones.paqueteVip = !promociones.paqueteVip">
+                                <div class="promo-card" :class="{ active: promociones.paqueteVip }"
+                                    @click="promociones.paqueteVip = !promociones.paqueteVip">
                                     <div class="promo-card__icon">
                                         <i class="pi pi-star"></i>
                                     </div>
@@ -420,14 +369,15 @@
 
                         <div class="cobro-section">
                             <h3>Método de cobro</h3>
-                            
+
                             <div class="api-message">
                                 <div class="api-message__icon">
                                     <i class="pi pi-info-circle"></i>
                                 </div>
                                 <div class="api-message__content">
                                     <strong>Próximamente integración con Mercado Pago</strong>
-                                    <p>Estamos trabajando para ofrecerte múltiples opciones de pago. Por ahora, usa la tarjeta de prueba.</p>
+                                    <p>Estamos trabajando para ofrecerte múltiples opciones de pago. Por ahora, usa la
+                                        tarjeta de prueba.</p>
                                 </div>
                             </div>
 
@@ -473,7 +423,9 @@
                                 </label>
                             </div>
 
-                            <p class="protected-note"><i class="pi pi-lock"></i> Tus datos financieros están protegidos y encriptados con SSL.</p>
+                            <p class="protected-note"><i class="pi pi-lock"></i> Tus datos financieros están protegidos
+                                y encriptados con SSL.
+                            </p>
                         </div>
 
                         <div class="acceso-section">
@@ -521,7 +473,8 @@
                             <button class="btn btn--secondary" @click="pasoAnterior" type="button">
                                 <i class="pi pi-arrow-left"></i> Anterior
                             </button>
-                            <button class="btn btn--primary" @click="siguientePaso" :disabled="isSubmitting" type="button">
+                            <button class="btn btn--primary" @click="siguientePaso" :disabled="isSubmitting"
+                                type="button">
                                 <i class="pi pi-arrow-right"></i> Siguiente
                             </button>
                         </div>
@@ -538,32 +491,23 @@
                         <!-- Crear publicación -->
                         <div class="publicacion-section">
                             <h3>Crea tu publicación</h3>
-                            
+
                             <div class="field">
                                 <label>Tipo de contenido</label>
                                 <div class="content-type-row">
-                                    <button 
-                                        class="content-type-pill" 
-                                        :class="{ selected: publicacion.tipoContenido === 'foto' }" 
-                                        @click="publicacion.tipoContenido = 'foto'"
-                                        type="button"
-                                    >
+                                    <button class="content-type-pill"
+                                        :class="{ selected: publicacion.tipoContenido === 'foto' }"
+                                        @click="publicacion.tipoContenido = 'foto'" type="button">
                                         <i class="pi pi-image"></i> Foto
                                     </button>
-                                    <button 
-                                        class="content-type-pill" 
-                                        :class="{ selected: publicacion.tipoContenido === 'video' }" 
-                                        @click="publicacion.tipoContenido = 'video'"
-                                        type="button"
-                                    >
+                                    <button class="content-type-pill"
+                                        :class="{ selected: publicacion.tipoContenido === 'video' }"
+                                        @click="publicacion.tipoContenido = 'video'" type="button">
                                         <i class="pi pi-video"></i> Video
                                     </button>
-                                    <button 
-                                        class="content-type-pill" 
-                                        :class="{ selected: publicacion.tipoContenido === 'exclusivo' }" 
-                                        @click="publicacion.tipoContenido = 'exclusivo'"
-                                        type="button"
-                                    >
+                                    <button class="content-type-pill"
+                                        :class="{ selected: publicacion.tipoContenido === 'exclusivo' }"
+                                        @click="publicacion.tipoContenido = 'exclusivo'" type="button">
                                         <i class="pi pi-crown"></i> Exclusivo
                                     </button>
                                 </div>
@@ -571,14 +515,10 @@
 
                             <div class="field mt">
                                 <label>Título de la publicación <span class="required">*</span></label>
-                                <input 
-                                    type="text" 
-                                    v-model="publicacion.titulo" 
-                                    placeholder="Ej: Mi noche más especial en Madrid"
-                                    class="form-input"
+                                <input type="text" v-model="publicacion.titulo"
+                                    placeholder="Ej: Mi noche más especial en Madrid" class="form-input"
                                     :class="{ 'input-error': erroresPublicacion.titulo }"
-                                    @blur="validarPublicacion('titulo')"
-                                />
+                                    @blur="validarPublicacion('titulo')" />
                                 <span v-if="erroresPublicacion.titulo" class="error-message">
                                     <i class="pi pi-exclamation-circle"></i> {{ erroresPublicacion.titulo }}
                                 </span>
@@ -586,29 +526,19 @@
 
                             <div class="field mt">
                                 <label>Descripción</label>
-                                <textarea 
-                                    v-model="publicacion.descripcion" 
-                                    :maxlength="publicacionDescripcionMax" 
-                                    rows="4" 
-                                    placeholder="Comparte una descripción atractiva para tu publicación..."
-                                    class="form-textarea"
-                                ></textarea>
-                                <span class="char-count">{{ publicacion.descripcion.length }}/{{ publicacionDescripcionMax }}</span>
+                                <textarea v-model="publicacion.descripcion" :maxlength="publicacionDescripcionMax"
+                                    rows="4" placeholder="Comparte una descripción atractiva para tu publicación..."
+                                    class="form-textarea"></textarea>
+                                <span class="char-count">{{ publicacion.descripcion.length }}/{{
+                                    publicacionDescripcionMax }}</span>
                             </div>
 
                             <div class="upload-row mt">
                                 <div class="upload-thumbs">
-                                    <div 
-                                        v-for="(f, i) in archivosPublicacion" 
-                                        :key="i" 
-                                        class="upload-thumb"
-                                    >
+                                    <div v-for="(f, i) in archivosPublicacion" :key="i" class="upload-thumb">
                                         <img :src="f.url" alt="" />
-                                        <button 
-                                            class="upload-thumb__delete" 
-                                            @click="eliminarArchivoPublicacion(i)"
-                                            type="button"
-                                        >
+                                        <button class="upload-thumb__delete" @click="eliminarArchivoPublicacion(i)"
+                                            type="button">
                                             <i class="pi pi-times"></i>
                                         </button>
                                         <span class="upload-thumb__badge">{{ i + 1 }}</span>
@@ -618,13 +548,8 @@
                                     <i class="pi pi-cloud-upload"></i>
                                     <span>Arrastra o haz clic para agregar archivos</span>
                                     <small>Formatos soportados: JPG, PNG, MP4 · Tamaño máximo: 500MB</small>
-                                    <input 
-                                        type="file" 
-                                        accept="image/*,video/*" 
-                                        multiple 
-                                        hidden 
-                                        @change="onArchivosPublicacionSeleccionados" 
-                                    />
+                                    <input type="file" accept="image/*,video/*" multiple hidden
+                                        @change="onArchivosPublicacionSeleccionados" />
                                 </label>
                                 <span v-if="erroresPublicacion.archivos" class="error-message">
                                     <i class="pi pi-exclamation-circle"></i> {{ erroresPublicacion.archivos }}
@@ -634,23 +559,16 @@
                             <div class="field mt">
                                 <label>Etiquetas / intereses</label>
                                 <div class="tag-input">
-                                    <span 
-                                        v-for="tag in publicacion.etiquetas" 
-                                        :key="tag" 
-                                        class="tag-chip"
-                                    >
-                                        {{ tag }} 
+                                    <span v-for="tag in publicacion.etiquetas" :key="tag" class="tag-chip">
+                                        {{ tag }}
                                         <button @click="quitarEtiquetaPublicacion(tag)" type="button">
                                             <i class="pi pi-times"></i>
                                         </button>
                                     </span>
-                                    <input 
-                                        type="text" 
-                                        class="tag-input__field" 
+                                    <input type="text" class="tag-input__field"
                                         placeholder="Agrega etiquetas y presiona Enter..."
                                         @keydown.enter.prevent="agregarEtiquetaPublicacion"
-                                        v-model="nuevaEtiquetaPublicacion"
-                                    />
+                                        v-model="nuevaEtiquetaPublicacion" />
                                 </div>
                                 <span class="tag-hint">Presiona Enter para agregar una etiqueta</span>
                             </div>
@@ -659,7 +577,7 @@
                         <!-- Visibilidad -->
                         <div class="visibilidad-section">
                             <h3>Visibilidad y acceso</h3>
-                            
+
                             <div class="visibility-item">
                                 <span class="visibility-item__icon"><i class="pi pi-lock"></i></span>
                                 <div class="visibility-item__text">
@@ -679,7 +597,8 @@
                                     <span>Muestra una imagen difuminada con candado para usuarios no suscritos.</span>
                                 </div>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" v-model="publicacionVisibilidad.mostrarVistaPreviaBloqueada" />
+                                    <input type="checkbox"
+                                        v-model="publicacionVisibilidad.mostrarVistaPreviaBloqueada" />
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
@@ -700,13 +619,14 @@
                         <!-- Vista previa -->
                         <div class="previa-section">
                             <h3><i class="pi pi-eye"></i> Vista previa de tu publicación</h3>
-                            
+
                             <div class="post-preview">
                                 <div class="post-preview__header">
-                                    <img :src="usuario.avatar || '/images/shared/avatar-default.jpg'" alt="Avatar" class="post-preview__avatar" />
+                                    <img :src="usuario.avatar || '/images/shared/avatar-default.jpg'" alt="Avatar"
+                                        class="post-preview__avatar" />
                                     <div class="post-preview__author">
                                         <strong>
-                                            {{ usuario.nombre || 'Creador' }} 
+                                            {{ usuario.nombre || 'Creador' }}
                                             <span class="premium-chip">Premium</span>
                                         </strong>
                                         <span>Hace 5 min</span>
@@ -716,12 +636,14 @@
                                     </button>
                                 </div>
 
-                                <p class="post-preview__title">{{ publicacion.titulo || 'Título de tu publicación' }}</p>
+                                <p class="post-preview__title">{{ publicacion.titulo || 'Título de tu publicación' }}
+                                </p>
                                 <p class="post-preview__desc">{{ publicacion.descripcion || 'Descripción de tu publicación...' }}</p>
 
                                 <div class="post-preview__media">
                                     <img v-if="archivosPublicacion[0]" :src="archivosPublicacion[0].url" alt="" />
-                                    <div v-if="publicacionVisibilidad.mostrarVistaPreviaBloqueada" class="post-preview__overlay">
+                                    <div v-if="publicacionVisibilidad.mostrarVistaPreviaBloqueada"
+                                        class="post-preview__overlay">
                                         <span class="post-preview__lock"><i class="pi pi-lock"></i></span>
                                         <strong>Suscríbete para ver</strong>
                                         <span>este contenido exclusivo</span>
@@ -732,8 +654,9 @@
                                     <span><i class="pi pi-heart-fill"></i> {{ likesEjemplo }}</span>
                                     <span><i class="pi pi-comment"></i> {{ comentariosEjemplo }}</span>
                                     <span class="post-preview__chip">
-                                        <i class="pi pi-tag"></i> 
-                                        {{ publicacion.tipoContenido === 'exclusivo' ? 'Contenido exclusivo' : 'Contenido premium' }}
+                                        <i class="pi pi-tag"></i>
+                                        {{ publicacion.tipoContenido === 'exclusivo' ? 'Contenido exclusivo' :
+                                        'Contenido premium' }}
                                     </span>
                                 </div>
                             </div>
@@ -744,12 +667,8 @@
                             <button class="btn btn--secondary" @click="pasoAnterior" type="button">
                                 <i class="pi pi-arrow-left"></i> Anterior
                             </button>
-                            <button 
-                                class="btn btn--primary btn--pulse" 
-                                @click="publicarAhora" 
-                                :disabled="isSubmitting || !validacionPublicacionCompleta"
-                                type="button"
-                            >
+                            <button class="btn btn--primary btn--pulse" @click="publicarAhora"
+                                :disabled="isSubmitting || !validacionPublicacionCompleta" type="button">
                                 <i class="pi" :class="isSubmitting ? 'pi-spin pi-spinner' : 'pi-send'"></i>
                                 {{ isSubmitting ? 'Publicando...' : 'Publicar ahora' }}
                             </button>
@@ -761,9 +680,10 @@
                             </div>
                             <div class="publicar-help__content">
                                 <p>
-                                    <strong>Listo para compartir!</strong> 
-                                    Tu publicación será visible para todos tus suscriptores. 
-                                    Puedes editar o eliminar tu publicación en cualquier momento desde tu panel de control.
+                                    <strong>Listo para compartir!</strong>
+                                    Tu publicación será visible para todos tus suscriptores.
+                                    Puedes editar o eliminar tu publicación en cualquier momento desde tu panel de
+                                    control.
                                 </p>
                             </div>
                         </div>
@@ -825,18 +745,21 @@
                                 </span>
                             </div>
                             <div class="checklist-progress">
-                                <div class="checklist-progress__bar" :style="{ width: porcentajeChecklist + '%' }"></div>
+                                <div class="checklist-progress__bar" :style="{ width: porcentajeChecklist + '%' }">
+                                </div>
                             </div>
                         </div>
-                        
+
                         <div class="checklist-list">
-                            <div v-for="item in checklistPublicacion" :key="item.titulo" class="checklist-item" :class="{ 'checklist-item--completed': item.ok }">
+                            <div v-for="item in checklistPublicacion" :key="item.titulo" class="checklist-item"
+                                :class="{ 'checklist-item--completed': item.ok }">
                                 <div class="checklist-item__icon">
                                     <i class="pi" :class="item.ok ? 'pi-check-circle' : 'pi-circle'"></i>
                                 </div>
                                 <div class="checklist-item__content">
                                     <span class="checklist-item__title">{{ item.titulo }}</span>
-                                    <span class="checklist-item__status" :class="{ 'status-ok': item.ok, 'status-pending': !item.ok }">
+                                    <span class="checklist-item__status"
+                                        :class="{ 'status-ok': item.ok, 'status-pending': !item.ok }">
                                         {{ item.ok ? 'Listo' : 'Pendiente' }}
                                     </span>
                                 </div>
@@ -1005,7 +928,7 @@ function validarCampo(campo) {
     } else {
         delete erroresForm[campo];
     }
-    
+
     return esValido;
 }
 
@@ -1043,29 +966,29 @@ const verificacion = reactive({
 function manejarSelfie(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
+
     if (!file.type.startsWith('image/')) {
         // Usar el toast global
         window.showErrorToast('Formato no válido, solo se permiten imágenes');
         return;
     }
-    
+
     if (file.size > 5 * 1024 * 1024) {
         window.showErrorToast('La imagen no debe superar los 5MB');
         return;
     }
-    
+
     // Mostrar preview inmediato
     const previewUrl = URL.createObjectURL(file);
     verificacion.selfieUrl = previewUrl;
     verificacion.selfieSubida = true;
-    
+
     uploadingSelfie.value = true;
     uploadProgress.value = 0;
-    
+
     const formData = new FormData();
     formData.append('foto', file);
-    
+
     router.post(route('creador.subir.selfie'), formData, {
         preserveScroll: true,
         preserveState: true,
@@ -1097,7 +1020,7 @@ function manejarSelfie(event) {
             }
             verificacion.selfieUrl = null;
             verificacion.selfieSubida = false;
-            
+
             if (errors && typeof errors === 'object') {
                 const firstError = Object.values(errors)[0];
                 if (firstError) {
@@ -1113,36 +1036,36 @@ function manejarSelfie(event) {
 function manejarIdentificacion(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
+
     // Validar que sea una imagen
     if (!file.type.startsWith('image/')) {
         window.showErrorToast('Formato no válido, solo se permiten imágenes');
         event.target.value = '';
         return;
     }
-    
+
     if (file.size > 5 * 1024 * 1024) {
         window.showErrorToast('La imagen no debe superar los 5MB');
         event.target.value = '';
         return;
     }
-    
+
     // Verificar que no tengamos ya 2 fotos
     if (verificacion.fotosIdentificacionUrls.length >= 2) {
         window.showWarningToast('Ya tienes las 2 fotos del INE');
         event.target.value = '';
         return;
     }
-    
+
     // Mostrar preview inmediato
     const previewUrl = URL.createObjectURL(file);
     verificacion.fotosIdentificacionUrls = [...verificacion.fotosIdentificacionUrls, previewUrl];
-    
+
     uploadingIdentificacion.value = true;
-    
+
     const formData = new FormData();
     formData.append('fotos[]', file);
-    
+
     router.post(route('creador.subir.fotos-verificacion'), formData, {
         preserveScroll: true,
         preserveState: true,
@@ -1167,7 +1090,7 @@ function manejarIdentificacion(event) {
                             verificacion.fotosIdentificacionUrls[i] = realUrls[i];
                         }
                     }
-                    
+
                     // Mostrar mensaje según cuántas fotos tengamos
                     if (verificacion.fotosIdentificacionUrls.length >= 2) {
                         window.showSuccessToast('¡Excelente! Ambas fotos del INE subidas correctamente');
@@ -1185,7 +1108,7 @@ function manejarIdentificacion(event) {
                 URL.revokeObjectURL(ultimaUrl);
             }
             verificacion.fotosIdentificacionUrls.pop();
-            
+
             if (errors && typeof errors === 'object') {
                 const firstError = Object.values(errors)[0];
                 if (firstError) {
@@ -1202,18 +1125,18 @@ async function confirmarEliminarDocumento(tipo, index = null) {
         'selfie': 'selfie',
         'identificacion': 'foto de identificación'
     };
-    
+
     const nombre = tipos[tipo] || 'documento';
     const mensaje = `¿Estás seguro de que quieres eliminar esta ${nombre}?`;
     const titulo = `Eliminar ${nombre}`;
-    
+
     const confirmed = await confirm(mensaje, {
         title: titulo,
         confirmLabel: 'Sí, eliminar',
         cancelLabel: 'Cancelar',
         danger: true,
     });
-    
+
     if (confirmed) {
         eliminarDocumento(tipo, index);
     }
@@ -1327,7 +1250,7 @@ function validarPublicacion(campo) {
     } else {
         delete erroresPublicacion[campo];
     }
-    
+
     return esValido;
 }
 
@@ -1346,13 +1269,13 @@ const validacionPublicacionCompleta = computed(() => {
 
 function onArchivosPublicacionSeleccionados(event) {
     const files = Array.from(event.target.files || []);
-    
+
     const invalidFiles = files.filter(f => !f.type.startsWith('image/') && !f.type.startsWith('video/'));
     if (invalidFiles.length > 0) {
         window.showErrorToast('Formato no válido, solo se permiten imágenes y videos');
         return;
     }
-    
+
     const oversizedFiles = files.filter(f => f.size > 500 * 1024 * 1024);
     if (oversizedFiles.length > 0) {
         window.showErrorToast('Los archivos no deben superar los 500MB');
@@ -1457,10 +1380,10 @@ function validarPaso(paso) {
 
 function guardarPaso(paso) {
     isSubmitting.value = true;
-    
+
     let routeName = '';
     let data = {};
-    
+
     switch (paso) {
         case 1:
             routeName = 'creador.perfil.guardar';
@@ -1502,7 +1425,7 @@ function guardarPaso(paso) {
             isSubmitting.value = false;
             return;
     }
-    
+
     router.post(route(routeName), data, {
         preserveScroll: true,
         preserveState: true,
@@ -1559,7 +1482,7 @@ function publicarAhora() {
     formData.append('visibilidad[soloSuscriptores]', publicacionVisibilidad.soloSuscriptores ? '1' : '0');
     formData.append('visibilidad[mostrarVistaPreviaBloqueada]', publicacionVisibilidad.mostrarVistaPreviaBloqueada ? '1' : '0');
     formData.append('visibilidad[permitirComentarios]', publicacionVisibilidad.permitirComentarios ? '1' : '0');
-    
+
     archivosPublicacion.forEach((archivo, index) => {
         if (archivo.file) {
             formData.append(`archivos[${index}]`, archivo.file);
@@ -1601,139 +1524,139 @@ function publicarAhora() {
    VARIABLES Y RESET
    ========================================================================= */
 .publicar-page {
-  --brand: #C81E3A;
-  --brand-dark: #A6152D;
-  --brand-soft: #FBEAEC;
-  --ink: #171412;
-  --ink-soft: #4B4744;
-  --muted: #8A8481;
-  --muted-light: #B7B2AF;
-  --line: #ECE9E7;
-  --surface: #FAF8F7;
-  --white: #FFFFFF;
-  --shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  --shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.08);
-  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --font-serif: 'Fraunces', Georgia, serif;
-  --font-sans: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-full: 999px;
-  font-family: var(--font-sans);
-  color: var(--ink);
-  background: #f0f2f5;
-  -webkit-font-smoothing: antialiased;
+    --brand: #C81E3A;
+    --brand-dark: #A6152D;
+    --brand-soft: #FBEAEC;
+    --ink: #171412;
+    --ink-soft: #4B4744;
+    --muted: #8A8481;
+    --muted-light: #B7B2AF;
+    --line: #ECE9E7;
+    --surface: #FAF8F7;
+    --white: #FFFFFF;
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    --shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.08);
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --font-serif: 'Fraunces', Georgia, serif;
+    --font-sans: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
+    --radius-sm: 10px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --radius-full: 999px;
+    font-family: var(--font-sans);
+    color: var(--ink);
+    background: #f0f2f5;
+    -webkit-font-smoothing: antialiased;
 }
 
 .publicar-page {
-  max-width: 1500px;
-  margin: 0 auto;
-  padding: 1.25rem 2rem 3rem;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 1.25rem 2rem 3rem;
 }
 
 /* =========================================================================
    HERO
    ========================================================================= */
 .hero {
-  max-width: 1400px;
-  margin: 1.5rem auto 0;
-  padding: 0 2rem;
+    max-width: 1400px;
+    margin: 1.5rem auto 0;
+    padding: 0 2rem;
 }
 
 .hero__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: 380px;
-  background: var(--ink);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 380px;
+    background: var(--ink);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
 
 .hero__copy {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 2.5rem 2.5rem;
-  color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2.5rem 2.5rem;
+    color: #ffffff;
 }
 
-.hero__eyebrow { 
-  font-size: 0.75rem; 
-  color: rgba(255, 255, 255, 0.6); 
-  margin: 0 0 0.6rem; 
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+.hero__eyebrow {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0 0 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
 }
 
-.hero__eyebrow strong { 
-  color: var(--brand); 
-  font-weight: 700;
+.hero__eyebrow strong {
+    color: var(--brand);
+    font-weight: 700;
 }
 
 .hero__verified {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  background: rgba(31, 191, 92, 0.2);
-  color: #48BB78;
-  padding: 0.15rem 0.6rem;
-  border-radius: var(--radius-full);
-  font-size: 0.6rem;
-  font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(31, 191, 92, 0.2);
+    color: #48BB78;
+    padding: 0.15rem 0.6rem;
+    border-radius: var(--radius-full);
+    font-size: 0.6rem;
+    font-weight: 600;
 }
 
 .hero__title {
-  font-family: var(--font-serif);
-  font-size: 2.2rem;
-  font-weight: 500;
-  line-height: 1.1;
-  margin: 0;
+    font-family: var(--font-serif);
+    font-size: 2.2rem;
+    font-weight: 500;
+    line-height: 1.1;
+    margin: 0;
 }
 
 .hero__title-highlight {
-  color: var(--brand);
-  font-style: italic;
+    color: var(--brand);
+    font-style: italic;
 }
 
 .hero__text {
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.6;
-  max-width: 440px;
-  margin: 0.8rem 0 0;
-  font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.6;
+    max-width: 440px;
+    margin: 0.8rem 0 0;
+    font-size: 0.85rem;
 }
 
 .hero__media {
-  position: relative;
-  min-height: 280px;
-  overflow: hidden;
-  background: var(--ink);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    position: relative;
+    min-height: 280px;
+    overflow: hidden;
+    background: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .hero__img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  transition: transform 0.6s ease;
-  padding: 1.5rem;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: transform 0.6s ease;
+    padding: 1.5rem;
 }
 
 .hero:hover .hero__img {
-  transform: scale(1.03);
+    transform: scale(1.03);
 }
 
 .hero__fade {
-  position: absolute;
-  inset: 0;
-  width: 33%;
-  background: linear-gradient(to right, var(--ink), rgba(23, 20, 18, 0.05));
+    position: absolute;
+    inset: 0;
+    width: 33%;
+    background: linear-gradient(to right, var(--ink), rgba(23, 20, 18, 0.05));
 }
 
 /* =========================================================================
@@ -1749,11 +1672,11 @@ function publicarAhora() {
 }
 
 .stat-card {
-    background: #ffffff; 
+    background: #ffffff;
     border-radius: var(--radius-md);
-    padding: 0.8rem 1.2rem; 
-    display: flex; 
-    align-items: center; 
+    padding: 0.8rem 1.2rem;
+    display: flex;
+    align-items: center;
     gap: 0.75rem;
     transition: all var(--transition);
     box-shadow: var(--shadow);
@@ -1766,15 +1689,15 @@ function publicarAhora() {
 }
 
 .stat-card__icon {
-    width: 34px; 
-    height: 34px; 
-    border-radius: var(--radius-sm); 
-    background: var(--brand-soft); 
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    background: var(--brand-soft);
     color: var(--brand);
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    flex-shrink: 0; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
     font-size: 0.9rem;
     transition: all var(--transition);
 }
@@ -1785,21 +1708,21 @@ function publicarAhora() {
     transform: scale(1.05);
 }
 
-.stat-card__body { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 0.15rem; 
-    flex: 1; 
+.stat-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    flex: 1;
 }
 
-.stat-card__title { 
-    font-weight: 600; 
-    font-size: 0.8rem; 
+.stat-card__title {
+    font-weight: 600;
+    font-size: 0.8rem;
 }
 
-.stat-card__desc { 
-    font-size: 0.7rem; 
-    color: var(--muted); 
+.stat-card__desc {
+    font-size: 0.7rem;
+    color: var(--muted);
     line-height: 1.3;
 }
 
@@ -1955,10 +1878,21 @@ function publicarAhora() {
     height: 3px;
 }
 
-.form-card--step1::before { background: linear-gradient(90deg, #7C3AED, #4F46E5); }
-.form-card--step2::before { background: linear-gradient(90deg, var(--brand), #EC4899); }
-.form-card--step3::before { background: linear-gradient(90deg, #14B8A6, #F59E0B); }
-.form-card--step4::before { background: linear-gradient(90deg, #4F46E5, #7C3AED); }
+.form-card--step1::before {
+    background: linear-gradient(90deg, #7C3AED, #4F46E5);
+}
+
+.form-card--step2::before {
+    background: linear-gradient(90deg, var(--brand), #EC4899);
+}
+
+.form-card--step3::before {
+    background: linear-gradient(90deg, #14B8A6, #F59E0B);
+}
+
+.form-card--step4::before {
+    background: linear-gradient(90deg, #4F46E5, #7C3AED);
+}
 
 .form-card:hover {
     box-shadow: var(--shadow-hover);
@@ -2265,7 +2199,7 @@ function publicarAhora() {
     cursor: pointer;
 }
 
-.toggle-switch input:checked + .toggle-slider {
+.toggle-switch input:checked+.toggle-slider {
     background: var(--brand);
 }
 
@@ -2279,10 +2213,10 @@ function publicarAhora() {
     background: var(--white);
     border-radius: 50%;
     transition: all var(--transition);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
-.toggle-switch input:checked + .toggle-slider::before {
+.toggle-switch input:checked+.toggle-slider::before {
     transform: translateX(20px);
 }
 
@@ -2924,7 +2858,7 @@ function publicarAhora() {
     right: -30%;
     width: 200px;
     height: 200px;
-    background: rgba(255,255,255,0.03);
+    background: rgba(255, 255, 255, 0.03);
     border-radius: 50%;
 }
 
@@ -3144,8 +3078,15 @@ function publicarAhora() {
 }
 
 @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(200, 30, 58, 0.4); }
-    50% { box-shadow: 0 0 0 10px rgba(200, 30, 58, 0); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(200, 30, 58, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 10px rgba(200, 30, 58, 0);
+    }
 }
 
 .form-actions {
@@ -3552,7 +3493,7 @@ function publicarAhora() {
     position: absolute;
     bottom: 4px;
     left: 4px;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0, 0, 0, 0.7);
     color: white;
     font-size: 0.6rem;
     font-weight: 700;
@@ -3564,7 +3505,7 @@ function publicarAhora() {
     position: absolute;
     top: 4px;
     right: 4px;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0, 0, 0, 0.7);
     color: white;
     border: none;
     border-radius: 50%;
@@ -3760,7 +3701,7 @@ function publicarAhora() {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.6);
+    border: 2px solid rgba(255, 255, 255, 0.6);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3840,54 +3781,70 @@ function publicarAhora() {
     .publicar-page {
         padding: 1rem 1rem 2rem;
     }
-    .hero, .quick-stats, .content-grid {
+
+    .hero,
+    .quick-stats,
+    .content-grid {
         padding-left: 1rem;
         padding-right: 1rem;
     }
+
     .hero__grid {
         grid-template-columns: 1fr;
         min-height: auto;
     }
+
     .hero__copy {
         padding: 2rem 1.5rem;
     }
+
     .hero__title {
         font-size: 1.8rem;
     }
+
     .hero__media {
         min-height: 200px;
         order: -1;
     }
+
     .hero__fade {
         display: none;
     }
+
     .quick-stats {
         grid-template-columns: repeat(2, 1fr);
     }
+
     .steps-indicator {
         padding: 0.75rem 1rem;
         flex-wrap: wrap;
         gap: 0.5rem;
         justify-content: center;
     }
+
     .steps-indicator::before {
         display: none;
     }
+
     .step-item {
         padding: 0.2rem 0.6rem;
         border-width: 1.5px;
     }
+
     .step-label {
         font-size: 0.7rem;
     }
+
     .step-number {
         width: 24px;
         height: 24px;
         font-size: 0.7rem;
     }
+
     .monetization-grid {
         grid-template-columns: 1fr 1fr;
     }
+
     .promo-grid-redesign {
         grid-template-columns: 1fr;
     }
@@ -3897,63 +3854,81 @@ function publicarAhora() {
     .quick-stats {
         grid-template-columns: 1fr;
     }
+
     .hero__copy {
         padding: 1.5rem 1rem;
     }
+
     .hero__title {
         font-size: 1.4rem;
     }
+
     .hero__text {
         font-size: 0.8rem;
     }
+
     .hero__media {
         min-height: 160px;
     }
+
     .hero__img {
         padding: 1rem;
     }
+
     .form-card {
         padding: 1.25rem;
     }
+
     .content-grid {
         padding: 0 1rem 2rem;
     }
+
     .form-actions {
         flex-direction: column;
     }
+
     .form-actions .btn {
         width: 100%;
         justify-content: center;
     }
+
     .steps-indicator {
         flex-direction: column;
         align-items: stretch;
         padding: 0.75rem;
     }
+
     .step-item {
         width: 100%;
         justify-content: center;
     }
+
     .verification-grid {
         grid-template-columns: 1fr;
     }
+
     .verification-thumb {
         width: 80px;
         height: 80px;
     }
+
     .verification-thumb--add {
         width: 80px;
         height: 80px;
     }
+
     .monetization-grid {
         grid-template-columns: 1fr;
     }
+
     .publicar-page {
         padding: 0.75rem 0.75rem 1.5rem;
     }
+
     .field-grid {
         grid-template-columns: 1fr;
     }
+
     .upload-thumbs {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -3963,51 +3938,65 @@ function publicarAhora() {
     .stat-card {
         padding: 0.6rem 0.8rem;
     }
+
     .sidebar-card {
         padding: 0.6rem;
     }
+
     .hero__title {
         font-size: 1.2rem;
     }
+
     .verification-photo {
         max-width: 120px;
     }
+
     .verification-thumb {
         width: 70px;
         height: 70px;
     }
+
     .verification-thumb--add {
         width: 70px;
         height: 70px;
     }
+
     .custom-price-field {
         flex-direction: column;
         align-items: stretch;
     }
+
     .custom-price-field .form-input {
         max-width: 100%;
     }
+
     .promo-card {
         flex-direction: column;
         text-align: center;
         padding: 1rem;
     }
+
     .publicar-page {
         padding: 0.5rem 0.5rem 1rem;
     }
+
     .upload-thumbs {
         grid-template-columns: repeat(2, 1fr);
     }
+
     .content-type-row {
         flex-direction: column;
     }
+
     .content-type-pill {
         justify-content: center;
     }
+
     .post-preview__footer {
         flex-wrap: wrap;
         gap: 0.5rem;
     }
+
     .post-preview__chip {
         margin-left: 0;
     }

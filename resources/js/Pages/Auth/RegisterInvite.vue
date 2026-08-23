@@ -53,41 +53,41 @@ onMounted(() => {
 // Opciones
 // -----------------------------------------------------------------------
 const profileTypes = [
-  { 
-    label: 'Pareja', 
-    value: 'pareja', 
+  {
+    label: 'Pareja',
+    value: 'pareja',
     icon: 'pi pi-users',
     iconSelected: 'pi pi-user-plus',
     color: '#C81E3A',
     description: 'Para parejas que buscan nuevas experiencias'
   },
-  { 
-    label: 'Hombre', 
-    value: 'hombre', 
+  {
+    label: 'Hombre',
+    value: 'hombre',
     icon: 'pi pi-user',
     iconSelected: 'pi pi-user-check',
     color: '#2B6CB0',
     description: 'Perfil individual masculino'
   },
-  { 
-    label: 'Mujer', 
-    value: 'mujer', 
+  {
+    label: 'Mujer',
+    value: 'mujer',
     icon: 'pi pi-user',
     iconSelected: 'pi pi-user-check',
     color: '#D53F8C',
     description: 'Perfil individual femenino'
   },
-  { 
-    label: 'Trans', 
-    value: 'trans', 
+  {
+    label: 'Trans',
+    value: 'trans',
     icon: 'pi pi-user',
     iconSelected: 'pi pi-user-check',
     color: '#805AD5',
     description: 'Perfil individual trans'
   },
-  { 
-    label: 'Otro', 
-    value: 'otro', 
+  {
+    label: 'Otro',
+    value: 'otro',
     icon: 'pi pi-users',
     iconSelected: 'pi pi-user-plus',
     color: '#718096',
@@ -101,6 +101,7 @@ const profileTypes = [
 const form = useForm({
   invite_code: '',
   profile_type: 'pareja',
+  profile_other: '', // 👈 NUEVO: campo para cuando selecciona "Otro"
   nickname: '',
   email: '',
   password: '',
@@ -173,13 +174,13 @@ const emailError = computed(() => {
 const passwordStrength = computed(() => {
   const pwd = form.password;
   if (!pwd) return { score: 0, label: 'Débil', color: '#E53E3E' };
-  
+
   let score = 0;
   if (pwd.length >= 8) score++;
   if (/[A-Z]/.test(pwd)) score++;
   if (/[0-9]/.test(pwd)) score++;
   if (/[^A-Za-z0-9]/.test(pwd)) score++;
-  
+
   const levels = [
     { score: 4, label: 'Segura', color: '#48BB78' },
     { score: 3, label: 'Buena', color: '#48BB78' },
@@ -187,7 +188,7 @@ const passwordStrength = computed(() => {
     { score: 1, label: 'Débil', color: '#E53E3E' },
     { score: 0, label: 'Muy débil', color: '#E53E3E' },
   ];
-  
+
   return levels.find(l => l.score === Math.min(score, 4)) || levels[4];
 });
 
@@ -266,17 +267,17 @@ const birthdateError = computed(() => {
   if (!form.birthdate || !touchedFields.value.birthdate) return '';
   const today = new Date();
   const birthDate = new Date(form.birthdate);
-  
+
   if (birthDate > today) {
     return 'La fecha no puede ser futura';
   }
-  
+
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
     age--;
   }
-  
+
   if (age < 18) {
     return 'Debes ser mayor de 18 años';
   }
@@ -296,9 +297,22 @@ const termsError = computed(() => {
   return '';
 });
 
-// 9. Validación de tipo de perfil
+// 9. Validación de tipo de perfil - NUEVA validación para "Otro"
 const isProfileTypeValid = computed(() => {
+  if (form.profile_type === 'otro') {
+    // Si es "Otro", debe haber escrito algo en profile_other
+    return form.profile_other && form.profile_other.trim().length >= 2;
+  }
   return profileTypes.some(p => p.value === form.profile_type);
+});
+
+const profileOtherError = computed(() => {
+  if (form.profile_type !== 'otro') return '';
+  if (!touchedFields.value.profile_other) return '';
+  if (!form.profile_other || form.profile_other.trim().length < 2) {
+    return 'Por favor, escribe tu identidad (mínimo 2 caracteres)';
+  }
+  return '';
 });
 
 // =======================================================================
@@ -341,12 +355,24 @@ watch(() => form.phone, (newVal) => {
   }
 });
 
+// Watch para limpiar profile_other cuando cambia el tipo de perfil
+watch(() => form.profile_type, () => {
+  if (form.profile_type !== 'otro') {
+    form.profile_other = '';
+  }
+});
+
 function submit() {
   const fields = ['invite_code', 'nickname', 'email', 'password', 'password_confirmation', 'birthdate', 'accepts_terms', 'phone'];
   fields.forEach(field => {
     touchedFields.value[field] = true;
   });
-  
+
+  // Si es "otro", marcar como tocado
+  if (form.profile_type === 'otro') {
+    touchedFields.value.profile_other = true;
+  }
+
   if (!isFormValid.value) {
     const firstError = document.querySelector('.rg-error:not(.rg-password-errors .rg-error)');
     if (firstError) {
@@ -354,11 +380,16 @@ function submit() {
     }
     return;
   }
-  
+
   if (form.phone) {
     form.phone = form.phone.replace(/\D/g, '');
   }
-  
+
+  // Si es "otro" y tiene valor, lo enviamos
+  if (form.profile_type === 'otro' && form.profile_other) {
+    form.profile_type = form.profile_other.trim(); // Enviamos el texto personalizado
+  }
+
   form.post(route('register.invite.store'), {
     onSuccess: () => {
       form.reset('password', 'password_confirmation');
@@ -368,6 +399,7 @@ function submit() {
 </script>
 
 <template>
+
   <Head title="Crear tu cuenta" />
 
   <div class="rg-page">
@@ -378,11 +410,7 @@ function submit() {
     <header class="rg-header">
       <nav class="rg-nav">
         <Link href="/" class="rg-brand">
-          <img 
-            src="/images/LOGO.png" 
-            alt="Club de Fantasías" 
-            class="rg-brand__logo"
-          />
+          <img src="/images/LOGO.png" alt="Club de Fantasías" class="rg-brand__logo" />
         </Link>
 
         <div class="rg-nav__links">
@@ -417,7 +445,7 @@ function submit() {
             <AppIcon name="shield-check" />
             <span>Comunidad verificada</span>
           </div>
-          
+
           <h1 class="rg-media__title">
             Únete a una comunidad exclusiva<br />
             para <span class="rg-accent">adultos.</span>
@@ -479,8 +507,7 @@ function submit() {
             </div>
           </div>
 
-          <!-- ELIMINADO: Mensaje de error general que mostraba "Error en el registro" -->
-          <!-- Solo mantenemos el mensaje informativo de invitación -->
+          <!-- Mensaje informativo de invitación -->
           <Message severity="info" :closable="false" class="rg-info rg-info--invite">
             <div class="rg-info__body">
               <span class="rg-info__icon">
@@ -504,19 +531,12 @@ function submit() {
               <span class="rg-label__badge rg-label__badge--format">Mín 8 caracteres</span>
             </label>
             <div class="rg-input-wrapper">
-              <InputText
-                id="invite_code"
-                v-model="form.invite_code"
-                placeholder="Ej: CLUB-2026-FANTASIA"
-                class="rg-input rg-input--large"
-                :class="{ 
+              <InputText id="invite_code" v-model="form.invite_code" placeholder="Ej: CLUB-2026-FANTASIA"
+                class="rg-input rg-input--large" :class="{
                   'rg-input--error': inviteCodeError && touchedFields.invite_code,
-                  'rg-input--focused': focusedField === 'invite_code' 
-                }"
-                @focus="focusedField = 'invite_code'"
-                @blur="handleBlur('invite_code')"
-                @input="markTouched('invite_code')"
-              />
+                  'rg-input--focused': focusedField === 'invite_code'
+                }" @focus="focusedField = 'invite_code'" @blur="handleBlur('invite_code')"
+                @input="markTouched('invite_code')" />
             </div>
             <div class="rg-hint-wrapper">
               <small v-if="inviteCodeError && touchedFields.invite_code" class="rg-error">
@@ -537,23 +557,44 @@ function submit() {
             </label>
 
             <div class="rg-profile-group">
-              <button
-                v-for="option in profileTypes"
-                :key="option.value"
-                type="button"
-                class="rg-profile-btn"
-                :class="{ 'rg-profile-btn--active': form.profile_type === option.value }"
-                :style="{
+              <button v-for="option in profileTypes" :key="option.value" type="button" class="rg-profile-btn"
+                :class="{ 'rg-profile-btn--active': form.profile_type === option.value }" :style="{
                   '--btn-color': option.color,
                   '--btn-bg': form.profile_type === option.value ? option.color + '12' : 'transparent'
-                }"
-                @click="form.profile_type = option.value; markTouched('profile_type')"
-              >
-                <span class="rg-profile-btn__icon" :style="{ color: form.profile_type === option.value ? option.color : '#9CA3AF' }">
+                }" @click="form.profile_type = option.value; markTouched('profile_type')">
+                <span class="rg-profile-btn__icon"
+                  :style="{ color: form.profile_type === option.value ? option.color : '#9CA3AF' }">
                   <AppIcon :name="form.profile_type === option.value ? option.iconSelected : option.icon" />
                 </span>
                 <span class="rg-profile-btn__label">{{ option.label }}</span>
               </button>
+            </div>
+
+            <!-- 👇 NUEVO: Campo de texto para "Otro" -->
+            <div v-if="form.profile_type === 'otro'" class="rg-field rg-field--other-profile">
+              <label class="rg-label" for="profile_other">
+                <AppIcon name="edit" />
+                Especifica tu identidad
+                <span class="rg-label__badge">Obligatorio</span>
+              </label>
+              <div class="rg-input-wrapper">
+                <InputText id="profile_other" v-model="form.profile_other"
+                  placeholder="Ej: No binario, Género fluido, Otro..." class="rg-input" :class="{
+                    'rg-input--error': profileOtherError && touchedFields.profile_other,
+                    'rg-input--focused': focusedField === 'profile_other'
+                  }" @focus="focusedField = 'profile_other'" @blur="handleBlur('profile_other')"
+                  @input="markTouched('profile_other')" />
+              </div>
+              <div class="rg-hint-wrapper">
+                <small v-if="profileOtherError && touchedFields.profile_other" class="rg-error">
+                  <AppIcon name="alert-circle" />
+                  {{ profileOtherError }}
+                </small>
+                <small v-else class="rg-hint">
+                  <AppIcon name="info" />
+                  Escribe tu identidad de género o cómo te identificas
+                </small>
+              </div>
             </div>
           </div>
 
@@ -566,19 +607,12 @@ function submit() {
                 <span class="rg-label__badge">Obligatorio</span>
               </label>
               <div class="rg-input-wrapper">
-                <InputText
-                  id="nickname"
-                  v-model="form.nickname"
-                  placeholder="Ej: Juan_86, Maria_123"
-                  class="rg-input"
-                  :class="{ 
+                <InputText id="nickname" v-model="form.nickname" placeholder="Ej: Juan_86, Maria_123" class="rg-input"
+                  :class="{
                     'rg-input--error': nicknameError && touchedFields.nickname,
-                    'rg-input--focused': focusedField === 'nickname' 
-                  }"
-                  @focus="focusedField = 'nickname'"
-                  @blur="handleBlur('nickname')"
-                  @input="markTouched('nickname')"
-                />
+                    'rg-input--focused': focusedField === 'nickname'
+                  }" @focus="focusedField = 'nickname'" @blur="handleBlur('nickname')"
+                  @input="markTouched('nickname')" />
               </div>
               <div class="rg-hint-wrapper">
                 <small v-if="nicknameError && touchedFields.nickname" class="rg-error">
@@ -598,20 +632,11 @@ function submit() {
                 <span class="rg-input-icon">
                   <AppIcon name="mail" />
                 </span>
-                <InputText
-                  id="email"
-                  v-model="form.email"
-                  type="email"
-                  placeholder="ejemplo@correo.com"
-                  class="rg-input"
-                  :class="{ 
+                <InputText id="email" v-model="form.email" type="email" placeholder="ejemplo@correo.com"
+                  class="rg-input" :class="{
                     'rg-input--error': emailError && touchedFields.email,
-                    'rg-input--focused': focusedField === 'email' 
-                  }"
-                  @focus="focusedField = 'email'"
-                  @blur="handleBlur('email')"
-                  @input="markTouched('email')"
-                />
+                    'rg-input--focused': focusedField === 'email'
+                  }" @focus="focusedField = 'email'" @blur="handleBlur('email')" @input="markTouched('email')" />
               </div>
               <div class="rg-hint-wrapper">
                 <small v-if="emailError && touchedFields.email" class="rg-error">
@@ -635,39 +660,26 @@ function submit() {
                 <span class="rg-input-icon">
                   <AppIcon name="lock" />
                 </span>
-                <Password
-                  id="password"
-                  v-model="form.password"
-                  placeholder="Crea una contraseña segura"
-                  class="rg-password"
-                  input-class="rg-password__input"
-                  :class="{
+                <Password id="password" v-model="form.password" placeholder="Crea una contraseña segura"
+                  class="rg-password" input-class="rg-password__input" :class="{
                     'rg-password--error': passwordErrors.length > 0 && touchedFields.password
-                  }"
-                  :feedback="false"
-                  :toggle-mask="true"
-                  @focus="focusedField = 'password'"
-                  @blur="handleBlur('password')"
-                  @input="markTouched('password')"
-                />
+                  }" :feedback="false" :toggle-mask="true" @focus="focusedField = 'password'"
+                  @blur="handleBlur('password')" @input="markTouched('password')" />
               </div>
-              
+
               <!-- Barra de fortaleza de contraseña DEBAJO del input -->
               <div v-if="form.password && touchedFields.password" class="rg-password-strength-below">
                 <div class="rg-password-strength__bar">
-                  <div 
-                    class="rg-password-strength__fill" 
-                    :style="{ 
-                      width: `${(passwordStrength.score / 4) * 100}%`,
-                      backgroundColor: passwordStrength.color 
-                    }"
-                  ></div>
+                  <div class="rg-password-strength__fill" :style="{
+                    width: `${(passwordStrength.score / 4) * 100}%`,
+                    backgroundColor: passwordStrength.color
+                  }"></div>
                 </div>
                 <span class="rg-password-strength__label" :style="{ color: passwordStrength.color }">
                   {{ passwordStrength.label }}
                 </span>
               </div>
-              
+
               <div v-if="passwordErrors.length > 0 && touchedFields.password" class="rg-password-errors">
                 <small v-for="(error, index) in passwordErrors" :key="index" class="rg-error">
                   <AppIcon name="x-circle" />
@@ -686,21 +698,11 @@ function submit() {
                 <span class="rg-input-icon">
                   <AppIcon name="lock" />
                 </span>
-                <Password
-                  id="password_confirmation"
-                  v-model="form.password_confirmation"
-                  placeholder="Confirma tu contraseña"
-                  class="rg-password"
-                  input-class="rg-password__input"
-                  :class="{
+                <Password id="password_confirmation" v-model="form.password_confirmation"
+                  placeholder="Confirma tu contraseña" class="rg-password" input-class="rg-password__input" :class="{
                     'rg-password--error': passwordConfirmationError && touchedFields.password_confirmation
-                  }"
-                  :feedback="false"
-                  :toggle-mask="true"
-                  @focus="focusedField = 'password_confirmation'"
-                  @blur="handleBlur('password_confirmation')"
-                  @input="markTouched('password_confirmation')"
-                />
+                  }" :feedback="false" :toggle-mask="true" @focus="focusedField = 'password_confirmation'"
+                  @blur="handleBlur('password_confirmation')" @input="markTouched('password_confirmation')" />
               </div>
               <div class="rg-hint-wrapper">
                 <small v-if="passwordConfirmationError && touchedFields.password_confirmation" class="rg-error">
@@ -723,17 +725,9 @@ function submit() {
                 <span class="rg-input-icon">
                   <AppIcon name="map-pin" />
                 </span>
-                <InputText
-                  id="city"
-                  v-model="form.city"
-                  placeholder="Ej: Ciudad de México"
-                  class="rg-input"
-                  :class="{ 
-                    'rg-input--focused': focusedField === 'city'
-                  }"
-                  @focus="focusedField = 'city'"
-                  @blur="handleBlur('city')"
-                />
+                <InputText id="city" v-model="form.city" placeholder="Ej: Ciudad de México" class="rg-input" :class="{
+                  'rg-input--focused': focusedField === 'city'
+                }" @focus="focusedField = 'city'" @blur="handleBlur('city')" />
               </div>
             </div>
 
@@ -745,19 +739,11 @@ function submit() {
                 <span class="rg-label__badge rg-label__badge--format">10 dígitos</span>
               </label>
               <div class="rg-input-wrapper">
-                <InputText
-                  id="phone"
-                  v-model="form.phone"
-                  placeholder="3001234567"
-                  class="rg-input rg-input--no-icon"
-                  :class="{ 
+                <InputText id="phone" v-model="form.phone" placeholder="3001234567" class="rg-input rg-input--no-icon"
+                  :class="{
                     'rg-input--focused': focusedField === 'phone',
                     'rg-input--error': phoneError && touchedFields.phone
-                  }"
-                  @focus="focusedField = 'phone'"
-                  @blur="handleBlur('phone')"
-                  @input="markTouched('phone')"
-                />
+                  }" @focus="focusedField = 'phone'" @blur="handleBlur('phone')" @input="markTouched('phone')" />
               </div>
               <div class="rg-hint-wrapper">
                 <small v-if="phoneError && touchedFields.phone" class="rg-error">
@@ -780,22 +766,12 @@ function submit() {
               <span class="rg-input-icon">
                 <AppIcon name="calendar" />
               </span>
-              <DatePicker
-                id="birthdate"
-                v-model="form.birthdate"
-                date-format="dd/mm/yy"
-                placeholder="DD / MM / AAAA"
-                show-icon
-                icon-display="input"
-                class="rg-date"
-                :class="{ 
+              <DatePicker id="birthdate" v-model="form.birthdate" date-format="dd/mm/yy" placeholder="DD / MM / AAAA"
+                show-icon icon-display="input" class="rg-date" :class="{
                   'rg-input--error': birthdateError && touchedFields.birthdate
-                }"
-                :max-date="new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate())"
-                @focus="focusedField = 'birthdate'"
-                @blur="handleBlur('birthdate')"
-                @date-select="markTouched('birthdate')"
-              />
+                }" :max-date="new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate())"
+                @focus="focusedField = 'birthdate'" @blur="handleBlur('birthdate')"
+                @date-select="markTouched('birthdate')" />
             </div>
             <div class="rg-hint-wrapper">
               <small v-if="birthdateError && touchedFields.birthdate" class="rg-error">
@@ -808,41 +784,26 @@ function submit() {
           <!-- ============================================================= -->
           <!-- TÉRMINOS Y CONDICIONES                                        -->
           <!-- ============================================================= -->
-          <div
-            class="rg-terms-card"
-            :class="{
-              'rg-terms-card--error': termsError && touchedFields.accepts_terms,
-              'rg-terms-card--valid': isTermsValid && touchedFields.accepts_terms,
-            }"
-          >
+          <div class="rg-terms-card" :class="{
+            'rg-terms-card--error': termsError && touchedFields.accepts_terms,
+            'rg-terms-card--valid': isTermsValid && touchedFields.accepts_terms,
+          }">
             <label class="rg-terms" for="accepts_terms">
               <div class="rg-terms__checkbox-wrapper">
-                <div 
-                  class="rg-terms__custom-checkbox"
-                  :class="{
-                    'rg-terms__custom-checkbox--checked': form.accepts_terms,
-                    'rg-terms__custom-checkbox--error': termsError && touchedFields.accepts_terms
-                  }"
-                  @click="form.accepts_terms = !form.accepts_terms; markTouched('accepts_terms')"
-                >
-                  <svg 
-                    v-if="form.accepts_terms"
-                    class="rg-terms__custom-checkbox-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="white"
-                    stroke-width="3"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
+                <div class="rg-terms__custom-checkbox" :class="{
+                  'rg-terms__custom-checkbox--checked': form.accepts_terms,
+                  'rg-terms__custom-checkbox--error': termsError && touchedFields.accepts_terms
+                }" @click="form.accepts_terms = !form.accepts_terms; markTouched('accepts_terms')">
+                  <svg v-if="form.accepts_terms" class="rg-terms__custom-checkbox-icon" viewBox="0 0 24 24" fill="none"
+                    stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
               </div>
               <span class="rg-terms__text">
-                Acepto los 
+                Acepto los
                 <a href="/terminos" target="_blank" @click.stop class="rg-terms__link">Términos y Condiciones</a>
-                y la 
+                y la
                 <a href="/privacidad" target="_blank" @click.stop class="rg-terms__link">Política de Privacidad</a>
                 de Club de Fantasías.
               </span>
@@ -856,12 +817,7 @@ function submit() {
           </div>
 
           <!-- Botón de registro -->
-          <Button
-            type="submit"
-            class="rg-submit"
-            :loading="form.processing"
-            :disabled="!isFormValid"
-          >
+          <Button type="submit" class="rg-submit" :loading="form.processing" :disabled="!isFormValid">
             <AppIcon v-if="!form.processing" name="user-plus" />
             <span v-if="form.processing" class="rg-submit__spinner"></span>
             <span>{{ form.processing ? 'Registrando...' : 'REGISTRARME' }}</span>
@@ -1091,6 +1047,7 @@ function submit() {
   color: var(--white);
   box-shadow: 0 4px 12px rgba(200, 30, 58, 0.25);
 }
+
 .rg-btn--primary:hover {
   background: var(--brand-dark);
   transform: translateY(-2px);
@@ -1102,6 +1059,7 @@ function submit() {
   border-color: #D9D5D2;
   color: var(--ink);
 }
+
 .rg-btn--ghost:hover {
   border-color: var(--brand);
   color: var(--brand);
@@ -1113,6 +1071,7 @@ function submit() {
   border-color: #D9D5D2;
   color: var(--ink);
 }
+
 .rg-btn--outline:hover {
   border-color: var(--brand);
   color: var(--brand);
@@ -1151,6 +1110,7 @@ function submit() {
   object-fit: contain;
   transition: transform 0.3s ease;
 }
+
 .rg-brand__logo:hover {
   transform: scale(1.05);
 }
@@ -1163,6 +1123,7 @@ function submit() {
   font-weight: 500;
   color: var(--ink-soft);
 }
+
 .rg-nav__links a,
 .rg-nav__link {
   text-decoration: none;
@@ -1172,6 +1133,7 @@ function submit() {
   position: relative;
   cursor: pointer;
 }
+
 .rg-nav__links a::after,
 .rg-nav__link::after {
   content: '';
@@ -1183,10 +1145,12 @@ function submit() {
   background: var(--brand);
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .rg-nav__links a:hover,
 .rg-nav__link:hover {
   color: var(--brand);
 }
+
 .rg-nav__links a:hover::after,
 .rg-nav__link:hover::after {
   width: 100%;
@@ -1212,6 +1176,7 @@ function submit() {
   overflow: hidden;
   background: var(--ink);
 }
+
 .rg-media__img {
   position: absolute;
   inset: 0;
@@ -1219,11 +1184,13 @@ function submit() {
   height: 100%;
   object-fit: cover;
 }
+
 .rg-media__overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(to top, rgba(10, 8, 8, 0.9), rgba(10, 8, 8, 0.4) 55%, rgba(10, 8, 8, 0.2));
 }
+
 .rg-media__content {
   position: relative;
   height: 100%;
@@ -1233,6 +1200,7 @@ function submit() {
   padding: 3.5rem;
   color: var(--white);
 }
+
 .rg-media__badge {
   display: inline-flex;
   align-items: center;
@@ -1249,6 +1217,7 @@ function submit() {
   margin-bottom: 2rem;
   width: fit-content;
 }
+
 .rg-media__badge-dot {
   width: 6px;
   height: 6px;
@@ -1256,10 +1225,19 @@ function submit() {
   background: #48BB78;
   animation: pulse-dot 2s infinite;
 }
+
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
 }
+
 .rg-media__title {
   font-family: var(--font-serif);
   font-size: 2.4rem;
@@ -1267,6 +1245,7 @@ function submit() {
   line-height: 1.2;
   margin: 0 0 1.5rem;
 }
+
 .rg-media__list {
   list-style: none;
   margin: 0 0 2rem;
@@ -1275,6 +1254,7 @@ function submit() {
   flex-direction: column;
   gap: 0.85rem;
 }
+
 .rg-media__list li {
   display: flex;
   align-items: center;
@@ -1282,6 +1262,7 @@ function submit() {
   font-size: 0.95rem;
   font-weight: 500;
 }
+
 .rg-media__list-icon {
   display: flex;
   align-items: center;
@@ -1292,9 +1273,11 @@ function submit() {
   background: rgba(200, 30, 58, 0.2);
   flex-shrink: 0;
 }
+
 .rg-media__list-icon :deep(.app-icon) {
   color: var(--brand);
 }
+
 .rg-media__footnote {
   display: flex;
   align-items: flex-start;
@@ -1303,6 +1286,7 @@ function submit() {
   border-top: 1px solid rgba(255, 255, 255, 0.15);
   max-width: 340px;
 }
+
 .rg-media__footnote p {
   margin: 0;
   font-size: 0.8rem;
@@ -1337,17 +1321,20 @@ function submit() {
   gap: 0.5rem;
   margin-bottom: 0.75rem;
 }
+
 .rg-card__head-line {
   flex: 1;
   height: 2px;
   background: linear-gradient(to right, var(--brand), transparent);
 }
+
 .rg-card__head-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--brand);
 }
+
 .rg-card__title {
   font-family: var(--font-serif);
   font-size: 2rem;
@@ -1357,6 +1344,7 @@ function submit() {
   align-items: center;
   gap: 0.5rem;
 }
+
 .rg-card__subtitle {
   font-size: 0.85rem;
   color: var(--muted);
@@ -1373,23 +1361,28 @@ function submit() {
   border: none !important;
   padding: 1rem 1.2rem !important;
 }
+
 .rg-info :deep(.p-message-icon) {
   display: none !important;
 }
+
 .rg-info--invite :deep(.p-message-content) {
   background: #EBF8FF !important;
 }
+
 .rg-info__body {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
 }
+
 .rg-info__title {
   font-weight: 700;
   font-size: 0.82rem;
   margin: 0;
   color: var(--ink);
 }
+
 .rg-info__text {
   font-size: 0.78rem;
   color: var(--ink-soft);
@@ -1405,15 +1398,39 @@ function submit() {
   flex-direction: column;
   gap: 0.4rem;
 }
+
 .rg-field--highlight {
   background: var(--brand-soft);
   padding: 1rem 1.25rem;
   border-radius: var(--radius-md);
   border-left: 3px solid var(--brand);
 }
+
 .rg-field--profile {
   margin: 0.25rem 0;
 }
+
+.rg-field--other-profile {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #F7FAFC;
+  border-radius: var(--radius-md);
+  border-left: 3px solid #805AD5;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .rg-field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1429,6 +1446,7 @@ function submit() {
   color: var(--ink);
   flex-wrap: wrap;
 }
+
 .rg-label--profile {
   margin-bottom: 0.35rem;
 }
@@ -1443,11 +1461,13 @@ function submit() {
   display: inline-flex;
   align-items: center;
 }
+
 .rg-label__badge--age {
   background: #FED7D4;
   color: #C81E3A;
   font-weight: 600;
 }
+
 .rg-label__badge--format {
   background: #EBF8FF;
   color: #2B6CB0;
@@ -1459,6 +1479,7 @@ function submit() {
   display: flex;
   align-items: center;
 }
+
 .rg-input-icon {
   position: absolute;
   left: 0.75rem;
@@ -1522,9 +1543,11 @@ function submit() {
 .rg-password {
   width: 100%;
 }
+
 .rg-password :deep(.p-password) {
   width: 100%;
 }
+
 .rg-password :deep(.p-password-input),
 .rg-password :deep(input) {
   width: 100% !important;
@@ -1535,6 +1558,7 @@ function submit() {
   font-family: inherit !important;
   transition: all 0.2s ease !important;
 }
+
 .rg-password :deep(.p-password-toggle-mask-icon) {
   color: var(--muted) !important;
 }
@@ -1546,6 +1570,7 @@ function submit() {
   gap: 0.75rem;
   margin-top: 0.25rem;
 }
+
 .rg-password-strength__bar {
   flex: 1;
   height: 4px;
@@ -1553,11 +1578,13 @@ function submit() {
   border-radius: 2px;
   overflow: hidden;
 }
+
 .rg-password-strength__fill {
   height: 100%;
   border-radius: 2px;
   transition: width 0.3s ease;
 }
+
 .rg-password-strength__label {
   font-size: 0.65rem;
   font-weight: 600;
@@ -1570,6 +1597,7 @@ function submit() {
   flex-direction: column;
   gap: 0.15rem;
 }
+
 .rg-password-errors .rg-error {
   font-size: 0.68rem;
 }
@@ -1587,6 +1615,7 @@ function submit() {
   font-family: inherit !important;
   transition: all 0.2s ease !important;
 }
+
 .rg-date :deep(.p-datepicker-trigger) {
   display: none !important;
 }
@@ -1614,6 +1643,15 @@ function submit() {
   font-size: 0.72rem;
   color: var(--error);
 }
+
+.rg-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
 .rg-hint-wrapper {
   display: flex;
   flex-direction: column;
@@ -1628,6 +1666,7 @@ function submit() {
   flex-wrap: wrap;
   gap: 0.4rem;
 }
+
 .rg-profile-btn {
   --btn-color: #9CA3AF;
   --btn-bg: transparent;
@@ -1645,11 +1684,13 @@ function submit() {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .rg-profile-btn:hover {
   border-color: var(--btn-color);
   background: var(--btn-bg);
   transform: translateY(-1px);
 }
+
 .rg-profile-btn--active {
   border-color: var(--btn-color) !important;
   background: var(--btn-bg) !important;
@@ -1658,6 +1699,7 @@ function submit() {
   color: var(--ink);
   font-weight: 600;
 }
+
 .rg-profile-btn--active .rg-profile-btn__label {
   color: var(--btn-color);
 }
@@ -1692,9 +1734,19 @@ function submit() {
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
 }
 
 .rg-terms {
@@ -1760,9 +1812,11 @@ function submit() {
     transform: scale(0);
     opacity: 0;
   }
+
   50% {
     transform: scale(1.2);
   }
+
   100% {
     transform: scale(1);
     opacity: 1;
@@ -1826,15 +1880,18 @@ function submit() {
   transition: all 0.2s ease !important;
   color: var(--white) !important;
 }
+
 .rg-submit:enabled:hover {
   background: var(--brand-dark) !important;
   transform: translateY(-2px) !important;
   box-shadow: 0 6px 20px rgba(200, 30, 58, 0.35) !important;
 }
+
 .rg-submit:disabled {
   opacity: 0.5 !important;
   cursor: not-allowed !important;
 }
+
 .rg-submit__spinner {
   width: 18px;
   height: 18px;
@@ -1843,8 +1900,11 @@ function submit() {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
+
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .rg-divider {
@@ -1853,6 +1913,7 @@ function submit() {
   color: var(--muted-light);
   font-size: 0.78rem;
 }
+
 .rg-divider::before {
   content: '';
   position: absolute;
@@ -1862,6 +1923,7 @@ function submit() {
   height: 1px;
   background: var(--line);
 }
+
 .rg-divider span {
   position: relative;
   background: var(--white);
@@ -1890,11 +1952,13 @@ function submit() {
   grid-template-columns: repeat(4, 1fr);
   gap: 2rem;
 }
+
 .rg-trust__item {
   display: flex;
   align-items: flex-start;
   gap: 0.9rem;
 }
+
 .rg-trust__icon-wrapper {
   width: 40px;
   height: 40px;
@@ -1905,6 +1969,7 @@ function submit() {
   align-items: center;
   justify-content: center;
 }
+
 .rg-trust__title {
   font-weight: 600;
   font-size: 0.9rem;
@@ -1914,6 +1979,7 @@ function submit() {
   align-items: center;
   gap: 0.3rem;
 }
+
 .rg-trust__text {
   font-size: 0.78rem;
   color: var(--muted);
@@ -1928,12 +1994,15 @@ function submit() {
   .rg-split {
     grid-template-columns: 1fr;
   }
+
   .rg-media {
     min-height: 420px;
   }
+
   .rg-form-panel {
     padding: 3rem 2.5rem;
   }
+
   .rg-trust {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1949,46 +2018,59 @@ function submit() {
   .rg-card {
     padding: 2rem;
   }
+
   .rg-field-row {
     grid-template-columns: 1fr;
   }
+
   .rg-form-panel {
     padding: 2rem 1.25rem;
   }
+
   .rg-trust {
     grid-template-columns: 1fr;
     padding: 2.5rem 1.25rem;
   }
+
   .rg-nav {
     padding: 0 1.25rem;
     height: 70px;
   }
+
   .rg-brand__logo {
     height: 40px;
   }
+
   .rg-nav__actions .rg-btn--ghost {
     display: none;
   }
+
   .rg-password-strength-below {
     flex-direction: column;
     align-items: stretch;
     gap: 0.3rem;
   }
+
   .rg-password-strength__label {
     text-align: left;
   }
+
   .rg-media__content {
     padding: 2rem;
   }
+
   .rg-media__title {
     font-size: 1.8rem;
   }
+
   .rg-card__title {
     font-size: 1.6rem;
   }
+
   .rg-profile-group {
     gap: 0.3rem;
   }
+
   .rg-profile-btn {
     padding: 0.4rem 0.75rem;
     font-size: 0.72rem;
@@ -1997,12 +2079,18 @@ function submit() {
   .rg-terms-card {
     padding: 1rem;
   }
+
   .rg-terms {
     flex-direction: column;
     gap: 0.5rem;
   }
+
   .rg-terms__checkbox-wrapper {
     margin-top: 0;
+  }
+
+  .rg-field--other-profile {
+    padding: 0.5rem 0.75rem;
   }
 }
 </style>

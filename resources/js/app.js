@@ -1,7 +1,6 @@
 // resources/js/app.js
 import '../css/app.css';
 import './bootstrap';
-
 import 'primeicons/primeicons.css';
 
 import { createApp, h } from 'vue';
@@ -42,7 +41,7 @@ createInertiaApp({
     ),
     setup({ el, App, props, plugin }) {
         const app = createApp({ render: () => h(App, props) });
-        
+
         app.use(plugin);
         app.use(ZiggyVue);
         app.use(PrimeVue, {
@@ -55,7 +54,7 @@ createInertiaApp({
         });
         app.use(ToastService);
         app.use(ConfirmationService);
-        
+
         // ========== REGISTRAR COMPONENTES GLOBALES ==========
         app.component('PvButton', Button);
         app.component('PvCard', Card);
@@ -73,9 +72,9 @@ createInertiaApp({
         app.component('PvConfirmDialog', ConfirmDialog);
         app.component('PvDialog', Dialog);
         app.component('PvMenubar', Menubar);
-        
+
         app.mount(el);
-        
+
         return app;
     },
     progress: {

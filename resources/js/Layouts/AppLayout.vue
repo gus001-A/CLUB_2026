@@ -7,14 +7,18 @@ import CustomAvatar from '@/Components/AvatarCustom.vue';
 import ToastNotification from '@/Components/ToastNotification.vue';
 import { useConfirm } from '@/composables/useConfirm';
 import PvBadge from 'primevue/badge';
+import axios from 'axios';
 
 /* ---------------------------------------------------------------
  * Props
  * ---------------------------------------------------------------
  * activeNav: cuál ítem del menú resaltar ('inicio' | 'descubrir' | 'eventos' | 'shop' | 'mensajes' | 'comunidad')
+ * hideFooter: oculta el AppFooter — útil en páginas tipo chat, donde el
+ * pie de página le quita espacio útil vertical a la conversación.
  * --------------------------------------------------------------- */
 const props = defineProps({
   activeNav: { type: String, default: '' },
+  hideFooter: { type: Boolean, default: false },
 });
 
 // Estado del dropdown
@@ -29,31 +33,34 @@ const page = usePage();
 // Confirm modal
 const { confirm } = useConfirm();
 
+// ============================================================
+// 🔔 SISTEMA DE NOTIFICACIONES
+// ============================================================
+const notificaciones = ref([]);
+const notificacionesNoLeidas = ref(0);
+const mostrarPanelNotificaciones = ref(false);
+const cargandoNotificaciones = ref(false);
+
 // 🔥 FUNCIÓN PARA OBTENER URL DEL AVATAR CORRECTAMENTE
 const getAvatarUrl = (avatar) => {
   if (!avatar) return '/images/shared/avatar-default.jpg';
 
-  // Si ya es una URL completa
   if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
     return avatar;
   }
 
-  // Si ya tiene /storage/ o storage/
   if (avatar.startsWith('/storage/') || avatar.startsWith('storage/')) {
     return avatar.startsWith('/') ? avatar : '/' + avatar;
   }
 
-  // Si es una ruta relativa, agregar /storage/
   return '/storage/' + avatar;
 };
 
-// 🔥 USUARIO - CORREGIDO PARA AGREGAR /storage/ AL AVATAR
+// 🔥 USUARIO
 const usuario = computed(() => {
-  // Obtener usuario de page.props.usuario
   const user = page.props.usuario || null;
 
   if (user) {
-    // 🔥 CORREGIDO: Asegurar que el avatar tenga la ruta completa
     let avatar = user.avatar || '/images/shared/avatar-default.jpg';
     avatar = getAvatarUrl(avatar);
 
@@ -87,8 +94,171 @@ const usuario = computed(() => {
   };
 });
 
-// Computed para notificaciones
-const notificaciones = computed(() => 0);
+// ============================================================
+// 🔔 FUNCIONES DE NOTIFICACIONES
+// ============================================================
+
+// Obtener notificaciones del servidor
+const obtenerNotificaciones = async () => {
+  if (!usuario.value.id) return;
+
+  try {
+    cargandoNotificaciones.value = true;
+    const response = await axios.get('/notificaciones');
+
+    if (response.data && response.data.ok) {
+      notificaciones.value = response.data.notificaciones || [];
+      notificacionesNoLeidas.value = response.data.no_leidas || 0;
+
+      // Actualizar el badge del icono de campana
+      actualizarBadgeNotificaciones();
+    }
+  } catch (error) {
+    console.error('Error al obtener notificaciones:', error);
+  } finally {
+    cargandoNotificaciones.value = false;
+  }
+};
+
+// Marcar notificaciones como leídas
+const marcarComoLeidas = async () => {
+  if (notificacionesNoLeidas.value === 0) return;
+
+  try {
+    await axios.post('/notificaciones/marcar-leidas');
+    notificacionesNoLeidas.value = 0;
+    actualizarBadgeNotificaciones();
+
+    // Actualizar el estado de las notificaciones
+    notificaciones.value = notificaciones.value.map(n => ({
+      ...n,
+      leida: true
+    }));
+  } catch (error) {
+    console.error('Error al marcar notificaciones como leídas:', error);
+  }
+};
+
+// Marcar una notificación como leída
+const marcarNotificacionComoLeida = async (id) => {
+  try {
+    await axios.post(`/notificaciones/${id}/marcar-leida`);
+
+    const notificacion = notificaciones.value.find(n => n.id === id);
+    if (notificacion && !notificacion.leida) {
+      notificacion.leida = true;
+      notificacionesNoLeidas.value = Math.max(0, notificacionesNoLeidas.value - 1);
+      actualizarBadgeNotificaciones();
+    }
+  } catch (error) {
+    console.error('Error al marcar notificación como leída:', error);
+  }
+};
+
+// Actualizar el badge del icono de campana
+const actualizarBadgeNotificaciones = () => {
+  const badge = document.querySelector('.icon-badge--notificaciones');
+  if (badge) {
+    if (notificacionesNoLeidas.value > 0) {
+      badge.textContent = notificacionesNoLeidas.value > 99 ? '99+' : notificacionesNoLeidas.value;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+};
+
+// Alternar panel de notificaciones
+const togglePanelNotificaciones = () => {
+  mostrarPanelNotificaciones.value = !mostrarPanelNotificaciones.value;
+  if (mostrarPanelNotificaciones.value) {
+    obtenerNotificaciones();
+  }
+};
+
+// Cerrar panel de notificaciones
+const cerrarPanelNotificaciones = () => {
+  mostrarPanelNotificaciones.value = false;
+};
+
+// Hacer clic en una notificación
+const clickNotificacion = (notificacion) => {
+  if (!notificacion.leida) {
+    marcarNotificacionComoLeida(notificacion.id);
+  }
+
+  cerrarPanelNotificaciones();
+
+  // Redirigir según el tipo de notificación
+  if (notificacion.tipo === 'like' || notificacion.tipo === 'comentario') {
+    router.visit(`/contenido/${notificacion.contenido_id}`);
+  } else if (notificacion.tipo === 'suscripcion') {
+    router.visit(`/suscripciones`);
+  } else if (notificacion.tipo === 'match') {
+    router.visit('/mensajes');
+  } else if (notificacion.tipo === 'seguidor') {
+    router.visit(`/creador/${notificacion.usuario_id}`);
+  } else {
+    // Redirigir al enlace de la notificación si existe
+    if (notificacion.link) {
+      router.visit(notificacion.link);
+    }
+  }
+};
+
+// Escuchar eventos de notificaciones en tiempo real (con Polling)
+let pollingInterval = null;
+
+const iniciarPollingNotificaciones = () => {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+  }
+
+  // Solo iniciar polling si el usuario está autenticado
+  if (!usuario.value.id) return;
+
+  // Cada 30 segundos verificar nuevas notificaciones
+  pollingInterval = setInterval(() => {
+    // Solo verificar si el panel no está abierto para no interrumpir
+    if (!mostrarPanelNotificaciones.value) {
+      verificarNuevasNotificaciones();
+    }
+  }, 30000);
+};
+
+const verificarNuevasNotificaciones = async () => {
+  try {
+    const response = await axios.get('/notificaciones/nuevas');
+    if (response.data && response.data.ok && response.data.nuevas > 0) {
+      // Hay nuevas notificaciones, actualizar el badge
+      notificacionesNoLeidas.value += response.data.nuevas;
+      actualizarBadgeNotificaciones();
+
+      // Si el panel está cerrado, mostrar un toast
+      if (!mostrarPanelNotificaciones.value) {
+        // Mostrar toast con el número de nuevas notificaciones
+        const toast = document.querySelector('.toast-notification');
+        if (toast) {
+          // Usar el sistema de toast si está disponible
+          window.dispatchEvent(new CustomEvent('toast', {
+            detail: {
+              type: 'info',
+              title: 'Nuevas notificaciones',
+              message: `Tienes ${response.data.nuevas} notificación(es) nueva(s)`,
+              duration: 5000
+            }
+          }));
+        }
+      }
+    }
+  } catch (error) {
+    // Silenciar errores de polling
+  }
+};
+
+// ============================================================
+// Computed para mensajes
+// ============================================================
 const mensajes = computed(() => 0);
 
 // Items del menú de navegación
@@ -131,6 +301,11 @@ const handleLogout = async () => {
       onFinish: () => {
         isLoggingOut.value = false;
         closeDropdown();
+        // Detener polling al cerrar sesión
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+        }
       },
       onError: () => {
         isLoggingOut.value = false;
@@ -146,9 +321,15 @@ const handleClickOutside = (event) => {
   if (dropdown && !dropdown.contains(event.target)) {
     closeDropdown();
   }
+
+  // Cerrar panel de notificaciones
+  const notifPanel = document.querySelector('.notificaciones-panel');
+  if (notifPanel && !notifPanel.contains(event.target) && !event.target.closest('.icon-btn--notificaciones')) {
+    cerrarPanelNotificaciones();
+  }
 };
 
-// 🔥 CORREGIDO: Asegurar que los enlaces de perfil usen las rutas correctas
+// Perfil y rutas
 const perfilRoute = computed(() => {
   try {
     return route('perfil.ver');
@@ -165,7 +346,6 @@ const configuracionRoute = computed(() => {
   }
 });
 
-// 🔥 NUEVO: Ruta para ganancias del creador
 const gananciasRoute = computed(() => {
   try {
     return route('creador.ganancias');
@@ -174,19 +354,58 @@ const gananciasRoute = computed(() => {
   }
 });
 
-// 🔥 CORREGIDO: Añadir watch para depurar cuando cambia el usuario
+// Watch para cambios en el usuario
 watch(() => page.props.usuario, (newUser) => {
   console.log('🔄 Usuario actualizado en AppLayout:', newUser);
+  if (newUser && newUser.id) {
+    // Iniciar polling cuando el usuario inicia sesión
+    iniciarPollingNotificaciones();
+    // Obtener notificaciones iniciales
+    obtenerNotificaciones();
+  }
 }, { deep: true });
+
+// Escuchar eventos de notificaciones desde otros componentes
+const handleNuevaNotificacion = (event) => {
+  if (event.detail) {
+    notificacionesNoLeidas.value += 1;
+    actualizarBadgeNotificaciones();
+
+    // Agregar al inicio de la lista
+    notificaciones.value.unshift({
+      id: Date.now(),
+      ...event.detail,
+      leida: false,
+      created_at: new Date().toISOString()
+    });
+
+    // Mostrar toast
+    window.dispatchEvent(new CustomEvent('toast', {
+      detail: {
+        type: 'info',
+        title: event.detail.titulo || 'Nueva notificación',
+        message: event.detail.mensaje || 'Tienes una nueva notificación',
+        duration: 5000
+      }
+    }));
+  }
+};
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
+  window.addEventListener('nueva-notificacion', handleNuevaNotificacion);
+
   console.log('✅ AppLayout montado');
   console.log('📋 Usuario:', usuario.value);
   console.log('📋 activeNav:', props.activeNav);
   console.log('📋 Es creador:', usuario.value.es_creador);
 
-  // 🔥 VERIFICAR QUE LA RUTA PERFIL EXISTE
+  // Iniciar polling si el usuario está autenticado
+  if (usuario.value.id) {
+    iniciarPollingNotificaciones();
+    obtenerNotificaciones();
+  }
+
   try {
     console.log('🔍 Ruta perfil.ver:', route('perfil.ver'));
   } catch (e) {
@@ -196,6 +415,11 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
+  window.removeEventListener('nueva-notificacion', handleNuevaNotificacion);
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
 });
 </script>
 
@@ -225,11 +449,86 @@ onUnmounted(() => {
 
         <!-- ACCIONES -->
         <div class="cf-nav__actions">
-          <button class="icon-btn" title="Notificaciones">
-            <i class="pi pi-bell"></i>
-            <span v-if="notificaciones" class="icon-badge">{{ notificaciones }}</span>
-          </button>
+          <!-- 🔔 BOTÓN DE NOTIFICACIONES -->
+          <div class="notificaciones-wrapper">
+            <button class="icon-btn icon-btn--notificaciones" @click="togglePanelNotificaciones" title="Notificaciones">
+              <i class="pi pi-bell"></i>
+              <span class="icon-badge icon-badge--notificaciones" id="notificaciones-badge">
+                {{ notificacionesNoLeidas > 99 ? '99+' : notificacionesNoLeidas }}
+              </span>
+            </button>
 
+            <!-- PANEL DE NOTIFICACIONES -->
+            <Transition name="dropdown">
+              <div v-if="mostrarPanelNotificaciones" class="notificaciones-panel">
+                <div class="notificaciones-panel__header">
+                  <h3>Notificaciones</h3>
+                  <button v-if="notificacionesNoLeidas > 0" class="notificaciones-panel__mark-read"
+                    @click="marcarComoLeidas">
+                    Marcar todas como leídas
+                  </button>
+                </div>
+
+                <div class="notificaciones-panel__lista">
+                  <div v-if="cargandoNotificaciones" class="notificaciones-panel__cargando">
+                    <i class="pi pi-spin pi-spinner"></i>
+                    Cargando...
+                  </div>
+
+                  <template v-else-if="notificaciones.length === 0">
+                    <div class="notificaciones-panel__vacio">
+                      <i class="pi pi-inbox"></i>
+                      <span>No tienes notificaciones</span>
+                    </div>
+                  </template>
+
+                  <template v-else>
+                    <div v-for="notificacion in notificaciones" :key="notificacion.id" class="notificacion-item"
+                      :class="{ 'notificacion-item--no-leida': !notificacion.leida }"
+                      @click="clickNotificacion(notificacion)">
+                      <div class="notificacion-item__icon" :class="{
+                        'notif-like': notificacion.tipo === 'like',
+                        'notif-comentario': notificacion.tipo === 'comentario',
+                        'notif-suscripcion': notificacion.tipo === 'suscripcion',
+                        'notif-match': notificacion.tipo === 'match',
+                        'notif-seguidor': notificacion.tipo === 'seguidor',
+                      }">
+                        <i :class="{
+                          'pi pi-heart-fill': notificacion.tipo === 'like',
+                          'pi pi-comment': notificacion.tipo === 'comentario',
+                          'pi pi-crown': notificacion.tipo === 'suscripcion',
+                          'pi pi-heart': notificacion.tipo === 'match',
+                          'pi pi-user-plus': notificacion.tipo === 'seguidor',
+                          'pi pi-bell': !['like', 'comentario', 'suscripcion', 'match', 'seguidor'].includes(notificacion.tipo)
+                        }"></i>
+                      </div>
+                      <div class="notificacion-item__contenido">
+                        <div class="notificacion-item__mensaje" v-html="notificacion.mensaje"></div>
+                        <span class="notificacion-item__tiempo">
+                          {{ new Date(notificacion.created_at).toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) }}
+                        </span>
+                      </div>
+                      <div v-if="!notificacion.leida" class="notificacion-item__dot"></div>
+                    </div>
+                  </template>
+                </div>
+
+                <div v-if="notificaciones.length > 0" class="notificaciones-panel__footer">
+                  <Link href="/notificaciones" class="notificaciones-panel__ver-todas"
+                    @click="cerrarPanelNotificaciones">
+                    Ver todas las notificaciones
+                  </Link>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
+          <!-- USER DROPDOWN -->
           <div class="user-dropdown-wrapper" @click.stop>
             <div class="user-chip" @click="toggleDropdown">
               <CustomAvatar :image="usuario.avatar" :label="usuario.nombre.charAt(0).toUpperCase()" size="large" />
@@ -261,17 +560,14 @@ onUnmounted(() => {
                 </div>
                 <div class="user-dropdown__divider"></div>
 
-                <!-- 🔥 ENLACE A PERFIL NORMAL -->
                 <Link :href="perfilRoute" class="user-dropdown__item" @click="closeDropdown">
                   <i class="pi pi-user"></i> Mi perfil
                 </Link>
 
-                <!-- 🔥 ENLACE A CONFIGURACIÓN -->
                 <Link :href="configuracionRoute" class="user-dropdown__item" @click="closeDropdown">
                   <i class="pi pi-cog"></i> Configuración
                 </Link>
 
-                <!-- 🔥 NUEVO: Ganancias del creador - SOLO SI ES CREADOR -->
                 <Link v-if="usuario.es_creador" :href="gananciasRoute"
                   class="user-dropdown__item user-dropdown__item--creator" @click="closeDropdown">
                   <i class="pi pi-wallet"></i> Ganancias del creador
@@ -294,7 +590,7 @@ onUnmounted(() => {
       <slot />
     </main>
 
-    <AppFooter />
+    <AppFooter v-if="!hideFooter" />
     <ConfirmModal />
   </div>
 </template>
@@ -344,7 +640,7 @@ onUnmounted(() => {
 }
 
 /* =========================================================================
-   NAVBAR - LOGO MÁS A LA IZQUIERDA
+   NAVBAR
    ========================================================================= */
 .cf-header {
   position: sticky;
@@ -523,6 +819,10 @@ onUnmounted(() => {
   transform: scale(0.92);
 }
 
+.icon-btn--notificaciones {
+  position: relative;
+}
+
 .icon-badge {
   position: absolute;
   top: -2px;
@@ -539,6 +839,232 @@ onUnmounted(() => {
   justify-content: center;
   border: 2px solid var(--white);
   box-shadow: var(--shadow-sm);
+}
+
+.icon-badge--notificaciones {
+  background: #EF4444;
+}
+
+/* =========================================================================
+   NOTIFICACIONES PANEL
+   ========================================================================= */
+.notificaciones-wrapper {
+  position: relative;
+}
+
+.notificaciones-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: var(--white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xl);
+  width: 380px;
+  max-height: 480px;
+  z-index: 1000;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.notificaciones-panel::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  right: 18px;
+  width: 16px;
+  height: 16px;
+  background: var(--white);
+  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  transform: rotate(45deg);
+  border-radius: 2px 0 0 0;
+}
+
+.notificaciones-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  background: var(--surface);
+}
+
+.notificaciones-panel__header h3 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--ink);
+}
+
+.notificaciones-panel__mark-read {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--brand);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notificaciones-panel__mark-read:hover {
+  color: var(--brand-dark);
+  text-decoration: underline;
+}
+
+.notificaciones-panel__lista {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+
+.notificaciones-panel__cargando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.notificaciones-panel__vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 0;
+  color: var(--muted-light);
+}
+
+.notificaciones-panel__vacio i {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.notificaciones-panel__vacio span {
+  font-size: 0.85rem;
+}
+
+.notificaciones-panel__footer {
+  padding: 0.6rem 1.25rem;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+
+.notificaciones-panel__ver-todas {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--brand);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.notificaciones-panel__ver-todas:hover {
+  color: var(--brand-dark);
+  text-decoration: underline;
+}
+
+/* =========================================================================
+   NOTIFICACION ITEM
+   ========================================================================= */
+.notificacion-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.7rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+}
+
+.notificacion-item:last-child {
+  border-bottom: none;
+}
+
+.notificacion-item:hover {
+  background: var(--surface);
+}
+
+.notificacion-item--no-leida {
+  background: rgba(200, 30, 58, 0.04);
+}
+
+.notificacion-item--no-leida:hover {
+  background: rgba(200, 30, 58, 0.08);
+}
+
+.notificacion-item__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.8rem;
+}
+
+.notif-like {
+  background: #FEE2E2;
+  color: #EF4444;
+}
+
+.notif-comentario {
+  background: #DBEAFE;
+  color: #3B82F6;
+}
+
+.notif-suscripcion {
+  background: #FEF3C7;
+  color: #F59E0B;
+}
+
+.notif-match {
+  background: #FCE4EC;
+  color: #EC407A;
+}
+
+.notif-seguidor {
+  background: #E8F5E9;
+  color: #4CAF50;
+}
+
+.notificacion-item__contenido {
+  flex: 1;
+  min-width: 0;
+}
+
+.notificacion-item__mensaje {
+  font-size: 0.82rem;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.notificacion-item__mensaje :deep(strong) {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.notificacion-item__tiempo {
+  font-size: 0.6rem;
+  color: var(--muted-light);
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.notificacion-item__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  flex-shrink: 0;
+  margin-top: 0.4rem;
 }
 
 /* =========================================================================
@@ -782,7 +1308,6 @@ onUnmounted(() => {
   color: var(--brand-dark);
 }
 
-/* 🔥 ESTILO PARA GANANCIAS DEL CREADOR */
 .user-dropdown__item--creator {
   color: var(--creator);
 }
@@ -881,6 +1406,12 @@ onUnmounted(() => {
     min-width: 240px;
     right: -10px;
   }
+
+  .notificaciones-panel {
+    width: 320px;
+    right: -10px;
+    max-height: 400px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -926,6 +1457,16 @@ onUnmounted(() => {
   .user-dropdown__item {
     padding: 0.6rem 1rem;
     font-size: 0.8rem;
+  }
+
+  .notificaciones-panel {
+    width: 280px;
+    right: -20px;
+    max-height: 350px;
+  }
+
+  .notificacion-item {
+    padding: 0.5rem 0.8rem;
   }
 }
 

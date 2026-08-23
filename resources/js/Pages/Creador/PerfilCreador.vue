@@ -1,12 +1,19 @@
 <template>
+
     <Head title="Mi perfil de creador" />
 
     <AppLayout active-nav="comunidad" :usuario="usuario" :notificaciones="5" :favoritos="2" :mensajes="3">
         <div class="perfil-creador-page">
             <!-- ============================================================ -->
-            <!-- TÍTULO -->
+            <!-- TÍTULO CON BOTÓN DE REGRESO -->
             <!-- ============================================================ -->
             <div class="page-heading">
+                <div class="page-heading__top">
+                    <button class="btn-back" @click="regresar">
+                        <i class="pi pi-arrow-left"></i>
+                        <span>Regresar</span>
+                    </button>
+                </div>
                 <h1>Mi perfil de creador</h1>
                 <p>Gestiona tu perfil, contenido y comunidad.</p>
             </div>
@@ -19,12 +26,12 @@
                     <section class="profile-card">
                         <div class="profile-card__body">
                             <div class="profile-card__avatar-wrapper">
-                                <img 
-                                    :src="perfil.avatar || '/images/shared/avatar-default.jpg'"
-                                    :alt="perfil.nombre || 'Creador'" 
-                                    class="profile-card__avatar"
-                                    @error="handleImageError" 
-                                />
+                                <img :src="perfil.avatar || '/images/shared/avatar-default.jpg'"
+                                    :alt="perfil.nombre || 'Creador'" class="profile-card__avatar"
+                                    @error="handleImageError" />
+                                <span v-if="usuario?.verificado" class="profile-card__verified-badge">
+                                    <i class="pi pi-check-circle"></i>
+                                </span>
                             </div>
 
                             <div class="profile-card__info">
@@ -48,7 +55,6 @@
                                 <button class="action-btn" @click="compartirPerfil">
                                     <i class="pi pi-share-alt"></i> Compartir
                                 </button>
-                                <PvButton label="Gestionar suscripción" icon="pi pi-crown" @click="gestionarSuscripcion" />
                             </div>
                         </div>
 
@@ -56,18 +62,22 @@
                             <div class="stat-item">
                                 <strong>{{ perfil.seguidores || '0' }}</strong>
                                 <span>Seguidores</span>
+                                <i class="pi pi-users stat-icon"></i>
                             </div>
                             <div class="stat-item">
                                 <strong>{{ perfil.suscriptores || '0' }}</strong>
                                 <span>Suscriptores</span>
+                                <i class="pi pi-user-plus stat-icon"></i>
                             </div>
                             <div class="stat-item">
                                 <strong>{{ perfil.publicaciones || 0 }}</strong>
                                 <span>Publicaciones</span>
+                                <i class="pi pi-file stat-icon"></i>
                             </div>
                             <div class="stat-item">
                                 <strong>{{ perfil.meGusta || '0' }}</strong>
                                 <span>Me gusta</span>
+                                <i class="pi pi-heart-fill stat-icon"></i>
                             </div>
                         </div>
                     </section>
@@ -78,8 +88,8 @@
                     <div class="tabs-nav">
                         <button v-for="tab in tabs" :key="tab.key" class="tabs-nav__item"
                             :class="{ active: tabActivo === tab.key }" @click="tabActivo = tab.key">
-                            {{ tab.label }}
                             <i v-if="tab.icon" class="pi" :class="tab.icon"></i>
+                            {{ tab.label }}
                         </button>
                     </div>
 
@@ -96,48 +106,54 @@
                             </button>
                         </div>
 
-                        <article v-for="post in (publicaciones || [])" :key="post.id || post.titulo || Math.random()"
-                            class="post-card">
-                            <div class="post-card__header">
-                                <PvAvatar :image="perfil.avatar || '/images/shared/avatar-default.jpg'" shape="circle"
-                                    size="large" />
-                                <div class="post-card__author">
-                                    <strong>
-                                        {{ perfil.nombre || 'Creador' }}
-                                        <span v-if="creadorEsPremium" class="premium-chip">Premium</span>
-                                    </strong>
-                                    <span>{{ post.created_at || 'Hace 5 min' }}</span>
+                        <div class="posts-grid">
+                            <article v-for="post in (publicaciones || [])"
+                                :key="post.id || post.titulo || Math.random()" class="post-card">
+                                <div class="post-card__header">
+                                    <PvAvatar :image="perfil.avatar || '/images/shared/avatar-default.jpg'"
+                                        shape="circle" size="large" />
+                                    <div class="post-card__author">
+                                        <strong>
+                                            {{ perfil.nombre || 'Creador' }}
+                                            <span v-if="creadorEsPremium" class="premium-chip">Premium</span>
+                                        </strong>
+                                        <span>{{ post.created_at || 'Hace 5 min' }}</span>
+                                    </div>
+                                    <span v-if="post.es_premium" class="post-card__badge">
+                                        <i class="pi pi-lock"></i> Exclusivo
+                                    </span>
+                                    <button class="post-card__more"><i class="pi pi-ellipsis-h"></i></button>
                                 </div>
-                                <span v-if="post.es_premium" class="post-card__badge">
-                                    <i class="pi pi-lock"></i> Exclusivo
-                                </span>
-                                <button class="post-card__more"><i class="pi pi-ellipsis-h"></i></button>
-                            </div>
 
-                            <h3 v-if="post.titulo">{{ post.titulo }}</h3>
-                            <p v-if="post.descripcion" class="post-card__text">{{ post.descripcion }}</p>
+                                <h3 v-if="post.titulo">{{ post.titulo }}</h3>
+                                <p v-if="post.descripcion" class="post-card__text">{{ post.descripcion }}</p>
 
-                            <div v-if="post.archivos && post.archivos.length > 0" class="post-card__media">
-                                <img v-if="post.archivos[0]?.url" :src="post.archivos[0].url"
-                                    :alt="post.titulo || 'Contenido'" @error="handleImageError" />
-                                <div v-if="post.es_premium && configuracion?.mostrar_vista_previa" class="premium-overlay">
-                                    <span class="premium-overlay__lock"><i class="pi pi-lock"></i></span>
-                                    <strong>Suscríbete para ver</strong>
-                                    <span>contenido exclusivo</span>
+                                <div v-if="post.archivos && post.archivos.length > 0" class="post-card__media">
+                                    <img v-if="post.archivos[0]?.url" :src="post.archivos[0].url"
+                                        :alt="post.titulo || 'Contenido'" @error="handleImageError" />
+
+                                    <div v-if="post.es_premium && !esMiContenido(post)" class="premium-overlay">
+                                        <span class="premium-overlay__lock"><i class="pi pi-lock"></i></span>
+                                        <strong>Suscríbete para ver</strong>
+                                        <span>contenido exclusivo</span>
+                                    </div>
+
+                                    <span v-if="post.precio > 0" class="post-card__price">${{
+                                        Number(post.precio).toFixed(2)
+                                        }} USD</span>
                                 </div>
-                                <span v-if="post.precio > 0" class="post-card__price">${{ Number(post.precio).toFixed(2) }} USD</span>
-                            </div>
 
-                            <div class="post-card__footer">
-                                <button><i class="pi pi-heart"></i> {{ post.total_likes || 0 }}</button>
-                                <button><i class="pi pi-comment"></i> {{ post.total_comentarios || 0 }}</button>
-                            </div>
-                        </article>
+                                <div class="post-card__footer">
+                                    <button><i class="pi pi-heart"></i> {{ post.total_likes || 0 }}</button>
+                                    <button><i class="pi pi-comment"></i> {{ post.total_comentarios || 0 }}</button>
+                                </div>
+                            </article>
+                        </div>
                     </template>
 
                     <template v-else-if="tabActivo === 'galeria'">
                         <section class="section-block">
-                            <h3>Galería de fotos</h3>
+                            <h3><i class="pi pi-images"></i> Galería de fotos</h3>
                             <div v-if="!fotosPerfil || fotosPerfil.length === 0" class="empty-gallery">
                                 <i class="pi pi-images"></i>
                                 <p>No tienes fotos en tu galería aún.</p>
@@ -145,7 +161,7 @@
                             <div v-else class="gallery-grid">
                                 <div v-for="foto in fotosPerfil" :key="foto.id" class="gallery-item">
                                     <img :src="foto.url" :alt="'Foto ' + foto.id" @error="handleImageError" />
-                                    <span v-if="foto.es_principal" class="gallery-item__badge">Principal</span>
+                                    <span v-if="foto.es_principal" class="gallery-item__badge">⭐ Principal</span>
                                 </div>
                             </div>
                         </section>
@@ -153,13 +169,14 @@
 
                     <template v-else-if="tabActivo === 'acerca'">
                         <section class="section-block">
-                            <h3>Acerca de {{ perfil.nombre || 'Creador' }}</h3>
-                            <p class="about-text">{{ perfil.bio || 'Comparto contenido exclusivo para mi comunidad.' }}</p>
-                            <h4>Categorías</h4>
+                            <h3><i class="pi pi-info-circle"></i> Acerca de {{ perfil.nombre || 'Creador' }}</h3>
+                            <p class="about-text">{{ perfil.bio || 'Comparto contenido exclusivo para mi comunidad.' }}
+                            </p>
+                            <h4><i class="pi pi-tags"></i> Categorías</h4>
                             <div class="chip-group">
                                 <span v-for="cat in categoriasCreador" :key="cat" class="chip">{{ cat }}</span>
                             </div>
-                            <h4 v-if="configuracion">Información de monetización</h4>
+                            <h4 v-if="configuracion"><i class="pi pi-dollar"></i> Información de monetización</h4>
                             <div v-if="configuracion" class="about-stats">
                                 <div class="about-stat">
                                     <span>Modelo de ingresos</span>
@@ -184,16 +201,19 @@
                     <div v-if="suscripcionesActivas && suscripcionesActivas.length > 0" class="sidebar-card">
                         <div class="sidebar-card__header-row">
                             <h3><i class="pi pi-users"></i> Suscripciones activas</h3>
-                            <a href="#" class="see-all" @click.prevent="verTodasSuscripciones">Ver todas <i class="pi pi-arrow-right"></i></a>
+                            <a href="#" class="see-all" @click.prevent="verTodasSuscripciones">Ver todas <i
+                                    class="pi pi-arrow-right"></i></a>
                         </div>
                         <div class="subscriber-list">
-                            <div v-for="s in suscripcionesActivas" :key="s.nombre || Math.random()" class="subscriber-item">
+                            <div v-for="s in suscripcionesActivas" :key="s.nombre || Math.random()"
+                                class="subscriber-item">
                                 <PvAvatar :image="s.avatar || '/images/shared/avatar-default.jpg'" shape="circle" />
                                 <div class="subscriber-item__info">
                                     <strong>{{ s.nombre || 'Usuario' }}</strong>
                                     <span>Renovación: {{ s.renovacion || 'Próximamente' }}</span>
                                 </div>
-                                <PvTag :value="s.plan || 'Premium'" :severity="s.plan === 'VIP' ? 'danger' : 'secondary'" />
+                                <PvTag :value="s.plan || 'Premium'"
+                                    :severity="s.plan === 'VIP' ? 'danger' : 'secondary'" />
                             </div>
                         </div>
                     </div>
@@ -211,7 +231,7 @@
 
 <script setup>
 import { computed, ref, onMounted } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Footer from '@/Components/AppFooter.vue';
 import PvButton from 'primevue/button';
@@ -279,7 +299,7 @@ const props = defineProps({
 
 // Tabs
 const tabs = [
-    { key: 'publicaciones', label: 'Publicaciones', icon: null },
+    { key: 'publicaciones', label: 'Publicaciones', icon: 'pi-file' },
     { key: 'galeria', label: 'Galería', icon: 'pi-images' },
     { key: 'acerca', label: 'Acerca de', icon: 'pi-info-circle' },
 ];
@@ -294,13 +314,25 @@ const creadorEsPremium = computed(() => {
 
 const categoriasCreador = ref([]);
 
+function esMiContenido(post) {
+    if (post.usuario_id && props.usuario?.id) {
+        return post.usuario_id === props.usuario.id;
+    }
+    return true;
+}
+
 function handleImageError(event) {
     event.target.src = '/images/shared/placeholder-image.jpg';
     event.target.onerror = null;
 }
 
+// ✅ NUEVA FUNCIÓN: Regresar a la comunidad
+function regresar() {
+    router.get(route('comunidad.index'));
+}
+
 function editarPerfil() {
-    window.location.href = '/creador';
+    router.get(route('creador.editar-perfil'));
 }
 
 function compartirPerfil() {
@@ -309,24 +341,20 @@ function compartirPerfil() {
         navigator.share({
             title: `Perfil de ${props.perfil.nombre || 'Creador'}`,
             url: url
-        }).catch(() => {});
+        }).catch(() => { });
     } else {
         navigator.clipboard.writeText(url).then(() => {
             alert('Enlace copiado al portapapeles');
-        }).catch(() => {});
+        }).catch(() => { });
     }
 }
 
-function gestionarSuscripcion() {
-    window.location.href = '/creador/monetizacion';
-}
-
 function irAPublicar() {
-    window.location.href = '/creador/publicar';
+    router.get('/creador');
 }
 
 function verTodasSuscripciones() {
-    window.location.href = '/creador/suscripciones';
+    router.get('/creador/suscripciones');
 }
 
 onMounted(() => {
@@ -375,16 +403,49 @@ onMounted(() => {
 }
 
 /* ============================================================
-   TÍTULO
+   TÍTULO CON BOTÓN DE REGRESO
    ============================================================ */
 .page-heading {
     margin-bottom: 1.5rem;
 }
+
+.page-heading__top {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.3rem 0.6rem;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition);
+}
+
+.btn-back:hover {
+    color: var(--brand);
+    background: var(--brand-soft);
+    transform: translateX(-2px);
+}
+
+.btn-back i {
+    font-size: 0.9rem;
+}
+
 .page-heading h1 {
     font-size: 1.6rem;
     margin: 0 0 0.2rem;
     font-weight: 700;
 }
+
 .page-heading p {
     font-size: 0.85rem;
     color: var(--muted);
@@ -401,11 +462,13 @@ onMounted(() => {
     align-items: start;
     padding-bottom: 2.5rem;
 }
+
 @media (max-width: 1100px) {
     .content-grid {
         grid-template-columns: 1fr;
     }
 }
+
 .main-column {
     display: flex;
     flex-direction: column;
@@ -422,6 +485,11 @@ onMounted(() => {
     box-shadow: var(--shadow);
     overflow: hidden;
     padding: 1.75rem 1.75rem 0.5rem;
+    transition: all var(--transition);
+}
+
+.profile-card:hover {
+    box-shadow: var(--shadow-hover);
 }
 
 .profile-card__body {
@@ -432,6 +500,7 @@ onMounted(() => {
 }
 
 .profile-card__avatar-wrapper {
+    position: relative;
     flex-shrink: 0;
 }
 
@@ -443,6 +512,22 @@ onMounted(() => {
     border: 4px solid var(--white);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
     background: var(--surface);
+}
+
+.profile-card__verified-badge {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    background: #16a34a;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid var(--white);
+    font-size: 0.65rem;
 }
 
 .profile-card__info {
@@ -480,6 +565,7 @@ onMounted(() => {
     align-items: center;
     gap: 0.3rem;
 }
+
 .verified-chip i {
     font-size: 0.85rem;
 }
@@ -512,16 +598,14 @@ onMounted(() => {
     font-weight: 600;
     color: var(--ink-soft);
     cursor: pointer;
-    transition: var(--transition);
+    transition: all var(--transition);
 }
+
 .action-btn:hover {
     border-color: var(--brand);
     color: var(--brand);
     background: var(--brand-soft);
-}
-.profile-card__actions :deep(.p-button) {
-    font-weight: 700;
-    border-radius: var(--radius-sm);
+    transform: translateY(-2px);
 }
 
 .profile-card__stats {
@@ -535,19 +619,30 @@ onMounted(() => {
 
 .stat-item {
     text-align: center;
+    position: relative;
 }
+
 .stat-item strong {
     display: block;
     font-size: 1.2rem;
     font-weight: 700;
     color: var(--ink);
 }
+
 .stat-item span {
     font-size: 0.75rem;
     color: var(--muted);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+}
+
+.stat-icon {
+    display: block;
+    font-size: 1rem;
+    color: var(--brand-soft);
+    margin-bottom: 0.2rem;
+    opacity: 0.6;
 }
 
 /* ============================================================
@@ -562,6 +657,7 @@ onMounted(() => {
     padding: 0 1.5rem;
     box-shadow: var(--shadow);
 }
+
 .tabs-nav__item {
     background: none;
     border: none;
@@ -575,15 +671,18 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    transition: var(--transition);
+    transition: all var(--transition);
 }
+
 .tabs-nav__item:hover {
     color: var(--ink);
 }
+
 .tabs-nav__item.active {
     color: var(--brand);
     border-color: var(--brand);
 }
+
 .tabs-nav__item i {
     font-size: 0.85rem;
 }
@@ -599,15 +698,18 @@ onMounted(() => {
     text-align: center;
     box-shadow: var(--shadow);
 }
+
 .empty-state i {
     font-size: 3rem;
     color: var(--muted-light);
     margin-bottom: 1rem;
 }
+
 .empty-state h3 {
     font-size: 1.1rem;
     margin: 0 0 0.5rem;
 }
+
 .empty-state p {
     color: var(--muted);
     margin: 0 0 1.5rem;
@@ -617,11 +719,13 @@ onMounted(() => {
     text-align: center;
     padding: 2rem 1rem;
 }
+
 .empty-gallery i {
     font-size: 2.5rem;
     color: var(--muted-light);
     margin-bottom: 0.5rem;
 }
+
 .empty-gallery p {
     color: var(--muted);
     margin: 0;
@@ -635,6 +739,21 @@ onMounted(() => {
 }
 
 /* ============================================================
+   POSTS GRID
+   ============================================================ */
+.posts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .posts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================================
    POST CARD
    ============================================================ */
 .post-card {
@@ -643,28 +762,39 @@ onMounted(() => {
     border-radius: var(--radius);
     padding: 1.25rem 1.5rem;
     box-shadow: var(--shadow);
+    transition: all var(--transition);
 }
+
+.post-card:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+}
+
 .post-card__header {
     display: flex;
     align-items: center;
     gap: 0.7rem;
     margin-bottom: 0.8rem;
 }
+
 .post-card__author {
     display: flex;
     flex-direction: column;
     flex: 1;
 }
+
 .post-card__author strong {
     font-size: 0.9rem;
     display: flex;
     align-items: center;
     gap: 0.4rem;
 }
+
 .post-card__author span {
     font-size: 0.72rem;
     color: var(--muted-light);
 }
+
 .post-card__badge {
     background: var(--brand-soft);
     color: var(--brand);
@@ -676,6 +806,7 @@ onMounted(() => {
     align-items: center;
     gap: 0.3rem;
 }
+
 .post-card__more {
     border: none;
     background: none;
@@ -683,10 +814,12 @@ onMounted(() => {
     cursor: pointer;
     font-size: 1rem;
 }
+
 .post-card h3 {
     font-size: 0.95rem;
     margin: 0 0 0.3rem;
 }
+
 .post-card__text {
     font-size: 0.85rem;
     color: var(--ink-soft);
@@ -694,6 +827,7 @@ onMounted(() => {
     margin: 0 0 1rem;
     white-space: pre-line;
 }
+
 .post-card__media {
     position: relative;
     border-radius: var(--radius-sm);
@@ -701,11 +835,13 @@ onMounted(() => {
     aspect-ratio: 16/8;
     background: #111;
 }
+
 .post-card__media img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
+
 .post-card__footer {
     display: flex;
     gap: 1.5rem;
@@ -713,6 +849,7 @@ onMounted(() => {
     padding-top: 0.8rem;
     border-top: 1px solid var(--line);
 }
+
 .post-card__footer button {
     border: none;
     background: none;
@@ -723,11 +860,13 @@ onMounted(() => {
     color: var(--ink-soft);
     cursor: pointer;
     font-weight: 600;
-    transition: var(--transition);
+    transition: all var(--transition);
 }
+
 .post-card__footer button:hover {
     color: var(--brand);
 }
+
 .post-card__footer button i {
     color: var(--brand);
 }
@@ -744,6 +883,7 @@ onMounted(() => {
     text-align: center;
     background: rgba(0, 0, 0, 0.55);
 }
+
 .premium-overlay__lock {
     width: 40px;
     height: 40px;
@@ -754,13 +894,16 @@ onMounted(() => {
     justify-content: center;
     font-size: 0.9rem;
 }
+
 .premium-overlay strong {
     font-size: 0.9rem;
 }
+
 .premium-overlay span {
     font-size: 0.75rem;
     color: rgba(255, 255, 255, 0.7);
 }
+
 .post-card__price {
     position: absolute;
     bottom: 0.8rem;
@@ -783,23 +926,46 @@ onMounted(() => {
     border-radius: var(--radius);
     padding: 1.25rem 1.5rem;
     box-shadow: var(--shadow);
+    transition: all var(--transition);
 }
+
+.section-block:hover {
+    box-shadow: var(--shadow-hover);
+}
+
 .section-block h3 {
     font-size: 0.9rem;
     margin: 0 0 0.8rem;
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
+
+.section-block h3 i {
+    color: var(--brand);
+}
+
 .section-block h4 {
     font-size: 0.8rem;
     margin: 1rem 0 0.5rem;
     font-weight: 600;
     color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
 }
+
+.section-block h4 i {
+    color: var(--brand);
+}
+
 .chip-group {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
 }
+
 .chip {
     background: var(--surface);
     border: 1px solid var(--line);
@@ -809,30 +975,35 @@ onMounted(() => {
     font-weight: 600;
     color: var(--ink-soft);
 }
+
 .about-text {
     font-size: 0.85rem;
     color: var(--ink-soft);
     line-height: 1.6;
     margin: 0;
 }
+
 .about-stats {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 0.5rem;
     margin-top: 0.5rem;
 }
+
 .about-stat {
     background: var(--surface);
     border-radius: var(--radius-sm);
     padding: 0.6rem;
     text-align: center;
 }
+
 .about-stat span {
     display: block;
     font-size: 0.65rem;
     color: var(--muted);
     font-weight: 500;
 }
+
 .about-stat strong {
     font-size: 0.85rem;
     font-weight: 700;
@@ -853,11 +1024,13 @@ onMounted(() => {
     border-radius: var(--radius);
     padding: 1.25rem 1.5rem;
     box-shadow: var(--shadow);
-    transition: var(--transition);
+    transition: all var(--transition);
 }
+
 .sidebar-card:hover {
     box-shadow: var(--shadow-hover);
 }
+
 .sidebar-card h3 {
     font-size: 0.9rem;
     font-weight: 700;
@@ -866,19 +1039,23 @@ onMounted(() => {
     align-items: center;
     gap: 0.5rem;
 }
+
 .sidebar-card h3 i {
     color: var(--brand);
     font-size: 0.9rem;
 }
+
 .sidebar-card__header-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.8rem;
 }
+
 .sidebar-card__header-row h3 {
     margin: 0;
 }
+
 .see-all {
     color: var(--brand);
     font-size: 0.75rem;
@@ -887,9 +1064,12 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 0.2rem;
+    transition: all var(--transition);
 }
+
 .see-all:hover {
     text-decoration: underline;
+    gap: 0.4rem;
 }
 
 .subscriber-list {
@@ -897,21 +1077,25 @@ onMounted(() => {
     flex-direction: column;
     gap: 0.8rem;
 }
+
 .subscriber-item {
     display: flex;
     align-items: center;
     gap: 0.6rem;
 }
+
 .subscriber-item__info {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-width: 0;
 }
+
 .subscriber-item__info strong {
     font-size: 0.82rem;
     font-weight: 600;
 }
+
 .subscriber-item__info span {
     font-size: 0.7rem;
     color: var(--muted);
@@ -931,13 +1115,15 @@ onMounted(() => {
     font-weight: 600;
     font-size: 0.85rem;
     cursor: pointer;
-    transition: var(--transition);
+    transition: all var(--transition);
     font-family: inherit;
 }
+
 .btn--primary {
     background: var(--brand);
     color: var(--white);
 }
+
 .btn--primary:hover {
     background: var(--brand-dark);
     transform: translateY(-2px);
@@ -952,11 +1138,13 @@ onMounted(() => {
     grid-template-columns: repeat(4, 1fr);
     gap: 0.6rem;
 }
+
 @media (max-width: 640px) {
     .gallery-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
 .gallery-item {
     position: relative;
     aspect-ratio: 1/1;
@@ -964,11 +1152,13 @@ onMounted(() => {
     overflow: hidden;
     border: 2px solid var(--line);
 }
+
 .gallery-item img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
+
 .gallery-item__badge {
     position: absolute;
     top: 0.4rem;
@@ -996,36 +1186,45 @@ onMounted(() => {
         align-items: center;
         text-align: center;
     }
+
     .profile-card__info {
         min-width: 0;
     }
+
     .profile-card__name-row h2 {
         justify-content: center;
     }
+
     .profile-card__bio {
         max-width: 100%;
     }
+
     .profile-card__actions {
         justify-content: center;
         width: 100%;
     }
+
     .profile-card__stats {
         grid-template-columns: repeat(2, 1fr);
     }
+
     .profile-card__avatar {
         width: 90px;
         height: 90px;
     }
+
     .tabs-nav {
         gap: 0.5rem;
         overflow-x: auto;
         padding: 0 1rem;
     }
+
     .tabs-nav__item {
         font-size: 0.75rem;
         padding: 0.7rem 0.3rem;
         white-space: nowrap;
     }
+
     .about-stats {
         grid-template-columns: 1fr;
     }
@@ -1035,32 +1234,51 @@ onMounted(() => {
     .perfil-creador-page {
         padding: 0.5rem 0.5rem 1rem;
     }
+
     .profile-card {
         padding: 1rem 1rem 0.25rem;
     }
+
     .profile-card__stats {
         grid-template-columns: 1fr 1fr;
         padding: 0.75rem 0 0.5rem;
     }
+
     .profile-card__stats strong {
         font-size: 1rem;
     }
+
     .profile-card__actions {
         flex-direction: column;
     }
-    .profile-card__actions .action-btn,
-    .profile-card__actions :deep(.p-button) {
+
+    .profile-card__actions .action-btn {
         width: 100%;
         justify-content: center;
     }
+
     .post-card {
         padding: 0.75rem 1rem;
     }
+
     .gallery-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+
     .sidebar-card {
         padding: 1rem;
+    }
+
+    .page-heading h1 {
+        font-size: 1.2rem;
+    }
+
+    .btn-back span {
+        display: none;
+    }
+
+    .btn-back i {
+        font-size: 1.1rem;
     }
 }
 </style>
