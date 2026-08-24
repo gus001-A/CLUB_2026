@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Mail\VerificacionCorreoMail;
 use App\Models\User;
 use App\Models\Perfil;
 use App\Models\CodigoInvitacion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Carbon\Carbon;
@@ -23,6 +26,67 @@ class InviteRegisterController extends Controller
     {
         Log::info('Mostrando formulario de registro con invitacion');
         return Inertia::render('Auth/RegisterInvite');
+    }
+
+    /**
+     * Genera un código de verificación de 6 dígitos y lo manda al correo
+     * que la persona escribió en el formulario. No crea nada todavía —
+     * solo confirma que el correo es real y que ellos lo controlan, antes
+     * de dejarlos completar el registro.
+     */
+    public function enviarCodigoVerificacion(Request $request)
+    {
+        $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+
+        $emailKey = strtolower($request->email);
+        $throttleKey = "verificacion_email_throttle:{$emailKey}";
+
+        // Evita que le den "Reenviar código" a lo loco y saturen su propio
+        // correo (o el de alguien más, si escribieron mal el email).
+        if (Cache::has($throttleKey)) {
+            throw ValidationException::withMessages([
+                'email' => 'Espera unos segundos antes de pedir otro código.',
+            ]);
+        }
+
+        $codigo = (string) random_int(100000, 999999);
+
+        Cache::put("verificacion_email_codigo:{$emailKey}", $codigo, now()->addMinutes(10));
+        Cache::put($throttleKey, true, now()->addSeconds(45));
+
+        try {
+            Mail::to($request->email)->send(new VerificacionCorreoMail($codigo));
+        } catch (\Throwable $e) {
+            Log::error('No se pudo enviar el código de verificación', [
+                'email' => $request->email,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw ValidationException::withMessages([
+                'email' => 'No se pudo enviar el código. Intenta de nuevo en unos minutos.',
+            ]);
+        }
+
+        return back()->with('flash', [
+            'toast' => [
+                'type' => 'success',
+                'message' => "Te enviamos un código a {$request->email}.",
+                'duration' => 5000,
+            ],
+        ]);
+    }
+
+    /**
+     * Confirma que el código de verificación mandado coincide con el que
+     * se generó para ese correo (y que no expiró). Se usa dentro de
+     * register() antes de crear la cuenta.
+     */
+    protected function codigoVerificacionValido(string $email, string $codigo): bool
+    {
+        $guardado = Cache::get('verificacion_email_codigo:' . strtolower($email));
+        return $guardado !== null && hash_equals((string) $guardado, (string) $codigo);
     }
 
     /**
@@ -49,6 +113,7 @@ class InviteRegisterController extends Controller
                 'phone' => 'nullable|string|max:20',
                 'birthdate' => 'required|date|before:today|after:1900-01-01',
                 'accepts_terms' => 'required|boolean|accepted',
+                'verification_code' => 'required|string|size:6',
             ], [
                 'invite_code.required' => 'El código de invitación es obligatorio',
                 'invite_code.min' => 'El código debe tener al menos 8 caracteres',
@@ -70,6 +135,8 @@ class InviteRegisterController extends Controller
                 'birthdate.after' => 'Por favor, ingresa una fecha válida',
                 'accepts_terms.required' => 'Debes aceptar los términos y condiciones',
                 'accepts_terms.accepted' => 'Debes aceptar los términos y condiciones',
+                'verification_code.required' => 'Ingresa el código que te mandamos por correo',
+                'verification_code.size' => 'El código debe tener 6 dígitos',
             ]);
 
             Log::info('Validación exitosa', [
@@ -99,14 +166,44 @@ class InviteRegisterController extends Controller
                 ]);
             }
 
+            // Verificar el código de verificación de correo (el de 6 dígitos
+            // que se manda desde enviarCodigoVerificacion). Va antes de tocar
+            // el código de invitación para no gastarlo si esto ya falla.
+            Log::debug('Validando código de verificación de correo', ['email' => $validated['email']]);
+
+            if (!$this->codigoVerificacionValido($validated['email'], $validated['verification_code'])) {
+                Log::warning('Código de verificación de correo incorrecto o expirado', [
+                    'email' => $validated['email'],
+                ]);
+
+                return back()->withInput()->with('flash', [
+                    'toast' => [
+                        'type' => 'error',
+                        'message' => 'El código de verificación es incorrecto o ya expiró. Pide uno nuevo.',
+                        'duration' => 5000,
+                    ]
+                ]);
+            }
+
+            // Ya se usó — que no sirva para un segundo intento con otro correo.
+            Cache::forget('verificacion_email_codigo:' . strtolower($validated['email']));
+
             // Verificar el codigo de invitacion
             Log::debug('Validando código de invitación', ['code' => $validated['invite_code']]);
             
             // Validar el código de invitación
+            // OJO: whereColumn('contador_usos', '<', 'usos_maximos') por sí sola
+            // falla si contador_usos es NULL (pasa con invitaciones creadas antes
+            // de que el modelo forzara el default a 0) — en SQL "NULL < 1" no es
+            // verdadero, así que la fila queda excluida y el código nunca se
+            // encuentra. Por eso también aceptamos NULL como "0 usos".
             $inviteCode = CodigoInvitacion::where('codigo', $validated['invite_code'])
                 ->where('esta_activo', true)
                 ->where('expira_en', '>', Carbon::now())
-                ->whereColumn('contador_usos', '<', 'usos_maximos')
+                ->where(function ($q) {
+                    $q->whereNull('contador_usos')
+                        ->orWhereColumn('contador_usos', '<', 'usos_maximos');
+                })
                 ->first();
             
             if (!$inviteCode) {
@@ -326,7 +423,9 @@ class InviteRegisterController extends Controller
                 'rol' => 'usuario',
                 'estado' => 'incompleto', // ✅ Estado incompleto
                 'codigo_invitacion' => $data['invite_code'],
-                'email_verificado_en' => null, // ✅ Email no verificado
+                // Si llegamos hasta aquí, register() ya confirmó el código
+                // de 6 dígitos contra el correo — sí está verificado.
+                'email_verificado_en' => now(),
             ]);
 
             Log::debug('Usuario creado correctamente', [
@@ -351,27 +450,38 @@ class InviteRegisterController extends Controller
      */
     protected function createProfile(User $user, string $profileType)
     {
-        $profileTypeMap = [
-            'pareja' => 'pareja',
-            'hombre' => 'hombre',
-            'mujer' => 'mujer',
-            'trans' => 'trans',
-            'otro' => 'otro',
-        ];
+        // OJO: el enum real de perfiles.tipo solo acepta 'personal' o
+        // 'pareja' (confirmado en phpMyAdmin) — NO hombre/mujer/trans/otro
+        // como asumía este mapeo antes. Mandar 'hombre' tal cual tronaba
+        // con "Data truncated for column 'tipo'", igual que pasó con
+        // privacidad_fotos. Todo lo que no sea "pareja" es un perfil
+        // individual ('personal'); el detalle más específico que eligió
+        // la persona en el formulario (hombre/mujer/trans/otro) lo
+        // guardamos en metadatos para no perderlo, ya que no hay columna
+        // dedicada para eso.
+        $tipo = $profileType === 'pareja' ? 'pareja' : 'personal';
 
         Log::debug('Creando perfil para usuario', [
             'user_id' => $user->id,
-            'profile_type' => $profileType
+            'profile_type' => $profileType,
+            'tipo_guardado' => $tipo,
         ]);
 
         try {
+            // OJO: 'biografia', 'fotos' y 'preferencias' NO existen en la
+            // tabla perfiles (confirmado en Perfil.php) — mandarlas tronaba
+            // Perfil::create() con MassAssignmentException, y como pasa
+            // ANTES de marcar la invitación como usada, el registro se
+            // veía "fallido" aunque el usuario ya se hubiera creado.
+            // Dejamos solo usuario_id y tipo; el resto de columnas
+            // (descripcion, intereses, pasatiempos, privacidad_fotos,
+            // estado_verificacion, esta_verificado) usan el default que
+            // ya tenga la migración — el usuario las completa después en
+            // "completar perfil".
             $perfil = Perfil::create([
                 'usuario_id' => $user->id,
-                'tipo' => $profileTypeMap[$profileType] ?? 'otro',
-                'biografia' => null,
-                'intereses' => null,
-                'fotos' => null,
-                'preferencias' => null,
+                'tipo' => $tipo,
+                'metadatos' => ['genero' => $profileType],
             ]);
 
             Log::debug('Perfil creado correctamente', ['perfil_id' => $perfil->id]);

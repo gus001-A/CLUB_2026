@@ -111,15 +111,11 @@ class ProfileController extends Controller
                 }
             }
 
-            // CORRECCIÓN: Mapear valores de privacidad
-            $privacidadFotos = $perfil->privacidad_fotos ?? 'publico';
-            // Mapear a los valores que espera el frontend
-            $privacidadMap = [
-                'publico' => 'todos',
-                'coincidencias' => 'matches',
-                'oculto' => 'nadie'
-            ];
-            $privacidadFrontend = $privacidadMap[$privacidadFotos] ?? 'todos';
+            // OJO: antes había un mapeo aquí asumiendo que la BD guardaba
+            // 'publico'/'coincidencias'/'oculto', pero el enum real de
+            // privacidad_fotos es ('todos','matches','nadie') — exactamente
+            // lo que ya espera el frontend. No hace falta traducir nada.
+            $privacidadFrontend = $perfil->privacidad_fotos ?? 'todos';
 
             // CORRECCIÓN: Asegurar que metadatos sea un array
             $metadatos = $perfil->metadatos;
@@ -169,7 +165,7 @@ class ProfileController extends Controller
                 'descripcion' => '',
                 'intereses' => [], // El cast lo convierte a JSON
                 'pasatiempos' => [], // El cast lo convierte a JSON
-                'privacidad_fotos' => 'publico', // Valor válido para la BD
+                'privacidad_fotos' => 'todos', // Valor válido para la BD (enum real: todos/matches/nadie)
                 'ubicacion_ciudad' => $user->ciudad ?? '',
                 'metadatos' => [ // El cast lo convierte a JSON
                     'edad' => $edad,
@@ -336,18 +332,18 @@ class ProfileController extends Controller
                 $metadatos['ocupacion'] = $validated['ocupacion'];
             }
             
-            // CORRECCIÓN: Mapear visibilidad de fotos para la BD
-            $visibilidadMap = [
-                'todos' => 'publico',
-                'matches' => 'coincidencias',
-                'nadie' => 'oculto'
-            ];
-            
+            // OJO: antes había un mapeo aquí que traducía el valor del
+            // frontend ('todos'/'matches'/'nadie') a valores viejos
+            // ('publico'/'coincidencias'/'oculto') que ya no existen en el
+            // enum real de la BD — cada guardado de perfil tronaba con
+            // "Data truncated for column 'privacidad_fotos'". El enum real
+            // ya usa las mismas palabras que el frontend, así que se manda
+            // tal cual, sin traducir nada.
             if (isset($validated['visibilidadFotos'])) {
                 $metadatos['visibilidad_fotos'] = $validated['visibilidadFotos'];
-                $privacidadBD = $visibilidadMap[$validated['visibilidadFotos']] ?? 'publico';
+                $privacidadBD = $validated['visibilidadFotos'];
             } else {
-                $privacidadBD = 'publico';
+                $privacidadBD = 'todos';
             }
 
             if (isset($validated['tipoPerfil']) && $validated['tipoPerfil'] === 'pareja' && isset($validated['pareja'])) {
@@ -551,7 +547,7 @@ class ProfileController extends Controller
                         }
                         
                         // Obtener permisos de la foto desde los metadatos
-                        $permisos = [$perfil->privacidad_fotos ?? 'publico'];
+                        $permisos = [$perfil->privacidad_fotos ?? 'todos'];
                         
                         $nuevaFoto = Fotos::create([
                             'perfil_id' => $perfil->id,

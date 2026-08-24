@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Contenido;
 use App\Models\Evento;
+use App\Models\Fotos;
 use App\Models\Pedido;
 use App\Models\Suscripcion;
 use App\Models\Transaccion;
@@ -81,15 +83,31 @@ class DashboardController extends Controller
                     $query->where('estado', $estado);
                 }
 
-                return $query->latest()->paginate(4)->withQueryString()->through(fn ($u) => [
-                    'id' => $u->id,
-                    'nombre' => $u->nombre,
-                    'apodo' => $u->apodo,
-                    'email' => $u->email,
-                    'rol' => $u->rol,
-                    'estado' => $u->estado,
-                    'created_at' => $u->created_at,
-                ]);
+                $paginator = $query->with('perfil:id,usuario_id')->latest()->paginate(4)->withQueryString();
+
+                // Foto principal en una sola consulta extra (no una por
+                // fila) — mismo criterio que Admin\UsuarioController@index:
+                // primero la tabla fotos (es_principal=true), y si no hay,
+                // cae a users.foto_principal como respaldo.
+                $perfilIds = $paginator->getCollection()->pluck('perfil.id')->filter()->values();
+                $fotosPrincipales = $perfilIds->isNotEmpty()
+                    ? Fotos::whereIn('perfil_id', $perfilIds)->where('es_principal', true)->get()->keyBy('perfil_id')
+                    : collect();
+
+                return $paginator->through(function ($u) use ($fotosPrincipales) {
+                    $fotoPerfil = $u->perfil ? ($fotosPrincipales->get($u->perfil->id)?->ruta_foto) : null;
+
+                    return [
+                        'id' => $u->id,
+                        'nombre' => $u->nombre,
+                        'apodo' => $u->apodo,
+                        'email' => $u->email,
+                        'rol' => $u->rol,
+                        'estado' => $u->estado,
+                        'created_at' => $u->created_at,
+                        'foto_principal' => $this->getFotoUrl($fotoPerfil ?? $u->foto_principal),
+                    ];
+                });
             })(),
 
             'filtros' => $request->only(['q', 'rol', 'estado']),
@@ -256,5 +274,48 @@ class DashboardController extends Controller
             ->take(5)
             ->values()
             ->all();
+    }
+
+    /**
+     * Resuelve la URL pública de una foto de perfil. Copia exacta de
+     * Admin\UsuarioController::getFotoUrl() — es una clase distinta, así
+     * que no puede reusar ese método privado directamente.
+     */
+    private function getFotoUrl($ruta)
+    {
+        if (empty($ruta)) {
+            return null;
+        }
+
+        // Si ya es una URL completa, devolverla
+        if (filter_var($ruta, FILTER_VALIDATE_URL)) {
+            return $ruta;
+        }
+
+        // Si es una ruta de storage
+        if (strpos($ruta, 'perfil/fotos/') === 0) {
+            return asset('storage/' . $ruta);
+        }
+
+        if (strpos($ruta, 'public/') === 0) {
+            return asset('storage/' . str_replace('public/', '', $ruta));
+        }
+
+        // Si es una ruta relativa
+        if (strpos($ruta, 'storage/') === 0) {
+            return asset($ruta);
+        }
+
+        // Intentar con storage por defecto
+        try {
+            if (Storage::disk('public')->exists($ruta)) {
+                return asset('storage/' . $ruta);
+            }
+        } catch (\Exception $e) {
+            // Si hay error, intentar con el path directo
+        }
+
+        // Si nada funciona, intentar con el path directo
+        return asset('storage/' . $ruta);
     }
 }

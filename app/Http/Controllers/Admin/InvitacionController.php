@@ -3,9 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\InvitacionEventoMail;
+use App\Mail\InvitacionRegistroMail;
 use App\Models\CodigoInvitacion;
+use App\Models\Evento;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,9 +21,17 @@ class InvitacionController extends Controller
     {
         $ahora = now();
 
-        $total = CodigoInvitacion::count();
+        $desactivadas = CodigoInvitacion::whereNull('usado_en')->where('esta_activo', false)->count();
+        // OJO: no es simplemente CodigoInvitacion::count() — eso incluía
+        // las desactivadas manualmente, que no deben contarse para nada
+        // (ni aquí, ni en la tasa de aceptación). Las "aceptadas" también
+        // pueden tener esta_activo=false (se pone así al agotar sus usos),
+        // así que no basta con filtrar por esta_activo=true a secas —
+        // restamos solo las que de verdad están desactivadas.
+        $total = CodigoInvitacion::count() - $desactivadas;
         $aceptadas = CodigoInvitacion::whereNotNull('usado_en')->count();
         $expiradas = CodigoInvitacion::whereNull('usado_en')
+            ->where('esta_activo', true)
             ->whereNotNull('expira_en')
             ->where('expira_en', '<=', $ahora)
             ->count();
@@ -26,10 +39,18 @@ class InvitacionController extends Controller
         // mismo criterio que estadoDisplay(). Antes no se restaban de
         // "pendientes", así que un código ya utilizado se contaba (mal)
         // como pendiente en los KPIs y en la dona de resumen.
+        // OJO: whereColumn no detecta contador_usos NULL (registros creados
+        // antes del fix del modelo que defaultea contador_usos a 0) — con
+        // NULL esta condición nunca es verdadera, así que la excluimos
+        // aparte con whereNotNull para no contarla por accidente aquí.
         $utilizadas = CodigoInvitacion::whereNull('usado_en')
+            ->where('esta_activo', true)
             ->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))
+            ->whereNotNull('contador_usos')
             ->whereColumn('contador_usos', '>=', 'usos_maximos')
             ->count();
+        // $desactivadas ya NO está incluida en $total (se restó arriba),
+        // así que aquí ya no hay que volver a restarla.
         $pendientes = $total - $aceptadas - $expiradas - $utilizadas;
 
         $query = CodigoInvitacion::with('creadoPorAdmin:id,nombre');
@@ -45,9 +66,10 @@ class InvitacionController extends Controller
         if ($estado = $request->string('estado')->value()) {
             match ($estado) {
                 'aceptada' => $query->whereNotNull('usado_en'),
-                'pendiente' => $query->whereNull('usado_en')->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))->whereColumn('contador_usos', '<', 'usos_maximos'),
-                'expirada' => $query->whereNull('usado_en')->whereNotNull('expira_en')->where('expira_en', '<=', $ahora),
-                'utilizada' => $query->whereNull('usado_en')->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))->whereColumn('contador_usos', '>=', 'usos_maximos'),
+                'desactivada' => $query->whereNull('usado_en')->where('esta_activo', false),
+                'pendiente' => $query->whereNull('usado_en')->where('esta_activo', true)->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))->where(fn ($q) => $q->whereNull('contador_usos')->orWhereColumn('contador_usos', '<', 'usos_maximos')),
+                'expirada' => $query->whereNull('usado_en')->where('esta_activo', true)->whereNotNull('expira_en')->where('expira_en', '<=', $ahora),
+                'utilizada' => $query->whereNull('usado_en')->where('esta_activo', true)->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))->whereNotNull('contador_usos')->whereColumn('contador_usos', '>=', 'usos_maximos'),
                 default => null,
             };
         }
@@ -120,6 +142,19 @@ class InvitacionController extends Controller
                     'created_at' => $c->created_at,
                     'estado' => $this->estadoDisplay($c),
                 ]),
+            // Para el selector de "¿a cuál evento invita?" cuando el tipo
+            // de invitación es 'evento' — solo eventos publicados y que
+            // todavía no han pasado.
+            'eventos' => Evento::publicados()
+                ->proximos()
+                ->orderBy('fecha')
+                ->get(['id', 'nombre', 'fecha', 'ciudad'])
+                ->map(fn ($e) => [
+                    'id' => $e->id,
+                    'nombre' => $e->nombre,
+                    'fecha' => $e->fecha_formateada,
+                    'ciudad' => $e->ciudad,
+                ]),
         ]);
     }
 
@@ -143,9 +178,10 @@ class InvitacionController extends Controller
             $ahora = now();
             match ($estado) {
                 'aceptada' => $query->whereNotNull('usado_en'),
-                'pendiente' => $query->whereNull('usado_en')->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))->whereColumn('contador_usos', '<', 'usos_maximos'),
-                'expirada' => $query->whereNull('usado_en')->whereNotNull('expira_en')->where('expira_en', '<=', $ahora),
-                'utilizada' => $query->whereColumn('contador_usos', '>=', 'usos_maximos'),
+                'desactivada' => $query->whereNull('usado_en')->where('esta_activo', false),
+                'pendiente' => $query->whereNull('usado_en')->where('esta_activo', true)->where(fn ($q) => $q->whereNull('expira_en')->orWhere('expira_en', '>', $ahora))->where(fn ($q) => $q->whereNull('contador_usos')->orWhereColumn('contador_usos', '<', 'usos_maximos')),
+                'expirada' => $query->whereNull('usado_en')->where('esta_activo', true)->whereNotNull('expira_en')->where('expira_en', '<=', $ahora),
+                'utilizada' => $query->whereNull('usado_en')->where('esta_activo', true)->whereNotNull('contador_usos')->whereColumn('contador_usos', '>=', 'usos_maximos'),
                 default => null,
             };
         }
@@ -178,6 +214,7 @@ class InvitacionController extends Controller
             'email' => ['required', 'email', 'max:255'],
             'telefono' => ['nullable', 'string', 'max:30'],
             'tipo' => ['required', 'in:registro,premium,evento'],
+            'evento_id' => ['required_if:tipo,evento', 'nullable', 'exists:eventos,id'],
             'vigencia_dias' => ['required', 'integer', 'min:1', 'max:365'],
             'usos_maximos' => ['required', 'integer', 'min:1', 'max:100'],
             'mensaje' => ['nullable', 'string', 'max:250'],
@@ -185,6 +222,9 @@ class InvitacionController extends Controller
             // antes de enviar) — lo validamos único para no chocar con otro ya
             // generado, y si por lo que sea no llega, el modelo genera uno propio.
             'codigo' => ['nullable', 'string', 'max:20', Rule::unique(CodigoInvitacion::class, 'codigo')],
+        ], [
+            'evento_id.required_if' => 'Elige a qué evento estás invitando.',
+            'evento_id.exists' => 'Ese evento ya no existe o no está disponible.',
         ]);
 
         $codigo = CodigoInvitacion::create([
@@ -198,11 +238,46 @@ class InvitacionController extends Controller
                 'tipo' => $data['tipo'],
                 'telefono' => $data['telefono'] ?? null,
                 'mensaje' => $data['mensaje'] ?? null,
+                'evento_id' => $data['tipo'] === 'evento' ? $data['evento_id'] : null,
             ],
         ]);
 
+        // El envío de correo no debe tronar la creación de la invitación si
+        // el SMTP falla (credenciales mal puestas, servidor caído, etc.) —
+        // la invitación ya quedó guardada y es válida aunque el correo no
+        // salga; solo lo registramos en el log para poder revisarlo.
+        $correoEnviado = false;
+        try {
+            // Las invitaciones a un evento específico llevan su propio
+            // correo (menciona el evento y el botón manda directo a
+            // registrarse + reservar ese evento). El resto (registro,
+            // premium) usa el correo genérico de siempre.
+            if ($data['tipo'] === 'evento' && $codigo->metadata['evento_id']) {
+                $evento = Evento::find($codigo->metadata['evento_id']);
+                if ($evento) {
+                    Mail::to($codigo->email)->send(new InvitacionEventoMail($codigo, $evento));
+                } else {
+                    Mail::to($codigo->email)->send(new InvitacionRegistroMail($codigo));
+                }
+            } else {
+                Mail::to($codigo->email)->send(new InvitacionRegistroMail($codigo));
+            }
+            $correoEnviado = true;
+        } catch (\Throwable $e) {
+            Log::error('No se pudo enviar el correo de invitación', [
+                'invitacion_id' => $codigo->id,
+                'email' => $codigo->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         return redirect()->route('admin.invitaciones.index')
-            ->with('success', "Invitación creada. Código: {$codigo->codigo}");
+            ->with('success', "Invitación creada. Código: {$codigo->codigo}")
+            ->with('flash', [
+                'toast' => $correoEnviado
+                    ? ['type' => 'success', 'message' => "Invitación creada y correo enviado a {$codigo->email}."]
+                    : ['type' => 'warning', 'message' => "Invitación creada, pero el correo no se pudo enviar. Revisa la configuración de correo."],
+            ]);
     }
 
     public function destroy(CodigoInvitacion $invitacion)
@@ -215,6 +290,7 @@ class InvitacionController extends Controller
     private function estadoDisplay(CodigoInvitacion $c): string
     {
         if ($c->usado_en) return 'aceptada';
+        if (!$c->esta_activo) return 'desactivada';
         if ($c->expira_en && now()->greaterThan($c->expira_en)) return 'expirada';
         if ($c->contador_usos >= $c->usos_maximos) return 'utilizada';
         return 'pendiente';

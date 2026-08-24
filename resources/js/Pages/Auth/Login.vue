@@ -12,6 +12,11 @@ import Message from 'primevue/message';
 import AppIcon from '@/Components/AppIcon.vue';
 import ToastNotification from '@/Components/ToastNotification.vue';
 
+const props = defineProps({
+    modoVerificacion: { type: Boolean, default: false },
+    emailPendiente: { type: String, default: null },
+});
+
 // -----------------------------------------------------------------------
 // Formulario
 // -----------------------------------------------------------------------
@@ -117,6 +122,45 @@ function submit() {
         },
     });
 }
+
+// =======================================================================
+// VERIFICACIÓN DE CORREO (cuentas creadas por un admin, o interrumpidas
+// a medio registro) — el backend nos manda aquí vía modoVerificacion.
+// =======================================================================
+const codeForm = useForm({
+    codigo: '',
+});
+
+const resendCooldown = ref(0);
+let cooldownTimer = null;
+
+function startCooldown(seconds = 45) {
+    resendCooldown.value = seconds;
+    clearInterval(cooldownTimer);
+    cooldownTimer = setInterval(() => {
+        resendCooldown.value--;
+        if (resendCooldown.value <= 0) clearInterval(cooldownTimer);
+    }, 1000);
+}
+if (props.modoVerificacion) {
+    startCooldown();
+}
+
+function confirmarCodigo() {
+    codeForm.post(route('login.verificar-codigo'));
+}
+
+function reenviarCodigo() {
+    if (resendCooldown.value > 0) return;
+    codeForm.post(route('login.reenviar-codigo'), {
+        preserveScroll: true,
+        onSuccess: () => startCooldown(),
+    });
+}
+
+function cancelarVerificacion() {
+    codeForm.post(route('login.cancelar-verificacion'));
+}
 </script>
 
 <template>
@@ -207,7 +251,7 @@ function submit() {
 
             <!-- Panel derecho: formulario -->
             <div class="rg-form-panel">
-                <form class="rg-card" @submit.prevent="submit">
+                <form v-if="!modoVerificacion" class="rg-card" @submit.prevent="submit">
                     <!-- Header -->
                     <div class="rg-card__head">
                         <div class="rg-card__head-decoration">
@@ -366,6 +410,71 @@ function submit() {
                         <AppIcon name="shield-check" />
                         Comunidad exclusiva, privacidad garantizada.
                     </p>
+                </form>
+
+                <!-- Verificación de correo (cuentas creadas por un admin) -->
+                <form v-else class="rg-card" @submit.prevent="confirmarCodigo">
+                    <div class="rg-card__head">
+                        <div class="rg-card__head-decoration">
+                            <span class="rg-card__head-line"></span>
+                            <span class="rg-card__head-dot"></span>
+                        </div>
+                        <div>
+                            <h2 class="rg-card__title">
+                                Verifica tu <span class="rg-accent">correo</span>
+                            </h2>
+                            <p class="rg-card__subtitle">Falta un último paso para entrar a tu cuenta.</p>
+                        </div>
+                    </div>
+
+                    <Message severity="info" :closable="false" class="rg-info">
+                        <div class="rg-info__body">
+                            <span class="rg-info__icon">
+                                <AppIcon name="mail" />
+                            </span>
+                            <div>
+                                <p class="rg-info__title">Revisa tu correo</p>
+                                <p class="rg-info__text">
+                                    Te enviamos un código de 6 dígitos a
+                                    <strong v-if="emailPendiente">{{ emailPendiente }}</strong>
+                                    <span v-else>tu correo</span>. Revisa spam si no lo ves.
+                                </p>
+                            </div>
+                        </div>
+                    </Message>
+
+                    <div class="rg-field rg-field--highlight">
+                        <label class="rg-label" for="codigo">
+                            <AppIcon name="shield-check" />
+                            Código de verificación
+                            <span class="rg-label__badge">Obligatorio</span>
+                        </label>
+                        <div class="rg-input-wrapper">
+                            <InputText id="codigo" v-model="codeForm.codigo" type="text" inputmode="numeric"
+                                maxlength="6" placeholder="000000" class="rg-input rg-input--large"
+                                :class="{ 'rg-input--error': codeForm.errors.codigo }"
+                                @input="codeForm.codigo = codeForm.codigo.replace(/\D/g, '').slice(0, 6)" />
+                        </div>
+                        <div class="rg-hint-wrapper">
+                            <small v-if="codeForm.errors.codigo" class="rg-error">{{ codeForm.errors.codigo }}</small>
+                        </div>
+                    </div>
+
+                    <Button type="submit" class="rg-submit" :loading="codeForm.processing"
+                        :disabled="codeForm.codigo.length !== 6">
+                        <AppIcon v-if="!codeForm.processing" name="log-in" />
+                        <span v-if="codeForm.processing" class="rg-submit__spinner"></span>
+                        <span>{{ codeForm.processing ? 'Verificando...' : 'CONFIRMAR Y ENTRAR' }}</span>
+                    </Button>
+
+                    <div class="rg-verification-actions">
+                        <button type="button" class="rg-btn rg-btn--ghost" :disabled="resendCooldown > 0" @click="reenviarCodigo">
+                            {{ resendCooldown > 0 ? `Reenviar código (${resendCooldown}s)` : 'Reenviar código' }}
+                        </button>
+                        <button type="button" class="rg-btn rg-btn--ghost" @click="cancelarVerificacion">
+                            Cancelar
+                        </button>
+                    </div>
                 </form>
             </div>
         </section>
@@ -1113,6 +1222,33 @@ function submit() {
 }
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.rg-verification-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.25rem;
+}
+
+.rg-verification-actions .rg-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--brand);
+  cursor: pointer;
+}
+
+.rg-verification-actions .rg-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.rg-verification-actions .rg-btn:disabled {
+  color: var(--gray-400, #9ca3af);
+  cursor: not-allowed;
 }
 
 .rg-divider {

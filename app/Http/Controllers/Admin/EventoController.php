@@ -42,6 +42,10 @@ class EventoController extends Controller
         $enVivoPeriodo = $eventosPeriodo->filter(fn ($e) => $this->estadoDisplay($e, $hoy) === 'en_vivo')->count();
         $proximosPeriodo = $eventosPeriodo->filter(fn ($e) => $this->estadoDisplay($e, $hoy) === 'programado')->count();
         $completadosPeriodo = $eventosPeriodo->filter(fn ($e) => $this->estadoDisplay($e, $hoy) === 'completado')->count();
+        // Para que Asistentes/Reservas respeten el mismo periodo que el
+        // resto de esta tarjeta (antes sumaban TODAS las reservas
+        // aprobadas de siempre, sin importar el selector Día/Semana/Mes/Año).
+        $eventoIdsPeriodo = $eventosPeriodo->pluck('id');
 
         // Contadores generales para las tarjetas superiores (todos los eventos, con la misma lógica de fecha+hora)
         $todosLosEventos = Evento::all();
@@ -130,8 +134,8 @@ class EventoController extends Controller
                 'enVivo' => $enVivoPeriodo,
                 'programados' => $proximosPeriodo,
                 'completados' => $completadosPeriodo,
-                'asistentesTotales' => Reserva::aprobadas()->sum('asistentes'),
-                'reservasTotales' => Reserva::aprobadas()->count(),
+                'asistentesTotales' => Reserva::aprobadas()->whereIn('evento_id', $eventoIdsPeriodo)->sum('asistentes'),
+                'reservasTotales' => Reserva::aprobadas()->whereIn('evento_id', $eventoIdsPeriodo)->count(),
             ],
         ]);
     }

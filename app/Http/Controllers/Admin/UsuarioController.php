@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\BienvenidaUsuarioMail;
 use App\Models\User;
 use App\Models\Administrador;
 use App\Models\Creador;
 use App\Models\Fotos;
+use App\Support\CodigoVerificacion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -72,20 +76,37 @@ class UsuarioController extends Controller
                 $queryUser->where('estado', $estado);
             }
 
-            $paginator = $queryUser->latest()
+            $paginator = $queryUser->with('perfil:id,usuario_id')
+                ->latest()
                 ->paginate(10)
                 ->withQueryString();
 
-            $usuarios = $paginator->through(fn($u) => [
-                'id' => $u->id,
-                'nombre' => $u->nombre,
-                'apodo' => $u->apodo,
-                'email' => $u->email,
-                'rol' => $u->rol,
-                'estado' => $u->estado,
-                'created_at' => $u->created_at,
-                'es_admin' => false,
-            ]);
+            // Foto principal de cada usuario, en una sola consulta extra
+            // (no una por fila) — así el listado no se vuelve lento con
+            // más usuarios. Mismo criterio que usa show(): primero busca
+            // en la tabla fotos (es_principal=true), y si no hay, cae al
+            // campo users.foto_principal como respaldo.
+            $perfilIds = $paginator->getCollection()->pluck('perfil.id')->filter()->values();
+            $fotosPrincipales = $perfilIds->isNotEmpty()
+                ? Fotos::whereIn('perfil_id', $perfilIds)->where('es_principal', true)->get()->keyBy('perfil_id')
+                : collect();
+
+            $usuarios = $paginator->through(function ($u) use ($fotosPrincipales) {
+                $fotoPerfil = $u->perfil ? ($fotosPrincipales->get($u->perfil->id)?->ruta_foto) : null;
+                $foto = $this->getFotoUrl($fotoPerfil ?? $u->foto_principal);
+
+                return [
+                    'id' => $u->id,
+                    'nombre' => $u->nombre,
+                    'apodo' => $u->apodo,
+                    'email' => $u->email,
+                    'rol' => $u->rol,
+                    'estado' => $u->estado,
+                    'created_at' => $u->created_at,
+                    'es_admin' => false,
+                    'foto_principal' => $foto,
+                ];
+            });
         }
 
         return Inertia::render('Admin/Usuarios/Index', [
@@ -125,8 +146,18 @@ class UsuarioController extends Controller
             return redirect()->route('admin.usuarios.index')->with('success', "Administrador {$data['nombre']} creado correctamente.");
         }
 
+        // Guardamos la contraseña en texto plano ANTES de hashearla — la
+        // necesitamos así para el correo de bienvenida (una vez hasheada
+        // ya no hay forma de recuperarla).
+        $passwordPlano = $data['password'];
         $data['password'] = Hash::make($data['password']);
-        $data['email_verificado_en'] = $data['estado'] === 'verificado' ? now() : null;
+
+        // OJO: antes esto dependía de $data['estado'] === 'verificado'.
+        // Ahora 'estado' es un campo aparte (moderación) y la verificación
+        // de correo es independiente — siempre nace null, y se confirma
+        // con el código de 6 dígitos en su primer intento de login, sin
+        // importar qué 'estado' le hayas puesto aquí.
+        $data['email_verificado_en'] = null;
 
         $usuario = User::create($data);
 
@@ -137,7 +168,31 @@ class UsuarioController extends Controller
             );
         }
 
-        return redirect()->route('admin.usuarios.index')->with('success', "Usuario @{$data['apodo']} creado correctamente.");
+        // Correo de bienvenida con sus credenciales + código de
+        // verificación. Igual que con las invitaciones: si el correo
+        // falla, no tumbamos la creación del usuario — solo lo dejamos
+        // en el log para revisarlo.
+        $codigo = CodigoVerificacion::generar($usuario->email);
+        CodigoVerificacion::marcarEnviado($usuario->email);
+
+        try {
+            Mail::to($usuario->email)->send(new BienvenidaUsuarioMail($usuario, $passwordPlano, $codigo));
+        } catch (\Throwable $e) {
+            Log::error('No se pudo enviar el correo de bienvenida', [
+                'usuario_id' => $usuario->id,
+                'email' => $usuario->email,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('admin.usuarios.index')->with('flash', [
+                'toast' => [
+                    'type' => 'warning',
+                    'message' => "Usuario @{$data['apodo']} creado, pero el correo de bienvenida no se pudo enviar.",
+                ],
+            ]);
+        }
+
+        return redirect()->route('admin.usuarios.index')->with('success', "Usuario @{$data['apodo']} creado correctamente. Se le envió un correo con sus credenciales.");
     }
 
     public function show(User $usuario): Response

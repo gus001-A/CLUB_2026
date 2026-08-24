@@ -24,13 +24,19 @@ const form = useForm({
 });
 
 // --- Edad ---
+// OJO: new Date('2003-03-11') lo interpreta como medianoche UTC. Al usar
+// getMonth()/getDate() (que son en hora LOCAL) sobre esa fecha, en zonas
+// con offset negativo (como Ciudad de México) el día se corre uno hacia
+// atrás. Por eso aquí parseamos el string directo, sin pasar por Date.
 function calcularEdad(fechaISO) {
     if (!fechaISO) return null;
+    const [anio, mes, dia] = fechaISO.split('-').map(Number);
+    if (!anio || !mes || !dia) return null;
+
     const hoy = new Date();
-    const nacimiento = new Date(fechaISO);
-    let edad = hoy.getFullYear() - nacimiento.getFullYear();
-    const mes = hoy.getMonth() - nacimiento.getMonth();
-    if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
+    let edad = hoy.getFullYear() - anio;
+    const mesActual = hoy.getMonth() + 1; // getMonth() es 0-indexado
+    if (mesActual < mes || (mesActual === mes && hoy.getDate() < dia)) edad--;
     return edad >= 0 && edad < 130 ? edad : null;
 }
 const edadPreview = computed(() => calcularEdad(form.fecha_nacimiento));
@@ -46,10 +52,17 @@ const telefonoError = computed(() => {
     return null;
 });
 
+// OJO: toISOString() convierte a UTC — si es de noche en tu zona horaria
+// (offset negativo), la fecha resultante ya cae en el día siguiente. Por
+// eso armamos el string directo con los getters LOCALES en vez de pasar
+// por toISOString().
 const fechaMaxima = computed(() => {
     const fecha = new Date();
     fecha.setFullYear(fecha.getFullYear() - 18);
-    return fecha.toISOString().split('T')[0];
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
 });
 
 const fechaError = computed(() => {
@@ -379,7 +392,7 @@ watch(() => form.telefono, (newVal) => {
                                 <div class="admin-user-preview-dl-row">
                                     <dt>Nacimiento</dt>
                                     <dd v-if="form.fecha_nacimiento">
-                                        {{ new Date(form.fecha_nacimiento).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }) }}
+                                        {{ new Date(form.fecha_nacimiento).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' }) }}
                                         <span :style="{ color: esMayorEdad ? '#059669' : '#E11D48' }">({{ edadPreview }} años)</span>
                                     </dd>
                                     <dd v-else>—</dd>

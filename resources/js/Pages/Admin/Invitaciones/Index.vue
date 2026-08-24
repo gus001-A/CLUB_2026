@@ -44,8 +44,8 @@ watch([q, estado, tipo, desde, hasta], () => {
 const tipoNombres = { registro: 'Registro', premium: 'Premium', evento: 'Evento' };
 const tipoIconos = { registro: 'pi-user', premium: 'pi-star', evento: 'pi-calendar' };
 const tipoBadgeClase = { registro: 'admin-invit-tipo-badge--registro', premium: 'admin-invit-tipo-badge--premium', evento: 'admin-invit-tipo-badge--evento' };
-const badgeEstado = { aceptada: 'admin-invit-badge--aceptada', pendiente: 'admin-invit-badge--pendiente', expirada: 'admin-invit-badge--expirada', utilizada: 'admin-invit-badge--utilizada' };
-const estadoLabel = { aceptada: 'Aceptada', pendiente: 'Pendiente', expirada: 'Expirada', utilizada: 'Utilizada' };
+const badgeEstado = { aceptada: 'admin-invit-badge--aceptada', pendiente: 'admin-invit-badge--pendiente', expirada: 'admin-invit-badge--expirada', utilizada: 'admin-invit-badge--utilizada', desactivada: 'admin-invit-badge--desactivada' };
+const estadoLabel = { aceptada: 'Aceptada', pendiente: 'Pendiente', expirada: 'Expirada', utilizada: 'Utilizada', desactivada: 'Desactivada' };
 
 async function desactivar(inv) {
     const ok = await confirm(`Se desactivará la invitación de ${inv.nombre_destinatario ?? 'este enlace'}.`, {
@@ -139,6 +139,7 @@ const kpis = computed(() => [
                                 <option value="pendiente">Pendiente</option>
                                 <option value="expirada">Expirada</option>
                                 <option value="utilizada">Utilizada</option>
+                                <option value="desactivada">Desactivada</option>
                             </select>
                             <select v-model="tipo">
                                 <option value="">Todos los tipos</option>
@@ -192,7 +193,7 @@ const kpis = computed(() => [
                                                 <button @click="copiarCodigo(inv.codigo)" title="Copiar código" class="admin-invit-action-btn admin-invit-action-btn--copy">
                                                     <i class="pi pi-copy"></i>
                                                 </button>
-                                                <button v-if="inv.estado !== 'aceptada'" @click="desactivar(inv)" title="Desactivar" class="admin-invit-action-btn admin-invit-action-btn--delete">
+                                                <button v-if="!['aceptada', 'desactivada'].includes(inv.estado)" @click="desactivar(inv)" title="Desactivar" class="admin-invit-action-btn admin-invit-action-btn--delete">
                                                     <i class="pi pi-trash"></i>
                                                 </button>
                                             </div>

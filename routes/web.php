@@ -44,12 +44,22 @@ Route::get('/', [LandingController::class, 'index'])->name('home');
 Route::get('/register/invite', [InviteRegisterController::class, 'showRegistrationForm'])
     ->name('register.invite');
 
+// Verificación de correo (paso previo a crear la cuenta)
+Route::post('/register/invite/enviar-codigo', [InviteRegisterController::class, 'enviarCodigoVerificacion'])
+    ->name('register.invite.enviar-codigo');
+
 Route::post('/register/invite', [InviteRegisterController::class, 'register'])
     ->name('register.invite.store');
 
 // Login
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
+
+// Verificación de correo en el login (cuentas creadas por un admin, o
+// registros interrumpidos a medio camino)
+Route::post('/login/verificar', [LoginController::class, 'verificarCodigoLogin'])->name('login.verificar-codigo');
+Route::post('/login/verificar/reenviar', [LoginController::class, 'reenviarCodigoLogin'])->name('login.reenviar-codigo');
+Route::post('/login/verificar/cancelar', [LoginController::class, 'cancelarVerificacionLogin'])->name('login.cancelar-verificacion');
 
 // Logout
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');

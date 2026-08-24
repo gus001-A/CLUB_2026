@@ -62,6 +62,15 @@ class CodigoInvitacion extends Model
             if (!isset($codigoInvitacion->esta_activo)) {
                 $codigoInvitacion->esta_activo = true;
             }
+            // OJO: sin este default, contador_usos nace en NULL (si la
+            // migración no le puso ->default(0)) y las comparaciones
+            // whereColumn('contador_usos', '<', 'usos_maximos') devuelven
+            // NULL en SQL (ni true ni false) — la invitación recién creada
+            // queda invisible para el registro público y nadie puede
+            // usarla. Por eso lo forzamos aquí, sin depender de la BD.
+            if (!isset($codigoInvitacion->contador_usos)) {
+                $codigoInvitacion->contador_usos = 0;
+            }
         });
     }
 
