@@ -38,13 +38,10 @@ watch(() => state.show, (newVal) => {
                         </div>
 
                         <!-- Botón cerrar -->
-                        <button 
-                            @click="respond(false)" 
-                            class="modal-close"
-                            aria-label="Cerrar"
-                        >
-                            <svg class="modal-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+                        <button @click="respond(false)" class="modal-close" aria-label="Cerrar">
+                            <svg class="modal-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                         </button>
 
@@ -53,27 +50,14 @@ watch(() => state.show, (newVal) => {
                             <div class="modal-icon-ring" :class="{ 'danger': state.danger }">
                                 <div class="modal-icon-glow" :class="{ 'danger': state.danger }"></div>
                                 <div class="modal-icon" :class="{ 'danger': state.danger }">
-                                    <svg 
-                                        v-if="state.danger" 
-                                        viewBox="0 0 24 24" 
-                                        fill="none" 
-                                        stroke="currentColor" 
-                                        stroke-width="1.8"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path d="M12 9v4m0 4h.01M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0z"/>
+                                    <svg v-if="state.danger" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 9v4m0 4h.01M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0z" />
                                     </svg>
-                                    <svg 
-                                        v-else 
-                                        viewBox="0 0 24 24" 
-                                        fill="none" 
-                                        stroke="currentColor" 
-                                        stroke-width="1.8"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                    <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                                        stroke-linecap="round" stroke-linejoin="round">
+                                        <path
+                                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                                     </svg>
                                 </div>
                             </div>
@@ -87,33 +71,21 @@ watch(() => state.show, (newVal) => {
 
                         <!-- Botones con efecto glassmorphism -->
                         <div class="modal-footer">
-                            <button
-                                @click="respond(false)"
-                                class="btn btn-cancel"
-                            >
+                            <button @click="respond(false)" class="btn btn-cancel">
                                 <span class="btn-content">{{ state.cancelLabel }}</span>
                             </button>
-                            <button
-                                @click="respond(true)"
-                                class="btn"
-                                :class="state.danger ? 'btn-danger' : 'btn-confirm'"
-                            >
+                            <button @click="respond(true)" class="btn"
+                                :class="state.danger ? 'btn-danger' : 'btn-confirm'">
                                 <span class="btn-content">
-                                    <svg 
-                                        v-if="state.danger" 
-                                        class="btn-icon" 
-                                        viewBox="0 0 20 20" 
-                                        fill="currentColor"
-                                    >
-                                        <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                    <svg v-if="state.danger" class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd"
+                                            d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                                            clip-rule="evenodd" />
                                     </svg>
-                                    <svg 
-                                        v-else 
-                                        class="btn-icon" 
-                                        viewBox="0 0 20 20" 
-                                        fill="currentColor"
-                                    >
-                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
+                                    <svg v-else class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                                            clip-rule="evenodd" />
                                     </svg>
                                     {{ state.confirmLabel }}
                                 </span>
@@ -162,6 +134,7 @@ watch(() => state.show, (newVal) => {
         opacity: 0;
         transform: translateY(50px) scale(0.9);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -178,7 +151,7 @@ watch(() => state.show, (newVal) => {
     -webkit-backdrop-filter: blur(20px);
     border-radius: 28px;
     padding: 2.5rem 2rem 1.5rem;
-    box-shadow: 
+    box-shadow:
         0 30px 100px rgba(0, 0, 0, 0.25),
         0 0 0 1px rgba(255, 255, 255, 0.1);
     overflow: hidden;
@@ -255,9 +228,12 @@ watch(() => state.show, (newVal) => {
 }
 
 @keyframes float {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translate(0, 0) scale(1);
     }
+
     50% {
         transform: translate(10px, -20px) scale(1.1);
     }
@@ -272,26 +248,24 @@ watch(() => state.show, (newVal) => {
     left: 0;
     right: 0;
     height: 5px;
-    background: linear-gradient(90deg, 
-        #6366f1, 
-        #8b5cf6, 
-        #a78bfa, 
-        #8b5cf6, 
-        #6366f1
-    );
+    background: linear-gradient(90deg,
+            #6366f1,
+            #8b5cf6,
+            #a78bfa,
+            #8b5cf6,
+            #6366f1);
     background-size: 300% 100%;
     animation: shimmer 3s ease-in-out infinite;
     z-index: 2;
 }
 
 .modal-decoration.danger {
-    background: linear-gradient(90deg, 
-        #ef4444, 
-        #f87171, 
-        #fca5a5, 
-        #f87171, 
-        #ef4444
-    );
+    background: linear-gradient(90deg,
+            #ef4444,
+            #f87171,
+            #fca5a5,
+            #f87171,
+            #ef4444);
     background-size: 300% 100%;
     animation: shimmer 3s ease-in-out infinite;
 }
@@ -300,6 +274,7 @@ watch(() => state.show, (newVal) => {
     0% {
         background-position: -300% 0;
     }
+
     100% {
         background-position: 300% 0;
     }
@@ -318,10 +293,13 @@ watch(() => state.show, (newVal) => {
 }
 
 @keyframes glowPulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 0.3;
         transform: translateX(-50%) scaleX(1);
     }
+
     50% {
         opacity: 0.6;
         transform: translateX(-50%) scaleX(1.3);
@@ -391,14 +369,12 @@ watch(() => state.show, (newVal) => {
     inset: -6px;
     border-radius: 50%;
     padding: 3px;
-    background: conic-gradient(
-        from 0deg,
-        #6366f1,
-        #8b5cf6,
-        #a78bfa,
-        #8b5cf6,
-        #6366f1
-    );
+    background: conic-gradient(from 0deg,
+            #6366f1,
+            #8b5cf6,
+            #a78bfa,
+            #8b5cf6,
+            #6366f1);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
@@ -406,20 +382,19 @@ watch(() => state.show, (newVal) => {
 }
 
 .modal-icon-ring.danger::before {
-    background: conic-gradient(
-        from 0deg,
-        #ef4444,
-        #f87171,
-        #fca5a5,
-        #f87171,
-        #ef4444
-    );
+    background: conic-gradient(from 0deg,
+            #ef4444,
+            #f87171,
+            #fca5a5,
+            #f87171,
+            #ef4444);
 }
 
 @keyframes spin {
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
@@ -438,10 +413,13 @@ watch(() => state.show, (newVal) => {
 }
 
 @keyframes pulseGlow {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: scale(1);
         opacity: 0.5;
     }
+
     50% {
         transform: scale(1.1);
         opacity: 1;
@@ -646,6 +624,7 @@ watch(() => state.show, (newVal) => {
     0% {
         width: 0%;
     }
+
     100% {
         width: 100%;
     }
@@ -655,6 +634,7 @@ watch(() => state.show, (newVal) => {
     0% {
         transform: translateX(-100%);
     }
+
     100% {
         transform: translateX(100%);
     }

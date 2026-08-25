@@ -72,7 +72,6 @@ class InicioController extends Controller
             ];
 
             $quickStats = $this->getQuickStats($user, $perfil);
-            $panelInteligente = $this->getPanelInteligente($user, $perfil);
             $eventos = $this->getEventos($user);
             $mensajesRecientes = $this->getMensajesRecientes($user);
             $actividadReciente = $this->getActividadReciente($user);
@@ -81,7 +80,6 @@ class InicioController extends Controller
             return Inertia::render('Usuario/Inicio', [
                 'usuario' => $usuarioData,
                 'quickStats' => $quickStats,
-                'panelInteligente' => $panelInteligente,
                 'eventos' => $eventos,
                 'mensajesRecientes' => $mensajesRecientes,
                 'actividadReciente' => $actividadReciente,
@@ -109,7 +107,7 @@ class InicioController extends Controller
     }
 
     /**
-     * Obtiene las estadísticas rápidas del usuario
+     * Obtiene las estadísticas rápidas del usuario (SIN MODO ACTIVO)
      */
     protected function getQuickStats($user, $perfil)
     {
@@ -137,17 +135,11 @@ class InicioController extends Controller
 
             return [
                 [
-                    'icon' => 'pi-bolt',
-                    'titulo' => 'Modo activo',
-                    'desc' => 'Aumenta tu visibilidad y recibe más conexiones.',
-                    'toggle' => true,
-                    'activo' => $user->modo_activo ?? false,
-                ],
-                [
                     'icon' => 'pi-users',
                     'titulo' => 'Coincidencias',
                     'desc' => "Tienes {$coincidenciasPendientes} coincidencias nuevas y {$coincidenciasActivas} activas.",
                     'badge' => $coincidenciasPendientes > 0 ? $coincidenciasPendientes : null,
+                    'href' => route('descubrir'),
                 ],
                 [
                     'icon' => 'pi-calendar',
@@ -155,6 +147,7 @@ class InicioController extends Controller
                     'desc' => $eventosCercanos > 0 
                         ? "{$eventosCercanos} eventos exclusivos disponibles cerca de ti."
                         : 'No hay eventos cercanos disponibles.',
+                    'href' => route('eventos.index'),
                 ],
                 [
                     'icon' => 'pi-shield',
@@ -163,6 +156,7 @@ class InicioController extends Controller
                         ? 'Tu perfil está verificado y tiene alta visibilidad.' 
                         : 'Verifica tu perfil para mayor visibilidad.',
                     'verificado' => $perfilVerificado,
+                    'href' => route('perfil.ver'),
                 ],
             ];
         } catch (\Exception $e) {
@@ -173,104 +167,24 @@ class InicioController extends Controller
             
             return [
                 [
-                    'icon' => 'pi-bolt',
-                    'titulo' => 'Modo activo',
-                    'desc' => 'Aumenta tu visibilidad y recibe más conexiones.',
-                    'toggle' => true,
-                    'activo' => false,
-                ],
-                [
                     'icon' => 'pi-users',
                     'titulo' => 'Coincidencias',
                     'desc' => 'Cargando coincidencias...',
                     'badge' => null,
+                    'href' => route('descubrir'),
                 ],
                 [
                     'icon' => 'pi-calendar',
                     'titulo' => 'Eventos cercanos',
                     'desc' => 'Cargando eventos...',
+                    'href' => route('eventos.index'),
                 ],
                 [
                     'icon' => 'pi-shield',
                     'titulo' => 'Perfil verificado',
                     'desc' => 'Verifica tu perfil para mayor visibilidad.',
                     'verificado' => false,
-                ],
-            ];
-        }
-    }
-
-    /**
-     * Obtiene los datos del panel inteligente
-     */
-    protected function getPanelInteligente($user, $perfil)
-    {
-        try {
-            $tokens = $user->tokens ?? 0;
-            $nivelConfianza = $perfil->puntuacion_compatibilidad ?? 0;
-            
-            $nivelTexto = $nivelConfianza >= 90 ? 'Excelente' 
-                        : ($nivelConfianza >= 75 ? 'Alta' 
-                        : ($nivelConfianza >= 60 ? 'Media' : 'Baja'));
-
-            return [
-                [
-                    'imagen' => '/images/match_inteligente.png',
-                    'titulo' => 'Match inteligente',
-                    'desc' => 'Perfiles compatibles basados en tus preferencias y ubicación.',
-                    'link' => '#',
-                ],
-                [
-                    'imagen' => '/images/geo.png',
-                    'titulo' => 'Geolocalización discreta',
-                    'desc' => 'Explora perfiles en tu zona aproximada con total privacidad.',
-                    'link' => '#',
-                ],
-                [
-                    'imagen' => '/images/tokens.png',
-                    'titulo' => 'Fantasy Tokens',
-                    'desc' => 'Tu saldo disponible para acceder a funciones premium y eventos.',
-                    'link' => '#',
-                    'extra' => "{$tokens} FT",
-                ],
-                [
-                    'imagen' => '/images/confianza.png',
-                    'titulo' => 'Nivel de confianza',
-                    'desc' => "Tu perfil tiene nivel de confianza {$nivelTexto} ({$nivelConfianza}%).",
-                    'link' => '#',
-                ],
-            ];
-        } catch (\Exception $e) {
-            Log::error('Error en getPanelInteligente', [
-                'message' => $e->getMessage(),
-                'user_id' => $user->id
-            ]);
-            
-            return [
-                [
-                    'imagen' => '/images/match_inteligente.png',
-                    'titulo' => 'Match inteligente',
-                    'desc' => 'Perfiles compatibles basados en tus preferencias y ubicación.',
-                    'link' => '#',
-                ],
-                [
-                    'imagen' => '/images/geo.png',
-                    'titulo' => 'Geolocalización discreta',
-                    'desc' => 'Explora perfiles en tu zona aproximada con total privacidad.',
-                    'link' => '#',
-                ],
-                [
-                    'imagen' => '/images/tokens.png',
-                    'titulo' => 'Fantasy Tokens',
-                    'desc' => 'Tu saldo disponible para acceder a funciones premium y eventos.',
-                    'link' => '#',
-                    'extra' => '0 FT',
-                ],
-                [
-                    'imagen' => '/images/confianza.png',
-                    'titulo' => 'Nivel de confianza',
-                    'desc' => 'Cargando nivel de confianza...',
-                    'link' => '#',
+                    'href' => route('perfil.ver'),
                 ],
             ];
         }
@@ -282,7 +196,6 @@ class InicioController extends Controller
     protected function getEventos($user)
     {
         try {
-            // Obtener los 5 eventos más próximos
             $eventos = Evento::where('fecha', '>=', Carbon::now()->toDateString())
                 ->where('estado', 'publicado')
                 ->orderBy('fecha', 'asc')
@@ -296,7 +209,6 @@ class InicioController extends Controller
                 $fecha = Carbon::parse($evento->fecha);
                 $hora = $evento->hora ? Carbon::parse($evento->hora) : null;
                 
-                // Obtener mes en español
                 $meses = [
                     'January' => 'Enero', 'February' => 'Febrero', 'March' => 'Marzo',
                     'April' => 'Abril', 'May' => 'Mayo', 'June' => 'Junio',
@@ -307,19 +219,16 @@ class InicioController extends Controller
                 $mesNombre = $meses[$fecha->format('F')] ?? $fecha->format('F');
                 $mesAbreviado = substr($mesNombre, 0, 3);
                 
-                // Obtener día de la semana en español
                 $dias = [
                     0 => 'Domingo', 1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles',
                     4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado'
                 ];
                 $diaSemana = $dias[(int)$fecha->format('w')] ?? 'Día';
                 
-                // Calcular disponibilidad
                 $reservasConfirmadas = $evento->reservas()->whereIn('estado', ['pendiente', 'confirmada'])->count();
                 $disponible = $evento->capacidad - $reservasConfirmadas;
                 $porcentajeOcupado = $evento->capacidad > 0 ? round(($reservasConfirmadas / $evento->capacidad) * 100) : 0;
                 
-                // Determinar si está casi lleno (menos del 15% disponible)
                 $casiLleno = $disponible > 0 && $disponible <= ($evento->capacidad * 0.15);
                 $estaLleno = $disponible <= 0;
 
@@ -365,22 +274,18 @@ class InicioController extends Controller
             return '/images/eventos/evento-default.jpg';
         }
 
-        // Si ya es una URL completa
         if (filter_var($evento->imagen, FILTER_VALIDATE_URL)) {
             return $evento->imagen;
         }
 
-        // Si ya tiene /storage/
         if (strpos($evento->imagen, '/storage/') === 0) {
             return $evento->imagen;
         }
 
-        // Si tiene storage/ sin slash inicial
         if (strpos($evento->imagen, 'storage/') === 0) {
             return '/' . $evento->imagen;
         }
 
-        // Caso por defecto
         return asset('storage/' . ltrim($evento->imagen, '/'));
     }
 
@@ -425,7 +330,6 @@ class InicioController extends Controller
                     $nombre = $nombre . ' & Pareja';
                 }
 
-                // Obtener avatar del otro usuario
                 $avatar = '/images/inicio/avatar-default.jpg';
                 if ($otroUsuario->foto_principal) {
                     $avatar = $this->getImagenUrlFromPath($otroUsuario->foto_principal);
@@ -474,22 +378,26 @@ class InicioController extends Controller
     }
 
     /**
-     * Obtiene actividad reciente
+     * Obtiene actividad reciente (MATCHES, MENSAJES, EVENTOS)
+     * MEJORADO PARA MOSTRAR MÁS MATCHES
      */
     protected function getActividadReciente($user)
     {
         try {
             $actividad = [];
 
+            // ============================================================
+            // 1. NUEVAS COINCIDENCIAS (MATCHES) - MÁXIMO 3
+            // ============================================================
             $nuevasCoincidencias = Coincidencia::where(function($query) use ($user) {
                     $query->where('usuario_a_id', $user->id)
                           ->orWhere('usuario_b_id', $user->id);
                 })
                 ->where('estado', 'coincidencia')
-                ->where('created_at', '>=', Carbon::now()->subDays(7))
+                ->where('created_at', '>=', Carbon::now()->subDays(30))
                 ->with(['usuarioA', 'usuarioB'])
                 ->orderBy('created_at', 'desc')
-                ->limit(2)
+                ->limit(3)
                 ->get();
 
             foreach ($nuevasCoincidencias as $match) {
@@ -499,22 +407,37 @@ class InicioController extends Controller
 
                 if ($otroUsuario) {
                     $nombre = $otroUsuario->nombre ?? $otroUsuario->apodo ?? 'Usuario';
+                    
+                    // Obtener avatar del otro usuario
+                    $avatar = '/images/inicio/avatar-default.jpg';
+                    if ($otroUsuario->foto_principal) {
+                        $avatar = $this->getImagenUrlFromPath($otroUsuario->foto_principal);
+                    } elseif ($otroUsuario->perfil && $otroUsuario->perfil->foto_principal) {
+                        $avatar = $this->getImagenUrlFromPath($otroUsuario->perfil->foto_principal);
+                    }
+                    
                     $actividad[] = [
                         'icon' => 'pi-heart-fill',
                         'titulo' => "Nueva coincidencia con {$nombre}",
-                        'desc' => "Tienes una nueva coincidencia activa.",
+                        'desc' => "¡Tienes un match! Empieza a conversar ahora.",
                         'tiempo' => $this->formatearTiempo($match->created_at),
+                        'avatar' => $avatar,
+                        'tipo' => 'match',
+                        'href' => route('mensajes', ['match_id' => $match->id]),
                     ];
                 }
             }
 
+            // ============================================================
+            // 2. NUEVOS MENSAJES - MÁXIMO 2
+            // ============================================================
             $nuevosMensajes = Mensaje::whereHas('chat.coincidencia', function($query) use ($user) {
                     $query->where('usuario_a_id', $user->id)
                           ->orWhere('usuario_b_id', $user->id);
                 })
                 ->where('remitente_id', '!=', $user->id)
                 ->where('leido', false)
-                ->with('remitente')
+                ->with(['remitente'])
                 ->orderBy('created_at', 'desc')
                 ->limit(2)
                 ->get();
@@ -523,15 +446,21 @@ class InicioController extends Controller
                 $remitente = $mensaje->remitente;
                 if ($remitente) {
                     $nombre = $remitente->nombre ?? $remitente->apodo ?? 'Usuario';
+                    
                     $actividad[] = [
                         'icon' => 'pi-comment',
                         'titulo' => "Nuevo mensaje de {$nombre}",
                         'desc' => $this->truncarTexto($mensaje->texto ?? 'Nuevo mensaje', 50),
                         'tiempo' => $this->formatearTiempo($mensaje->created_at),
+                        'tipo' => 'message',
+                        'href' => route('mensajes'),
                     ];
                 }
             }
 
+            // ============================================================
+            // 3. EVENTOS CERCANOS - MÁXIMO 1
+            // ============================================================
             if ($user->ciudad) {
                 $eventosProximos = Evento::where('fecha', '>=', Carbon::now()->toDateString())
                     ->where('estado', 'publicado')
@@ -546,16 +475,30 @@ class InicioController extends Controller
                         'titulo' => "Evento cerca de ti: {$evento->nombre}",
                         'desc' => "Se llevará a cabo en {$evento->ciudad} el " . Carbon::parse($evento->fecha)->format('d/m/Y'),
                         'tiempo' => 'Próximo',
+                        'tipo' => 'event',
+                        'href' => route('eventos.show', $evento->id),
                     ];
                 }
             }
 
+            // ============================================================
+            // ORDENAR: MATCHES PRIMERO, LUEGO MENSAJES, LUEGO EVENTOS
+            // ============================================================
             usort($actividad, function($a, $b) {
-                if ($a['tiempo'] === 'Próximo') return 1;
-                if ($b['tiempo'] === 'Próximo') return -1;
-                return strcmp($a['tiempo'], $b['tiempo']);
+                $orden = ['match' => 0, 'message' => 1, 'event' => 2];
+                $ordenA = $orden[$a['tipo'] ?? 'event'] ?? 3;
+                $ordenB = $orden[$b['tipo'] ?? 'event'] ?? 3;
+                
+                if ($ordenA === $ordenB) {
+                    if ($a['tiempo'] === 'Próximo') return 1;
+                    if ($b['tiempo'] === 'Próximo') return -1;
+                    return strcmp($a['tiempo'] ?? '', $b['tiempo'] ?? '');
+                }
+                
+                return $ordenA - $ordenB;
             });
 
+            // Limitar a 4 items totales
             return array_slice($actividad, 0, 4);
         } catch (\Exception $e) {
             Log::error('Error en getActividadReciente', [
@@ -568,7 +511,7 @@ class InicioController extends Controller
     }
 
     /**
-     * Obtiene publicaciones recientes de la comunidad (SOLO VISUALIZACIÓN - ÚLTIMAS 6)
+     * Obtiene publicaciones recientes de la comunidad (ÚLTIMAS 6)
      */
     protected function getPublicacionesRecientes($user)
     {
@@ -584,7 +527,6 @@ class InicioController extends Controller
             foreach ($publicaciones as $publicacion) {
                 $usuario = $publicacion->usuario;
                 
-                // OBTENER AVATAR DEL USUARIO
                 $avatar = '/images/shared/avatar-default.jpg';
                 if ($usuario) {
                     $avatar = $usuario->avatar ?? '/images/shared/avatar-default.jpg';
@@ -593,13 +535,11 @@ class InicioController extends Controller
                     }
                 }
 
-                // Obtener la URL de la imagen del post
                 $mediaUrl = $publicacion->imagen ?? null;
                 if ($mediaUrl && !str_starts_with($mediaUrl, 'http') && !str_starts_with($mediaUrl, '/')) {
                     $mediaUrl = '/storage/' . $mediaUrl;
                 }
 
-                // Detectar si es imagen o video
                 $esVideo = false;
                 $esImagen = false;
                 

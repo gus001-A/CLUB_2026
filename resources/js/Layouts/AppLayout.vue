@@ -338,6 +338,14 @@ const perfilRoute = computed(() => {
   }
 });
 
+const invitacionesRoute = computed(() => {
+  try {
+    return route('invitaciones.index');
+  } catch (e) {
+    return '/invitaciones';
+  }
+});
+
 const configuracionRoute = computed(() => {
   try {
     return route('profile.usuario');
@@ -566,6 +574,11 @@ onUnmounted(() => {
 
                 <Link :href="configuracionRoute" class="user-dropdown__item" @click="closeDropdown">
                   <i class="pi pi-cog"></i> Configuración
+                </Link>
+
+                <!-- 🎁 INVITAR AMIGOS -->
+                <Link :href="invitacionesRoute" class="user-dropdown__item" @click="closeDropdown">
+                  <i class="pi pi-send"></i> Invitar amigos
                 </Link>
 
                 <Link v-if="usuario.es_creador" :href="gananciasRoute"

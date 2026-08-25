@@ -29,6 +29,7 @@ use App\Http\Controllers\Usuario\NotificacionController;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\Usuario\ReporteController;
+use App\Http\Controllers\Usuario\InvitacionController;
 
 // =======================================================================
 // RUTAS PÚBLICAS
@@ -251,6 +252,10 @@ Route::post('/descubrir/rechazar-like', [DescubrirController::class, 'rechazarLi
     // CHAT - NUEVA VERSIÓN (ChatController)
     // ============================================
     Route::get('/chats', [ChatController::class, 'index'])->name('chats.index');
+    // 🔧 Necesaria para el polling de 3s (reemplaza a Reverb/Echo): la
+    // barra lateral de conversaciones se refresca llamando a este
+    // endpoint JSON en vez de esperar un evento de WebSocket.
+    Route::get('/chats/lista', [ChatController::class, 'chatsList'])->name('chats.lista');
     Route::get('/chats/{chat}/mensajes', [ChatController::class, 'show'])->name('chats.mensajes');
     Route::post('/chats/{chat}/mensajes', [ChatController::class, 'store'])->name('chats.mensajes.store');
     Route::delete('/mensajes/{mensaje}', [ChatController::class, 'destroy'])->name('mensajes.destroy');
@@ -398,6 +403,15 @@ Route::post('/descubrir/rechazar-like', [DescubrirController::class, 'rechazarLi
     Route::get('/creador/foto-portada', [CreatorController::class, 'getFotoPortada'])
         ->name('creador.foto.portada');
     Route::post('/reportes', [ReporteController::class, 'store'])->name('reportes.store');
+
+    // ============================================
+    // INVITACIONES (autoservicio — cualquier usuario genera sus propios códigos)
+    // ============================================
+    Route::get('/invitaciones', [InvitacionController::class, 'index'])->name('invitaciones.index');
+    Route::post('/invitaciones', [InvitacionController::class, 'store'])->name('invitaciones.store');
+    Route::post('/invitaciones/{invitacion}/desactivar', [InvitacionController::class, 'destroy'])
+        ->name('invitaciones.desactivar');
+
     // ============================================
     // CREADOR - FOTOS DE PERFIL
     // ============================================
