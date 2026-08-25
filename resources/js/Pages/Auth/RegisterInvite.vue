@@ -110,6 +110,7 @@ const form = useForm({
   phone: '',
   birthdate: null,
   accepts_terms: false,
+  verification_code: '',
 });
 
 const focusedField = ref(null);
@@ -362,13 +363,52 @@ watch(() => form.profile_type, () => {
   }
 });
 
-function submit() {
+// =======================================================================
+// VERIFICACIÓN DE CORREO (paso previo a crear la cuenta)
+// =======================================================================
+const showVerification = ref(false);
+const resendCooldown = ref(0);
+let cooldownTimer = null;
+
+function startCooldown(seconds = 45) {
+  resendCooldown.value = seconds;
+  clearInterval(cooldownTimer);
+  cooldownTimer = setInterval(() => {
+    resendCooldown.value--;
+    if (resendCooldown.value <= 0) clearInterval(cooldownTimer);
+  }, 1000);
+}
+
+// Si cambia el correo después de haber pedido un código, ese código ya no
+// sirve para el correo nuevo — regresamos al formulario para que pida uno
+// nuevo en vez de dejar que intente confirmar con un código desincronizado.
+watch(() => form.email, () => {
+  if (showVerification.value) {
+    showVerification.value = false;
+    form.verification_code = '';
+  }
+});
+
+function enviarCodigo() {
+  if (resendCooldown.value > 0) return;
+  form.post(route('register.invite.enviar-codigo'), {
+    preserveScroll: true,
+    preserveState: true,
+    onSuccess: () => {
+      showVerification.value = true;
+      startCooldown();
+    },
+  });
+}
+
+// Paso 1: valida todo el formulario (igual que antes) y, si está bien,
+// pide el código de verificación en vez de crear la cuenta de una vez.
+function irAVerificar() {
   const fields = ['invite_code', 'nickname', 'email', 'password', 'password_confirmation', 'birthdate', 'accepts_terms', 'phone'];
   fields.forEach(field => {
     touchedFields.value[field] = true;
   });
 
-  // Si es "otro", marcar como tocado
   if (form.profile_type === 'otro') {
     touchedFields.value.profile_other = true;
   }
@@ -381,6 +421,11 @@ function submit() {
     return;
   }
 
+  enviarCodigo();
+}
+
+// Paso 2: ya con el código en mano, se crea la cuenta de verdad.
+function submit() {
   if (form.phone) {
     form.phone = form.phone.replace(/\D/g, '');
   }
@@ -816,12 +861,61 @@ function submit() {
             </div>
           </div>
 
-          <!-- Botón de registro -->
-          <Button type="submit" class="rg-submit" :loading="form.processing" :disabled="!isFormValid">
-            <AppIcon v-if="!form.processing" name="user-plus" />
+          <!-- Paso 1: valida todo y pide el código -->
+          <Button v-if="!showVerification" type="button" class="rg-submit" :loading="form.processing"
+            :disabled="!isFormValid" @click="irAVerificar">
+            <AppIcon v-if="!form.processing" name="mail" />
             <span v-if="form.processing" class="rg-submit__spinner"></span>
-            <span>{{ form.processing ? 'Registrando...' : 'REGISTRARME' }}</span>
+            <span>{{ form.processing ? 'Enviando código...' : 'VERIFICAR MI CORREO' }}</span>
           </Button>
+
+          <!-- Paso 2: código de verificación + confirmar -->
+          <template v-else>
+            <Message severity="success" :closable="false" class="rg-info">
+              <div class="rg-info__body">
+                <span class="rg-info__icon">
+                  <AppIcon name="mail" />
+                </span>
+                <div>
+                  <p class="rg-info__title">Revisa tu correo</p>
+                  <p class="rg-info__text">Te enviamos un código de 6 dígitos a <strong>{{ form.email }}</strong>. Revisa spam si no lo ves.</p>
+                </div>
+              </div>
+            </Message>
+
+            <div class="rg-field rg-field--highlight">
+              <label class="rg-label" for="verification_code">
+                <AppIcon name="shield-check" />
+                Código de verificación
+                <span class="rg-label__badge">Obligatorio</span>
+              </label>
+              <div class="rg-input-wrapper">
+                <InputText id="verification_code" v-model="form.verification_code" type="text" inputmode="numeric"
+                  maxlength="6" placeholder="000000" class="rg-input rg-input--large"
+                  :class="{ 'rg-input--error': form.errors.verification_code }"
+                  @input="form.verification_code = form.verification_code.replace(/\D/g, '').slice(0, 6)" />
+              </div>
+              <div class="rg-hint-wrapper">
+                <small v-if="form.errors.verification_code" class="rg-error">{{ form.errors.verification_code }}</small>
+              </div>
+            </div>
+
+            <Button type="submit" class="rg-submit" :loading="form.processing"
+              :disabled="form.verification_code.length !== 6">
+              <AppIcon v-if="!form.processing" name="user-plus" />
+              <span v-if="form.processing" class="rg-submit__spinner"></span>
+              <span>{{ form.processing ? 'Creando cuenta...' : 'CONFIRMAR Y CREAR CUENTA' }}</span>
+            </Button>
+
+            <div class="rg-verification-actions">
+              <button type="button" class="rg-btn rg-btn--ghost" :disabled="resendCooldown > 0" @click="enviarCodigo">
+                {{ resendCooldown > 0 ? `Reenviar código (${resendCooldown}s)` : 'Reenviar código' }}
+              </button>
+              <button type="button" class="rg-btn rg-btn--ghost" @click="showVerification = false">
+                Editar mis datos
+              </button>
+            </div>
+          </template>
 
           <div class="rg-divider"><span>o</span></div>
 
@@ -1905,6 +1999,33 @@ function submit() {
   to {
     transform: rotate(360deg);
   }
+}
+
+.rg-verification-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.25rem;
+}
+
+.rg-verification-actions .rg-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--brand);
+  cursor: pointer;
+}
+
+.rg-verification-actions .rg-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.rg-verification-actions .rg-btn:disabled {
+  color: var(--gray-400, #9ca3af);
+  cursor: not-allowed;
 }
 
 .rg-divider {

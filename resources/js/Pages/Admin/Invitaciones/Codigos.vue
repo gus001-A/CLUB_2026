@@ -36,8 +36,8 @@ function copiar(codigo) {
 }
 
 const tipoNombres = { registro: 'Registro', premium: 'Premium', evento: 'Evento' };
-const badgeEstado = { aceptada: 'admin-invit-badge--aceptada', pendiente: 'admin-invit-badge--pendiente', expirada: 'admin-invit-badge--expirada', utilizada: 'admin-invit-badge--utilizada' };
-const estadoLabel = { aceptada: 'Aceptado', pendiente: 'Pendiente', expirada: 'Expirado', utilizada: 'Utilizado' };
+const badgeEstado = { aceptada: 'admin-invit-badge--aceptada', pendiente: 'admin-invit-badge--pendiente', expirada: 'admin-invit-badge--expirada', utilizada: 'admin-invit-badge--utilizada', desactivada: 'admin-invit-badge--desactivada' };
+const estadoLabel = { aceptada: 'Aceptado', pendiente: 'Pendiente', expirada: 'Expirado', utilizada: 'Utilizado', desactivada: 'Desactivado' };
 </script>
 
 <template>
@@ -83,6 +83,7 @@ const estadoLabel = { aceptada: 'Aceptado', pendiente: 'Pendiente', expirada: 'E
                             <option value="pendiente">Pendiente</option>
                             <option value="expirada">Expirado</option>
                             <option value="utilizada">Utilizado</option>
+                            <option value="desactivada">Desactivado</option>
                         </select>
                     </div>
 

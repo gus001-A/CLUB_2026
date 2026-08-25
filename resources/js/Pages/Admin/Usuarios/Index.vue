@@ -101,7 +101,10 @@ const badgeEstado = { verificado: 'admin-dash-badge--verificado', pendiente: 'ad
                             <tr v-for="u in usuarios.data" :key="u.id">
                                 <td>
                                     <div class="flex items-center gap-3">
-                                        <div class="admin-dash-avatar">{{ u.nombre ? u.nombre.charAt(0).toUpperCase() : 'U' }}</div>
+                                        <div class="admin-dash-avatar">
+                                            <img v-if="u.foto_principal" :src="u.foto_principal" :alt="u.nombre" />
+                                            <span v-else>{{ u.nombre ? u.nombre.charAt(0).toUpperCase() : 'U' }}</span>
+                                        </div>
                                         <div class="min-w-0">
                                             <p class="admin-user-name">{{ u.nombre }}</p>
                                             <p class="admin-user-handle">@{{ u.apodo }}</p>

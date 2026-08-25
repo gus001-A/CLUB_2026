@@ -20,13 +20,20 @@ function manejarErrorImagen(idx) {
     erroresImagenes.value[idx] = true;
 }
 
+// OJO: mismo bug que ya corregimos en Usuarios/Create.vue — new Date('2003-03-11')
+// se interpreta como medianoche UTC, y getMonth()/getDate() (locales) la
+// corren un día atrás en zonas con offset negativo. Parseamos el string
+// directo para no depender de Date en absoluto.
 function edad(fechaNacimiento) {
     if (!fechaNacimiento) return null;
+    const soloFecha = String(fechaNacimiento).slice(0, 10); // por si llega con hora/timestamp
+    const [anio, mes, dia] = soloFecha.split('-').map(Number);
+    if (!anio || !mes || !dia) return null;
+
     const hoy = new Date();
-    const nac = new Date(fechaNacimiento);
-    let e = hoy.getFullYear() - nac.getFullYear();
-    const m = hoy.getMonth() - nac.getMonth();
-    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) e--;
+    let e = hoy.getFullYear() - anio;
+    const mesActual = hoy.getMonth() + 1; // getMonth() es 0-indexado
+    if (mesActual < mes || (mesActual === mes && hoy.getDate() < dia)) e--;
     return e;
 }
 

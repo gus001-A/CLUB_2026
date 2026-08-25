@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Usuario;
 
 use App\Http\Controllers\Controller;
+use App\Models\CodigoInvitacion;
 use App\Models\Evento;
 use App\Models\Reserva;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -210,6 +211,30 @@ class ReservaController extends Controller
             $evento->decrement('cupos_disponibles', $request->num_asistentes);
 
             DB::commit();
+
+            // Si venía de una invitación a ESTE evento específico (mismo
+            // correo que el titular de la cuenta), la marcamos como
+            // aceptada. Va después del commit y en su propio try/catch a
+            // propósito — la reserva ya quedó pagada y confirmada, esto es
+            // solo trazabilidad y no debe poder tumbar el pago si falla.
+            try {
+                $usuario = Auth::user();
+                $invitacion = CodigoInvitacion::where('email', $usuario->email)
+                    ->whereNull('usado_en')
+                    ->where('metadata->tipo', 'evento')
+                    ->where('metadata->evento_id', $evento->id)
+                    ->first();
+
+                if ($invitacion) {
+                    $invitacion->marcarComoUsado($usuario->id);
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('No se pudo marcar la invitación de evento como aceptada', [
+                    'evento_id' => $evento->id,
+                    'usuario_id' => Auth::id(),
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             return redirect()->route('eventos.reserva.comprobante', $reserva->id)
                 ->with('success', '¡Pago exitoso! Tu reserva ha sido confirmada.');

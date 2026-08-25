@@ -179,7 +179,10 @@ const eventoEstadosColores = {
                                     <tr v-for="u in gestionUsuarios.data" :key="u.id">
                                         <td>
                                             <div class="flex items-center gap-3">
-                                                <div class="admin-dash-avatar">{{ u.nombre ? u.nombre.charAt(0).toUpperCase() : 'U' }}</div>
+                                                <div class="admin-dash-avatar">
+                                                <img v-if="u.foto_principal" :src="u.foto_principal" :alt="u.nombre" />
+                                                <span v-else>{{ u.nombre ? u.nombre.charAt(0).toUpperCase() : 'U' }}</span>
+                                            </div>
                                                 <div class="min-w-0">
                                                     <p class="font-semibold text-gray-800 text-sm leading-tight truncate">{{ u.nombre }}</p>
                                                     <p class="text-xs text-gray-400 truncate">@{{ u.apodo }}</p>

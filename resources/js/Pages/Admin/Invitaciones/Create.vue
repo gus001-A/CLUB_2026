@@ -1,7 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useToast } from '@/composables/useToast';
 import { useFormatters } from '@/composables/useFormatters';
 
@@ -11,6 +11,7 @@ const { formatDate } = useFormatters();
 
 const props = defineProps({
     invitacionesRecientes: Array,
+    eventos: { type: Array, default: () => [] },
 });
 
 const admin = computed(() => page.props.auth?.admin);
@@ -20,6 +21,7 @@ const form = useForm({
     email: '',
     telefono: '',
     tipo: 'registro',
+    evento_id: null,
     vigencia_dias: 7,
     usos_maximos: 1,
     mensaje: '',
@@ -81,9 +83,23 @@ function enviarPorWhatsapp() {
     window.open(`https://wa.me/${numero}?text=${texto}`, '_blank');
 }
 
+// Si cambian el tipo a algo que no sea "evento", limpiamos evento_id —
+// que no se quede un evento elegido "fantasma" si luego cambian de opinión.
+watch(() => form.tipo, (nuevoTipo) => {
+    if (nuevoTipo !== 'evento') {
+        form.evento_id = null;
+    }
+});
+
+const eventoSeleccionado = computed(() => props.eventos.find((e) => e.id === form.evento_id) || null);
+
 function submit() {
     if (!form.nombre_destinatario || !form.email) {
         toast.error('Debes llenar todos los campos obligatorios.');
+        return;
+    }
+    if (form.tipo === 'evento' && !form.evento_id) {
+        toast.error('Elige a qué evento estás invitando.');
         return;
     }
 
@@ -162,6 +178,18 @@ const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Exp
                             </div>
                         </div>
 
+                        <div v-if="form.tipo === 'evento'" class="admin-user-field" :class="{ 'admin-user-input-error': form.errors.evento_id }">
+                            <label>¿A cuál evento invitas? <span class="admin-user-required">*</span></label>
+                            <select v-model="form.evento_id">
+                                <option :value="null" disabled>Selecciona un evento</option>
+                                <option v-for="e in eventos" :key="e.id" :value="e.id">
+                                    {{ e.nombre }} — {{ e.fecha }}{{ e.ciudad ? ' · ' + e.ciudad : '' }}
+                                </option>
+                            </select>
+                            <p v-if="form.errors.evento_id" class="admin-user-error-text">{{ form.errors.evento_id }}</p>
+                            <p v-else-if="!eventos.length" class="admin-user-hint">No hay eventos próximos publicados para invitar.</p>
+                        </div>
+
                         <div class="admin-user-field-row">
                             <div class="admin-user-field">
                                 <label>Vigencia del código <span class="admin-user-required">*</span></label>
@@ -207,6 +235,12 @@ const estadoLabel = { aceptada: 'Activa', pendiente: 'Pendiente', expirada: 'Exp
                             <div class="admin-cobros-summary-row">
                                 <span class="admin-cobros-summary-label">Tipo de invitación</span>
                                 <span class="admin-cobros-summary-value">{{ tipoLabel }}</span>
+                            </div>
+                            <div v-if="form.tipo === 'evento'" class="admin-cobros-summary-row">
+                                <span class="admin-cobros-summary-label">Evento</span>
+                                <span class="admin-cobros-summary-value" style="text-align:right;max-width:220px">
+                                    {{ eventoSeleccionado ? eventoSeleccionado.nombre : '—' }}
+                                </span>
                             </div>
                             <div class="admin-cobros-summary-row">
                                 <span class="admin-cobros-summary-label">Vigencia del código</span>
